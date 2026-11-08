@@ -1,0 +1,2 @@
+HF GeoQA preflight failed: LocalEntryNotFoundError: Got: ConnectError: [Errno 101] Network is unreachable
+An error happened while trying to locate the files on the Hub, and we cannot find the appropriate snapshot folder for the specified revision on the local disk. Please check your internet connection and try again.

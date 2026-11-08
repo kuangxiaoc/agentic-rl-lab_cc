@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/mnt/workspace/agentic-rl-lab_cc/experiments/grpo/local_gpu.py", line 89, in main
+    tokenizer, build_messages(original, question), vision=False
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/workspace/agentic-rl-lab_cc/experiments/grpo/local_gpu.py", line 30, in build_messages
+    *original.FEWSHOT_PREFIX,
+     ^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'grpo_03' has no attribute 'FEWSHOT_PREFIX'

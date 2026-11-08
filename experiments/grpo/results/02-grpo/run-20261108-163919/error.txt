@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/mnt/workspace/agentic-rl-lab_cc/experiments/grpo/local_gpu.py", line 63, in main
+    model_dir = trainer.download_modelscope_model(MODEL_ID, root)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/workspace/agentic-rl-lab_cc/scripts/local_gpu_trainer.py", line 57, in download_modelscope_model
+    function = hub_module.snapshot_download
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'function' object has no attribute 'snapshot_download'

@@ -1,0 +1,125 @@
+{
+  "chapters": {
+    "1": {
+      "details": {
+        "artifact": "/mnt/workspace/agentic-rl-lab/runs/01-loss-functions/run-20261108-183411/losses.json",
+        "device": "cuda"
+      },
+      "run_id": "run-20261108-183411",
+      "status": "completed",
+      "updated_at": "2026-11-08T10:34:13+00:00"
+    },
+    "10": {
+      "details": {},
+      "run_id": null,
+      "status": "not_ported",
+      "updated_at": "2026-11-08T08:05:06+00:00"
+    },
+    "11": {
+      "details": {},
+      "run_id": null,
+      "status": "not_ported",
+      "updated_at": "2026-11-08T08:05:06+00:00"
+    },
+    "12": {
+      "details": {},
+      "run_id": null,
+      "status": "not_ported",
+      "updated_at": "2026-11-08T08:05:06+00:00"
+    },
+    "13": {
+      "details": {},
+      "run_id": null,
+      "status": "not_ported",
+      "updated_at": "2026-11-08T08:05:06+00:00"
+    },
+    "14": {
+      "details": {},
+      "run_id": null,
+      "status": "not_ported",
+      "updated_at": "2026-11-08T08:05:06+00:00"
+    },
+    "15": {
+      "details": {},
+      "run_id": null,
+      "status": "not_ported",
+      "updated_at": "2026-11-08T08:05:06+00:00"
+    },
+    "16": {
+      "details": {},
+      "run_id": null,
+      "status": "not_ported",
+      "updated_at": "2026-11-08T08:05:06+00:00"
+    },
+    "2": {
+      "details": {
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/02-grpo/run-20261108-183413/adapter",
+        "error": "AttributeError: 'function' object has no attribute 'snapshot_download'",
+        "error_log": "/mnt/workspace/agentic-rl-lab/runs/02-grpo/run-20261108-163919/error.txt",
+        "exit_code": 1,
+        "log": "/mnt/workspace/agentic-rl-lab/logs/chapter-02.log",
+        "steps": 2,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/02-grpo/run-20261108-183413/summary.json"
+      },
+      "run_id": "run-20261108-183413",
+      "status": "completed",
+      "updated_at": "2026-11-08T10:34:49+00:00"
+    },
+    "3": {
+      "details": {
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/03-vision-grpo/run-20261108-183451/adapter",
+        "dataset": "hz2475/geoQA",
+        "error": "AttributeError: 'Qwen3VLProcessor' object has no attribute 'eos_token_id'",
+        "error_log": "/mnt/workspace/agentic-rl-lab/runs/03-vision-grpo/run-20261108-182408/error.txt",
+        "exit_code": 1,
+        "log": "/mnt/workspace/agentic-rl-lab/logs/chapter-03.log",
+        "note": "no text-data substitute",
+        "reason": "HF GeoQA preflight failed: LocalEntryNotFoundError: Got: ConnectError: [Errno 101] Network is unreachable\nAn error happened while trying to locate the files on the Hub, and we cannot find the appropriate snapshot folder for the specified revision on the local disk. Please check your internet connection and try again.",
+        "steps": 2,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/03-vision-grpo/run-20261108-183451/summary.json"
+      },
+      "run_id": "run-20261108-183451",
+      "status": "completed",
+      "updated_at": "2026-11-08T10:35:40+00:00"
+    },
+    "4": {
+      "details": {},
+      "run_id": null,
+      "status": "not_ported",
+      "updated_at": "2026-11-08T08:05:06+00:00"
+    },
+    "5": {
+      "details": {},
+      "run_id": null,
+      "status": "not_ported",
+      "updated_at": "2026-11-08T08:05:06+00:00"
+    },
+    "6": {
+      "details": {},
+      "run_id": null,
+      "status": "not_ported",
+      "updated_at": "2026-11-08T08:05:06+00:00"
+    },
+    "7": {
+      "details": {},
+      "run_id": null,
+      "status": "not_ported",
+      "updated_at": "2026-11-08T08:05:06+00:00"
+    },
+    "8": {
+      "details": {},
+      "run_id": null,
+      "status": "not_ported",
+      "updated_at": "2026-11-08T08:05:06+00:00"
+    },
+    "9": {
+      "details": {},
+      "run_id": null,
+      "status": "not_ported",
+      "updated_at": "2026-11-08T08:05:06+00:00"
+    }
+  },
+  "created_at": "2026-11-08T08:05:06+00:00",
+  "schema_version": 1,
+  "updated_at": "2026-11-08T10:35:40+00:00"
+}

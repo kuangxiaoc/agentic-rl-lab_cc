@@ -1,0 +1,19 @@
+{
+  "api_key_present": {
+    "DASHSCOPE_API_KEY": false,
+    "SERPAPI_API_KEY": false,
+    "TAVILY_API_KEY": false
+  },
+  "api_key_values": "not_recorded",
+  "limits": {
+    "ALLOW_PAID_OVERAGE": "0",
+    "FREE_TOKEN_LIMIT": "1000000",
+    "MAX_EXTERNAL_COST_CNY": "50"
+  },
+  "platform": "Linux-5.10.134-18.0.13.lifsea8.x86_64-x86_64-with-glibc2.35",
+  "python": "3.12.13 (main, Aug 20 2026, 17:28:00) [GCC 11.4.0]",
+  "recorded_at": "2026-11-08T10:34:51+00:00",
+  "repo": "/mnt/workspace/agentic-rl-lab_cc",
+  "run_profile": "smoke",
+  "workspace_root": "/mnt/workspace/agentic-rl-lab"
+}

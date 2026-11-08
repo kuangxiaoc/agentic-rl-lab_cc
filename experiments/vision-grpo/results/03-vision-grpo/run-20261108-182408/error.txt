@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/mnt/workspace/agentic-rl-lab_cc/experiments/vision-grpo/local_gpu.py", line 106, in main
+    completions, old_logprobs, texts, _ = trainer.generate_group(
+                                          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/workspace/agentic-rl-lab_cc/scripts/local_gpu_trainer.py", line 330, in generate_group
+    eos_ids = {tokenizer.eos_token_id} if tokenizer.eos_token_id is not None else set()
+                                          ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Qwen3VLProcessor' object has no attribute 'eos_token_id'. Did you mean: 'video_token_id'?

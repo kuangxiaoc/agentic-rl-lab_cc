@@ -1,0 +1,20 @@
+[
+  {
+    "step": 0,
+    "reward": 0.0,
+    "format_rate": 0.0,
+    "degenerate": 1.0,
+    "train_samples": 0,
+    "avg_completion_tokens": 128.0,
+    "loss": 0.0
+  },
+  {
+    "step": 1,
+    "reward": 0.0,
+    "format_rate": 0.0,
+    "degenerate": 1.0,
+    "train_samples": 0,
+    "avg_completion_tokens": 128.0,
+    "loss": 0.0
+  }
+]

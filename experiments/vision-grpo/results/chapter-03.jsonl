@@ -1,0 +1,4 @@
+{"at": "2026-11-08T10:29:34+00:00", "avg_completion_tokens": 128.0, "chapter": 3, "degenerate": 1.0, "format_rate": 0.0, "loss": 0.0, "reward": 0.0, "run_id": "run-20261108-182859", "step": 0, "train_samples": 0}
+{"at": "2026-11-08T10:29:47+00:00", "avg_completion_tokens": 128.0, "chapter": 3, "degenerate": 1.0, "format_rate": 0.0, "loss": 0.0, "reward": 0.0, "run_id": "run-20261108-182859", "step": 1, "train_samples": 0}
+{"at": "2026-11-08T10:35:26+00:00", "avg_completion_tokens": 128.0, "chapter": 3, "degenerate": 1.0, "format_rate": 0.0, "loss": 0.0, "reward": 0.0, "run_id": "run-20261108-183451", "step": 0, "train_samples": 0}
+{"at": "2026-11-08T10:35:39+00:00", "avg_completion_tokens": 128.0, "chapter": 3, "degenerate": 1.0, "format_rate": 0.0, "loss": 0.0, "reward": 0.0, "run_id": "run-20261108-183451", "step": 1, "train_samples": 0}

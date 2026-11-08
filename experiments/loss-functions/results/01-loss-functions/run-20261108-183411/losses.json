@@ -1,0 +1,78 @@
+{
+  "device": "cuda",
+  "torch": "2.13.0+cu130",
+  "cuda_available": true,
+  "inputs": {
+    "sampling_logprobs": [
+      -1.0,
+      -0.6000000238418579,
+      -0.8999999761581421
+    ],
+    "target_logprobs": [
+      -0.5,
+      -1.1,
+      -0.9
+    ],
+    "advantages": [
+      2.0,
+      1.0,
+      -1.0
+    ]
+  },
+  "per_token_losses": {
+    "importance_sampling": [
+      -3.2974424362182617,
+      -0.6065306663513184,
+      1.0
+    ],
+    "ppo": [
+      -2.4000000953674316,
+      -0.6065306663513184,
+      1.2000000476837158
+    ],
+    "cispo": [
+      1.2000000476837158,
+      0.9166666865348816,
+      -0.8999999761581421
+    ]
+  },
+  "scalar_examples": [
+    {
+      "importance_sampling": -3.2974425414002564,
+      "ppo": -2.4,
+      "cispo": 1.2
+    },
+    {
+      "importance_sampling": -0.6065306597126333,
+      "ppo": -0.6065306597126333,
+      "cispo": 0.9166666666666667
+    },
+    {
+      "importance_sampling": 1.0,
+      "ppo": 1.2,
+      "cispo": -0.9
+    }
+  ],
+  "study_order": [
+    "experiments/loss-functions/readme.md",
+    "experiments/loss-functions/local_gpu.py",
+    "experiments/grpo/readme.md"
+  ],
+  "gradients": {
+    "importance_sampling": [
+      -3.2974424362182617,
+      -0.6065306663513184,
+      1.0
+    ],
+    "ppo": [
+      0.0,
+      -0.6065306663513184,
+      -0.0
+    ],
+    "cispo": [
+      -2.4000000953674316,
+      -0.8333333134651184,
+      1.0
+    ]
+  }
+}

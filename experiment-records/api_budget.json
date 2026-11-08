@@ -1,0 +1,12 @@
+{
+  "allow_paid_overage": false,
+  "created_at": "2026-11-08T08:05:06+00:00",
+  "estimated_cost_cny": 0.0,
+  "events": [],
+  "free_token_limit": 1000000,
+  "max_external_cost_cny": 50.0,
+  "models": {},
+  "providers": {},
+  "schema_version": 1,
+  "updated_at": "2026-11-08T08:05:06+00:00"
+}
