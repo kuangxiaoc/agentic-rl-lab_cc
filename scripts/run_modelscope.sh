@@ -16,6 +16,9 @@ export ALLOW_PAID_OVERAGE="${ALLOW_PAID_OVERAGE:-0}"
 export FREE_TOKEN_LIMIT="${FREE_TOKEN_LIMIT:-1000000}"
 export HF_HOME="${HF_HOME:-$WORKSPACE_ROOT/cache/huggingface}"
 export MODELSCOPE_CACHE="${MODELSCOPE_CACHE:-$WORKSPACE_ROOT/cache/modelscope}"
+# huggingface.co is unreachable from most mainland GPU boxes; mirror by default.
+# Override with HF_ENDPOINT=https://huggingface.co when the direct host works.
+export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
 export TOKENIZERS_PARALLELISM="${TOKENIZERS_PARALLELISM:-false}"
 
 mkdir -p "$WORKSPACE_ROOT" "$HF_HOME" "$MODELSCOPE_CACHE"

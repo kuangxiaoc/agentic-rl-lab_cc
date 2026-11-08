@@ -131,7 +131,18 @@ def load_parquet_rows(path: Path) -> list[dict[str, Any]]:
 
 
 def download_geoqa(root: Path) -> list[dict[str, Any]]:
-    """Preflight the original HF GeoQA source; mark unavailable, never substitute text data."""
+    """Preflight the original HF GeoQA source; mark unavailable, never substitute text data.
+
+    huggingface.co is unreachable from mainland GPU boxes; setting HF_ENDPOINT to a
+    mirror (for example https://hf-mirror.com) routes both the hub call and the
+    subsequent datasets download through it.
+    """
+    endpoint = os.environ.get("HF_ENDPOINT")
+    if endpoint:
+        os.environ["HF_ENDPOINT"] = endpoint
+        print(f"GeoQA: using HF endpoint {endpoint}", flush=True)
+    else:
+        print("GeoQA: HF_ENDPOINT is unset; trying huggingface.co directly", flush=True)
     from huggingface_hub import snapshot_download
 
     target = root / "cache" / "geoqa"
