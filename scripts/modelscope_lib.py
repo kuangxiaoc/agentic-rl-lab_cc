@@ -26,6 +26,11 @@ CHAPTER_NAMES = {
     2: "02-grpo",
     3: "03-vision-grpo",
 }
+CHAPTER_RESULT_DIRS = {
+    1: "experiments/loss-functions/results",
+    2: "experiments/grpo/results",
+    3: "experiments/vision-grpo/results",
+}
 VALID_STATUSES = {
     "not_ported",
     "pending",
@@ -264,6 +269,30 @@ def _archive_filter(info: tarfile.TarInfo) -> tarfile.TarInfo | None:
     return info
 
 
+def _sync_filter(info: tarfile.TarInfo) -> tarfile.TarInfo | None:
+    """Mirror workspace records into git while excluding secrets and bulky weights."""
+    if _archive_filter(info) is None:
+        return None
+    name = PurePosixPath(info.name)
+    if name.suffix in {".safetensors", ".bin", ".pt", ".pth", ".ckpt", ".parquet", ".tar", ".gz"}:
+        return None
+    if info.isfile() and info.size > 2 * 1024 * 1024:
+        return None
+    return info
+
+
+def _copy_synced_file(source: Path, target: Path) -> None:
+    """Copy one small artifact, redacting obvious secrets in text records."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if source.suffix in {".json", ".jsonl", ".log", ".md", ".txt"}:
+        target.write_text(
+            redact_text(source.read_text(encoding="utf-8", errors="replace")),
+            encoding="utf-8",
+        )
+    else:
+        shutil.copy2(source, target)
+
+
 def create_archive(root: Path, repo: Path) -> Path:
     """Package persistent results and readable source code for local download."""
     root = Path(root).resolve()
@@ -293,6 +322,65 @@ def create_archive(root: Path, repo: Path) -> Path:
         info.mtime = int(time.time())
         tar.addfile(info, io.BytesIO(content))
     return archive
+
+
+def sync_results_to_repo(root: Path, repo: Path) -> dict[int, Path]:
+    """Copy chapter records/logs/metrics under each chapter's git-visible results dir.
+
+    Persistent heavy artifacts stay in `/mnt/workspace`; this copy is intentionally
+    limited to readable JSON/Markdown/text files so `git commit && git push` is safe.
+    """
+    root = Path(root).resolve()
+    repo = Path(repo).resolve()
+    copied: dict[int, Path] = {}
+    for chapter, relative in CHAPTER_RESULT_DIRS.items():
+        destination = ensure_within_root(repo, repo / relative)
+        destination.mkdir(parents=True, exist_ok=True)
+        copied[chapter] = destination
+        for source_name in (
+            f"runs/{CHAPTER_NAMES[chapter]}",
+            f"logs/chapter-{chapter:02d}.log",
+            f"metrics/chapter-{chapter:02d}.jsonl",
+        ):
+            source = root / source_name
+            if not source.exists():
+                continue
+            if source.is_file():
+                _copy_synced_file(source, destination / source.name)
+                continue
+            for item in sorted(source.rglob("*")):
+                if item.is_dir():
+                    continue
+                info = tarfile.TarInfo(str(item.relative_to(source)))
+                info.size = item.stat().st_size
+                if _sync_filter(info) is None:
+                    continue
+                target = destination / CHAPTER_NAMES[chapter] / item.relative_to(source)
+                _copy_synced_file(item, target)
+        readme = (
+            f"# Chapter {chapter:02d} 本地 GPU 实验记录\n\n"
+            f"同步时间：{_now()}\n\n"
+            f"本目录由 `/mnt/workspace/agentic-rl-lab` 自动同步，适合 `git commit && git push` "
+            f"后拉回本地阅读。模型大权重、adapter `.safetensors`、数据集 parquet、缓存和 `.env` "
+            f"不会复制到 Git；完整大产物仍在持久化目录，或使用 `bash scripts/export_results.sh` 下载归档。\n"
+        )
+        (destination / "README.md").write_text(readme, encoding="utf-8")
+    shared = repo / "experiment-records"
+    shared.mkdir(parents=True, exist_ok=True)
+    for source_name in ("state.json", "api_budget.json", "environment.json", "study_notes.md"):
+        source = root / source_name
+        if source.exists():
+            _copy_synced_file(source, shared / source_name)
+    report_source = root / "reports" / "latest.md"
+    if report_source.exists():
+        _copy_synced_file(report_source, shared / "latest.md")
+    (shared / "README.md").write_text(
+        "# 全局实验记录\n\n"
+        "本目录由 ModelScope GPU runner 自动同步，包含持久状态、预算、环境快照、"
+        "学习笔记与最新报告。真实密钥和模型权重不会写入。\n",
+        encoding="utf-8",
+    )
+    return copied
 
 
 def write_study_notes(root: Path) -> Path:

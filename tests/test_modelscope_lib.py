@@ -120,6 +120,29 @@ class BudgetAndArchiveTests(unittest.TestCase):
             self.assertIn("PyTRIO", (root / "study_notes.md").read_text(encoding="utf-8"))
             self.assertIn("not_ported", (root / "reports" / "latest.md").read_text(encoding="utf-8"))
 
+    def test_sync_results_to_repo_is_git_friendly_and_redacted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            repo = Path(tmp) / "repo"
+            run_dir = root / "runs" / "01-loss-functions" / "run-1" / "adapter"
+            run_dir.mkdir(parents=True)
+            (root / "logs").mkdir()
+            (root / "state.json").write_text('{"ok": true}\n', encoding="utf-8")
+            (run_dir.parent / "losses.json").write_text('{"loss": 1}\n', encoding="utf-8")
+            (run_dir / "adapter_model.safetensors").write_bytes(b"model")
+            (run_dir.parent / ".env").write_text("SECRET=value\n", encoding="utf-8")
+            (root / "logs" / "chapter-01.log").write_text(
+                "Bearer sk-abcdefghijklmnop123456\n", encoding="utf-8"
+            )
+            lib.sync_results_to_repo(root, repo)
+            synced = repo / "experiments" / "loss-functions" / "results"
+            self.assertTrue((synced / "01-loss-functions" / "run-1" / "losses.json").exists())
+            self.assertTrue((repo / "experiment-records" / "state.json").exists())
+            log_text = (synced / "chapter-01.log").read_text(encoding="utf-8")
+            self.assertNotIn("sk-abcdefghijklmnop123456", log_text)
+            self.assertFalse(list(synced.rglob("*.safetensors")))
+            self.assertFalse(list(synced.rglob(".env")))
+
 
 if __name__ == "__main__":
     unittest.main()

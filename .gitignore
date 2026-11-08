@@ -263,3 +263,18 @@ experiments/tempo/datasets/
 # Local agent instructions
 /AGENTS.md
 /AGENT.md
+
+# Git-visible local GPU experiment records
+!experiments/loss-functions/results/
+!experiments/grpo/results/
+!experiments/vision-grpo/results/
+!experiment-records/
+experiments/*/results/**/*.safetensors
+experiments/*/results/**/*.bin
+experiments/*/results/**/*.pt
+experiments/*/results/**/*.pth
+experiments/*/results/**/*.ckpt
+experiments/*/results/**/*.parquet
+experiments/*/results/**/cache/
+experiments/*/results/**/.env
+experiment-records/.env

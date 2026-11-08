@@ -130,6 +130,9 @@ def run(
         else:
             print(f"[done] chapter {chapter:02d}: {status}")
     lib.write_report(root)
+    copied = lib.sync_results_to_repo(root, REPO_ROOT)
+    for chapter, destination in copied.items():
+        print(f"[sync] chapter {chapter:02d}: {destination.relative_to(REPO_ROOT)}")
     if failures:
         print(f"failed chapters: {failures}")
         return 1

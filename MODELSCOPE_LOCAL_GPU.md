@@ -1,6 +1,6 @@
 # 魔搭 GPU：本地训练循环改造说明
 
-这个分支保留原版 PyTRIO 教程和阅读顺序，在 01–03 章目录里分别新增 `local_gpu.py`。原版代码不改写，新代码把采样、旧策略 logprob、组内 advantage、loss 和 QLoRA 更新放在魔搭免费 NVIDIA 实例的同一张 GPU 上；04–16 如实标记为 `not_ported`，不会伪造成功结果。
+这个 fork 以**单卡魔搭 GPU 本地实现**为主线：01–03 章 `readme.md` 已改成对应本地 GPU 教程，同目录 `local_gpu.py` 把采样、旧策略 logprob、组内 advantage、loss 和 QLoRA 更新放在魔搭免费 NVIDIA 实例的同一张 GPU 上。原版 PyTRIO 代码仍保留作对照；04–16 如实标记为 `not_ported`，不会伪造成功结果。
 
 ## 一句话启动
 
@@ -37,7 +37,18 @@ bash scripts/run_modelscope.sh
 bash scripts/export_results.sh
 ```
 
-下载输出的 `exports/agentic-rl-lab-*.tar.gz`。归档包含 `results/`（状态、日志、指标、adapter、报告、学习笔记）和 `code/`（本 fork 可读源码与原版章节），包含 `.env`、`.git`、完整模型缓存与超过 100 MiB 的文件。模型大权重不打包；LoRA adapter 会打包，适合本地继续看结构和小文件。
+下载输出的 `exports/agentic-rl-lab-*.tar.gz`。归档包含 `results/`（状态、日志、指标、adapter、报告、学习笔记）和 `code/`（本 fork 可读源码与原版章节），排除 `.env`、`.git`、完整模型缓存与超过 100 MiB 的文件。模型大权重不打包；LoRA adapter 会打包，适合本地继续看结构和小文件。
+
+另外，runner 与 `export_results.sh` 都会把轻量实验记录同步到 Git 范围：
+
+```text
+experiments/loss-functions/results/
+experiments/grpo/results/
+experiments/vision-grpo/results/
+experiment-records/
+```
+
+服务器跑完后执行 `git add experiments/*/results experiment-records && git commit && git push`，本地 `git pull` 就能看到 JSON/JSONL、日志、样本、学习笔记和报告。`.safetensors`、`.bin`、`.pt`、`.parquet`、模型缓存、`.env` 和单个超过 2 MiB 的产物不会复制到 Git；完整大产物仍由 `export_results.sh` 打包下载。
 
 ## 按顺序执行章节
 
@@ -84,7 +95,7 @@ bash scripts/run_modelscope.sh doctor
 
 ## 与原版学习路径的对照
 
-按 `experiments/README.md` 的顺序读：先看原版 `readme.md` 理解公式和 PyTRIO 的 datum/loss 边界，再看同目录 `local_gpu.py` 里同一变量如何由本地 tensor/generate/forward 实现。原版 `03-grpo.py`、`train.py`、所有 PyTRIO 依赖与 `pyproject.toml` 都保持原样，便于把云端跑过的实验记录带到本地慢慢看。
+按 `experiments/README.md` 的顺序读：前三章 `readme.md` 现在直接以本地 GPU 为主线，讲清楚同目录 `local_gpu.py` 里 tensor/generate/processor/forward/backward 的每一步；原版 `03-grpo.py`、`train.py` 仍保留作 PyTRIO datum/loss 边界对照。原版 PyTRIO 依赖与 `pyproject.toml` 保持不变，便于把云端跑过的实验记录带到本地慢慢看。
 
 框架调用依据：
 

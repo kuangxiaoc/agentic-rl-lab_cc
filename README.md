@@ -38,11 +38,11 @@
 
 ## 项目介绍
 
-&emsp;&emsp;这是一个偏实验记录和教程的仓库。我会用 [PyTRIO](https://pytrio.com) 复现一组和 LLM / Agent RL 相关的强化学习算法，主要做三件事：
+&emsp;&emsp;这是 fork 后的**单卡本地 GPU 教程仓库**。前三章把原版借助 [PyTRIO](https://pytrio.com) 远端算力完成的训练循环，改写为在魔搭 NVIDIA GPU 实例上直接运行的 PyTorch / Transformers / PEFT 代码；原版章节仍保留作对照。这个 fork 主要做三件事：
 
 1. 先把算法讲明白：它从哪篇论文来，解决什么问题，核心变量是什么。
-2. 再用可运行代码复现：数据、reward、loss、训练循环、SwanLab 记录都放在仓库里。
-3. 可能未来会做一个更友好和轻量的 Agent RL 和 Harness RL 训练框架～
+2. 再用本地 GPU 代码复现：数据、reward、采样 logprob、loss、`backward()`、checkpoint 都放在仓库里。
+3. 把每次实验的状态、日志、指标、样本和轻量记录同步到 Git 范围，服务器 `commit && push`、本地 `pull` 就能继续学习。
 
 > *&emsp;&emsp;我曾经很想深入研究 Agentic RL，但我当时看到的训练方案，动不动就要 4 卡、8 卡，训推一体的复杂度、现有框架（verl、Slime、Areal）高耦合的工程代码，让我迟迟没有动手。后来接触到 Tinker 和 PyTrio 之后才愈发觉得 Train API 是一个面向未来的大模型基础设施，才有机会以极低的门槛把这些 Agentic RL 算法复现学会并跑起来。我复现这 14 篇 Agentic RL 论文中的算法只用了不到两个月时间。现在的论文对我而言，最核心的内容只有几行公式而已，这就是 Train API 的真正魅力，可以剥离所有噪声和干扰项，为研究员和学习者留下最为核心的算法内容。*
 
@@ -56,9 +56,9 @@
 
 | 主题 | 内容 | 在线版 |
 | --- | --- | --- |
-| [Loss Function](./experiments/loss-functions/readme.md) | 用直觉解释 `importance_sampling`、`ppo`、`cispo` 分别在优化什么 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/loss-functions/) |
-| [GRPO](./experiments/grpo/readme.md) | 复现 GSM8K 上的 GRPO，并比较 `importance_sampling` / `ppo` / `cispo` 三个 loss | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/grpo/) |
-| [Vision GRPO](./experiments/vision-grpo/readme.md) | 在 GeoQA 上接入图片输入，解决几何数学题 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/vision-grpo/) |
+| [Loss Function](./experiments/loss-functions/readme.md) | 本地 GPU 张量演示 `importance_sampling`、`ppo`、`cispo` 的 loss 与梯度 | [代码](./experiments/loss-functions/local_gpu.py) |
+| [GRPO](./experiments/grpo/readme.md) | Qwen3-4B + GSM8K，本地 4-bit QLoRA 采样、reward、advantage 与 `backward()` | [代码](./experiments/grpo/local_gpu.py) |
+| [Vision GRPO](./experiments/vision-grpo/readme.md) | Qwen3-VL + GeoQA，本地图文 processor 与 Vision GRPO 训练闭环 | [代码](./experiments/vision-grpo/local_gpu.py) |
 | [PyTrio-Jev](./experiments/pytrio-jev/readme.md) | 一顿麦当劳早餐，人人皆可训练自己的 Jev 决策模型 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/pytrio-jev/) |
 | [General OPD](./experiments/general-opd/readme.md) | 用 DeepMath-103K 跑通 Student 采样、Teacher 打分与 reverse KL 的最小闭环 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/general-opd/) |
 | [Medical OPD](./experiments/medical-opd/readme.md) | 从 Medical SFT 出发，用 SAR-OPD 和 IDT-OPD 增强医疗能力，同时保持通用能力 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/medical-opd/) |
@@ -75,7 +75,7 @@
 
 ## 快速启动
 
-> 单卡魔搭 GPU 改造版：保留本页原版 PyTRIO 阅读顺序，新增 01–03 本地训练循环、统一 `/mnt/workspace` 实验归档、逐章脚本与一键启动。详见 [魔搭 GPU 改造说明](./MODELSCOPE_LOCAL_GPU.md)。
+> 当前主线是**单卡魔搭 GPU 本地实现**。01–03 章 `readme.md` 已改为本地 GPU 教程；04–16 章仍保留原版 PyTRIO 内容并标记 `not_ported`。运行、归档和 Git 回传说明见 [魔搭 GPU 改造说明](./MODELSCOPE_LOCAL_GPU.md)。
 
 &emsp;&emsp;如果是直接 clone 这个仓库：
 
@@ -84,6 +84,17 @@ git clone https://github.com/datawhalechina/agentic-rl-lab.git
 cd agentic-rl-lab
 uv sync
 ```
+
+&emsp;&emsp;本地 GPU 版请 clone 本 fork，按下面顺序启动；不要在服务器运行 `uv sync --locked`，它会使用原仓库锁定的 CPU torch：
+
+```bash
+git clone https://github.com/kuangxiaoc/agentic-rl-lab_cc.git
+cd agentic-rl-lab_cc
+bash scripts/bootstrap_modelscope.sh
+bash scripts/run_modelscope.sh
+```
+
+&emsp;&emsp;每章的轻量实验记录会自动同步到 `experiments/<chapter>/results/`，全局状态在 `experiment-records/`。服务器跑完后 `git add ... && git commit && git push`，本地 `git pull` 即可看到；完整 adapter 与模型缓存仍留在 `/mnt/workspace/agentic-rl-lab/`，可用 `bash scripts/export_results.sh` 下载归档。
 
 &emsp;&emsp;运行 Spec-o3 的数据下载、SFT、GRPO、评测和绘图命令，见 [Spec-o3 快速开始](https://github.com/datawhalechina/agentic-rl-lab/blob/main/experiments/spec-o3/start.md)。
 
