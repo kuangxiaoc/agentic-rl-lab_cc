@@ -1,0 +1,404 @@
+"""Persistence, budget, archive, and report helpers for the ModelScope GPU fork.
+
+This module only imports the standard library. Chapter scripts import training
+dependencies lazily so local syntax/unit checks never need a GPU stack.
+"""
+
+from __future__ import annotations
+
+import json
+import io
+import os
+import re
+import shutil
+import tarfile
+import tempfile
+import time
+from datetime import datetime, timezone
+from pathlib import Path, PurePosixPath
+from typing import Any
+
+
+DEFAULT_WORKSPACE_ROOT = Path("/mnt/workspace/agentic-rl-lab")
+CHAPTERS = range(1, 17)
+CHAPTER_NAMES = {
+    1: "01-loss-functions",
+    2: "02-grpo",
+    3: "03-vision-grpo",
+}
+VALID_STATUSES = {
+    "not_ported",
+    "pending",
+    "running",
+    "completed",
+    "failed",
+    "data_unavailable",
+    "skipped",
+}
+
+
+class ExternalBudgetError(RuntimeError):
+    """Raised before a paid external API call would exceed a hard limit."""
+
+
+def parse_chapter_spec(spec: str | int | None) -> list[int]:
+    """Parse `1-3`, `4-6,8`, `02` or `all` into the canonical reading order."""
+    text = "all" if spec is None or str(spec).strip() == "" else str(spec).strip().lower()
+    if text in {"all", "1-16"}:
+        return list(CHAPTERS)
+    chapters: set[int] = set()
+    for part in text.split(","):
+        part = part.strip()
+        if not part:
+            raise ValueError(f"Empty chapter in spec: {spec!r}")
+        if "-" in part:
+            first, last = part.split("-", 1)
+            start, end = int(first), int(last)
+            if start > end:
+                raise ValueError(f"Descending chapter range: {part}")
+            chapters.update(range(start, end + 1))
+        else:
+            chapters.add(int(part))
+    if not chapters or min(chapters) < 1 or max(chapters) > 16:
+        raise ValueError(f"Chapter spec must be within 1-16: {spec!r}")
+    return sorted(chapters)
+
+
+def resolve_workspace_root(value: str | os.PathLike[str] | None = None) -> Path:
+    """Resolve the one persistent root; `/` is rejected to avoid archive accidents."""
+    raw = os.environ.get("WORKSPACE_ROOT") if value is None else os.fspath(value)
+    root = Path(raw or DEFAULT_WORKSPACE_ROOT).expanduser().resolve()
+    if root == Path(root.anchor):
+        raise ValueError(f"Refusing unsafe workspace root: {root}")
+    return root
+
+
+def ensure_within_root(root: Path, candidate: str | os.PathLike[str]) -> Path:
+    """Resolve an output path and reject symlink/path traversal outside root."""
+    root = Path(root).resolve()
+    target = Path(candidate).resolve()
+    if target != root and root not in target.parents:
+        raise ValueError(f"Path escapes workspace root: {target}")
+    return target
+
+
+def _atomic_json(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle = tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        delete=False,
+    )
+    try:
+        with handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(handle.name, path)
+    finally:
+        if os.path.exists(handle.name):
+            os.unlink(handle.name)
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def initialize_state(root: Path) -> dict[str, Any]:
+    """Create state.json once and return its current contents."""
+    path = Path(root) / "state.json"
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    state = {
+        "schema_version": 1,
+        "created_at": _now(),
+        "updated_at": _now(),
+        "chapters": {
+            str(index): {
+                "status": "not_ported",
+                "run_id": None,
+                "details": {},
+                "updated_at": _now(),
+            }
+            for index in CHAPTERS
+        },
+    }
+    _atomic_json(path, state)
+    return state
+
+
+def load_state(root: Path) -> dict[str, Any]:
+    return initialize_state(root)
+
+
+def update_chapter_state(
+    root: Path,
+    chapter: int,
+    status: str,
+    run_id: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Atomically record one chapter's status and merge its details."""
+    if status not in VALID_STATUSES:
+        raise ValueError(f"Invalid chapter status: {status}")
+    if chapter not in CHAPTERS:
+        raise ValueError(f"Invalid chapter: {chapter}")
+    state = initialize_state(root)
+    entry = state["chapters"][str(chapter)]
+    entry.update(
+        {
+            "status": status,
+            "run_id": run_id,
+            "updated_at": _now(),
+            "details": {**entry.get("details", {}), **(details or {})},
+        }
+    )
+    state["updated_at"] = _now()
+    _atomic_json(Path(root) / "state.json", state)
+    return state
+
+
+def should_skip_chapter(state: dict[str, Any], chapter: int, force: bool = False) -> bool:
+    if force:
+        return False
+    status = state["chapters"][str(chapter)]["status"]
+    return status in {"completed", "data_unavailable"}
+
+
+def init_budget(root: Path) -> dict[str, Any]:
+    """Initialize the hard external-API limits used by future online chapters."""
+    path = Path(root) / "api_budget.json"
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    payload = {
+        "schema_version": 1,
+        "created_at": _now(),
+        "updated_at": _now(),
+        "max_external_cost_cny": float(os.environ.get("MAX_EXTERNAL_COST_CNY", "50")),
+        "allow_paid_overage": os.environ.get("ALLOW_PAID_OVERAGE", "0") == "1",
+        "estimated_cost_cny": 0.0,
+        "free_token_limit": int(os.environ.get("FREE_TOKEN_LIMIT", "1000000")),
+        "providers": {},
+        "models": {},
+        "events": [],
+    }
+    _atomic_json(path, payload)
+    return payload
+
+
+def record_external_usage(
+    root: Path,
+    provider: str,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    estimated_cost_cny: float = 0.0,
+    allow_unlisted_model: bool = False,
+) -> dict[str, Any]:
+    """Reject a call before it can exceed free tokens or the CNY hard cap."""
+    budget = init_budget(root)
+    if not allow_unlisted_model and model not in {"qwen3.8-flash", "deepseek-v4.1-flash"}:
+        raise ExternalBudgetError(f"Model is not on the default low-cost allowlist: {model}")
+    tokens = int(input_tokens) + int(output_tokens)
+    model_entry = budget["models"].get(
+        model, {"tokens": 0, "input_tokens": 0, "output_tokens": 0}
+    )
+    if model_entry["tokens"] + tokens > budget["free_token_limit"] and not budget["allow_paid_overage"]:
+        raise ExternalBudgetError(f"Free token quota would be exceeded for {model}")
+    if budget["estimated_cost_cny"] + estimated_cost_cny > budget["max_external_cost_cny"]:
+        raise ExternalBudgetError("External API cost cap would be exceeded")
+    model_entry["tokens"] += tokens
+    model_entry["input_tokens"] += int(input_tokens)
+    model_entry["output_tokens"] += int(output_tokens)
+    budget["models"][model] = model_entry
+    provider_entry = budget["providers"].get(provider, {"tokens": 0, "calls": 0})
+    provider_entry["tokens"] += tokens
+    provider_entry["calls"] += 1
+    budget["providers"][provider] = provider_entry
+    budget["estimated_cost_cny"] += float(estimated_cost_cny)
+    budget["events"].append(
+        {
+            "at": _now(),
+            "provider": provider,
+            "model": model,
+            "input_tokens": int(input_tokens),
+            "output_tokens": int(output_tokens),
+            "estimated_cost_cny": float(estimated_cost_cny),
+        }
+    )
+    budget["updated_at"] = _now()
+    _atomic_json(Path(root) / "api_budget.json", budget)
+    return budget
+
+
+_SECRET_PATTERNS = [
+    re.compile(r"(Bearer\s+)\S+", re.IGNORECASE),
+    re.compile(r"((?:API[_-]?KEY|TOKEN|SECRET|PASSWORD)\s*[=:]\s*)\S+", re.IGNORECASE),
+    re.compile(r"\{\{[^}]+\}\}"),
+]
+
+
+def redact_text(text: str) -> str:
+    """Mask obvious credentials and template placeholders in logs/reports."""
+    for pattern in _SECRET_PATTERNS:
+        text = pattern.sub(lambda match: match.group(1) + "[REDACTED]" if match.lastindex else "[REDACTED]", text)
+    return text
+
+
+def _archive_filter(info: tarfile.TarInfo) -> tarfile.TarInfo | None:
+    name = PurePosixPath(info.name)
+    if any(part in {".env", ".git", "__pycache__"} or part.endswith(".pyc") for part in name.parts):
+        return None
+    if any(part.startswith(".env.") for part in name.parts):
+        return None
+    if len(name.parts) > 1 and name.parts[0] == "cache":
+        return None
+    if info.isfile() and info.size > 100 * 1024 * 1024:
+        return None
+    info.uid = info.gid = 0
+    info.uname = info.gname = ""
+    return info
+
+
+def create_archive(root: Path, repo: Path) -> Path:
+    """Package persistent results and readable source code for local download."""
+    root = Path(root).resolve()
+    repo = Path(repo).resolve()
+    ensure_within_root(root, root)
+    exports = root / "exports"
+    exports.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    archive = exports / f"agentic-rl-lab-{stamp}.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+        tar.add(root / "state.json", arcname="results/state.json", filter=_archive_filter)
+        for name in ("runs", "logs", "reports", "metrics", "api_budget.json", "environment.json", "study_notes.md"):
+            source = root / name
+            if source.exists():
+                tar.add(source, arcname=f"results/{name}", filter=_archive_filter)
+        tar.add(repo, arcname="code", filter=_archive_filter)
+        readme = (
+            "# 实验归档\n\n"
+            f"生成时间：{_now()}\n\n"
+            "- `results/`：状态、指标、日志、检查点、报告和学习笔记\n"
+            "- `code/`：本 fork 的可读源码与原版章节\n"
+            "- 模型缓存、`.env`、`.git` 与超过 100 MiB 的文件不会进入归档\n"
+        )
+        content = readme.encode("utf-8")
+        info = tarfile.TarInfo("README.md")
+        info.size = len(content)
+        info.mtime = int(time.time())
+        tar.addfile(info, io.BytesIO(content))
+    return archive
+
+
+def write_study_notes(root: Path) -> Path:
+    """Write a Chinese reading map connecting the original and local GPU code."""
+    path = Path(root) / "study_notes.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        """# 本地 GPU 学习笔记
+
+原版借助 PyTRIO 把采样、forward/backward 和优化器更新放在云端；本 fork 保留原版章节，
+在每个原章节目录新增 `local_gpu.py`，把同一套 reward / advantage / loss 放到 ModelScope
+单卡 GPU 上亲手实现。按 `experiments/README.md` 的阅读顺序看：
+
+1. `experiments/loss-functions/readme.md` → `local_gpu.py`：用张量复现 IS / PPO / CISPO。
+2. `experiments/grpo/readme.md` → `03-grpo.py` → `local_gpu.py`：对比 PyTRIO Datum 与
+   本地 `model.generate`、旧策略 logprob、组内 advantage、PEFT 梯度更新。
+3. `experiments/vision-grpo/readme.md` → `train.py` → `local_gpu.py`：观察图片如何进入
+   processor、旧版 chunk 对齐如何变成本地 attention mask 与 pixel values。
+4. 04-16 暂时标记 `not_ported`，不会伪造成功结果；外部搜索/裁判/教师 API 先只记录预算。
+
+每次运行的配置、stdout/stderr、metrics、LoRA adapter、`state.json` 和环境快照都在本目录。
+服务器释放前执行 `bash scripts/export_results.sh`，下载 `exports/*.tar.gz` 即可离线学习。
+""",
+        encoding="utf-8",
+    )
+    return path
+
+
+def write_report(root: Path, state: dict[str, Any] | None = None) -> Path:
+    """Write a compact status report from the durable state file."""
+    state = state or load_state(root)
+    lines = [
+        "# ModelScope 本地 GPU 实验报告",
+        "",
+        f"更新时间：{state.get('updated_at', _now())}",
+        "",
+        "| 章节 | 状态 | run_id | 说明 |",
+        "| --- | --- | --- | --- |",
+    ]
+    for index in CHAPTERS:
+        entry = state["chapters"][str(index)]
+        detail = json.dumps(entry.get("details", {}), ensure_ascii=False, sort_keys=True)
+        lines.append(
+            f"| {index:02d} | {entry['status']} | {entry.get('run_id') or '-'} | {detail} |"
+        )
+    lines += [
+        "",
+        "04-16 的 `not_ported` 是如实记录，不代表运行成功。",
+        "外部 API 预算与密钥状态见 `api_budget.json` 和 `environment.json`。",
+        "",
+    ]
+    reports = Path(root) / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    path = reports / "latest.md"
+    path.write_text(redact_text("\n".join(lines)), encoding="utf-8")
+    return path
+
+
+def write_environment(root: Path, repo: Path, profile: str) -> Path:
+    """Record environment facts without copying any secret values."""
+    import platform
+    import sys
+
+    payload = {
+        "recorded_at": _now(),
+        "python": sys.version,
+        "platform": platform.platform(),
+        "workspace_root": str(Path(root).resolve()),
+        "repo": str(Path(repo).resolve()),
+        "run_profile": profile,
+        "api_key_present": {
+            "DASHSCOPE_API_KEY": bool(os.environ.get("DASHSCOPE_API_KEY")),
+            "TAVILY_API_KEY": bool(os.environ.get("TAVILY_API_KEY")),
+            "SERPAPI_API_KEY": bool(os.environ.get("SERPAPI_API_KEY")),
+        },
+        "api_key_values": "not_recorded",
+        "limits": {
+            "MAX_EXTERNAL_COST_CNY": os.environ.get("MAX_EXTERNAL_COST_CNY", "50"),
+            "ALLOW_PAID_OVERAGE": os.environ.get("ALLOW_PAID_OVERAGE", "0"),
+            "FREE_TOKEN_LIMIT": os.environ.get("FREE_TOKEN_LIMIT", "1000000"),
+        },
+    }
+    path = Path(root) / "environment.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _atomic_json(path, payload)
+    return path
+
+
+def new_run_dir(root: Path, chapter: int, run_id: str | None = None) -> Path:
+    """Create and return one chapter run directory under the persistent root."""
+    run_id = run_id or f"run-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    name = CHAPTER_NAMES.get(chapter, f"{chapter:02d}-chapter")
+    path = ensure_within_root(root, Path(root) / "runs" / name / run_id)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def append_metrics(root: Path, chapter: int, run_id: str, payload: dict[str, Any]) -> Path:
+    """Append one redacted JSON-lines metric row for a run."""
+    path = ensure_within_root(root, Path(root) / "metrics" / f"chapter-{chapter:02d}.jsonl")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    row = {"at": _now(), "chapter": chapter, "run_id": run_id, **payload}
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+    return path
+
+
+def copy_repo_for_archive(repo: Path, destination: Path) -> None:  # pragma: no cover - helper for future export
+    shutil.copytree(repo, destination, ignore=shutil.ignore_patterns(".git", "__pycache__", ".env"))
