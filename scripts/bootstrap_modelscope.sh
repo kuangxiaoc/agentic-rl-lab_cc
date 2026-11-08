@@ -15,8 +15,8 @@ if importlib.util.find_spec('torch') is None:
     raise SystemExit('torch is missing; select the CUDA 13.0 / torch 2.13 ModelScope image')
 
 required = {
-    # Qwen3-VL support requires a recent transformers; install it explicitly.
-    'transformers': 'transformers>=5.0.0',
+    # transformers >= 5.17.0 adds stable qwen3 support (Qwen3 family).
+    'transformers': 'transformers>=5.17.0',
     'peft': 'peft',
     'bitsandbytes': 'bitsandbytes',
     'accelerate': 'accelerate',
