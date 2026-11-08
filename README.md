@@ -75,6 +75,8 @@
 
 ## 快速启动
 
+> 单卡魔搭 GPU 改造版：保留本页原版 PyTRIO 阅读顺序，新增 01–03 本地训练循环、统一 `/mnt/workspace` 实验归档、逐章脚本与一键启动。详见 [魔搭 GPU 改造说明](./MODELSCOPE_LOCAL_GPU.md)。
+
 &emsp;&emsp;如果是直接 clone 这个仓库：
 
 ```bash
