@@ -50,11 +50,23 @@ def check_gpu() -> Any:
     return device
 
 
+def hub_downloaders() -> tuple[Any, Any]:
+    """Return (model, dataset) snapshot helpers from any recent modelscope.
+
+    ``modelscope.hub.snapshot_download`` is a module, but the package ``__init__``
+    rebinds that attribute to the function inside it, so ``from modelscope.hub
+    import snapshot_download`` yields a function with no ``snapshot_download``
+    attribute of its own. Import the module by name instead.
+    """
+    import importlib
+
+    module = importlib.import_module("modelscope.hub.snapshot_download")
+    return module.snapshot_download, getattr(module, "dataset_snapshot_download", None)
+
+
 def download_modelscope_model(model_id: str, root: Path) -> Path:
     """Download a model from ModelScope into the persistent cache."""
-    from modelscope.hub import snapshot_download as hub_module
-
-    function = hub_module.snapshot_download
+    function, _ = hub_downloaders()
     first = next(iter(inspect.signature(function).parameters), "model_id")
     cache_dir = str(root / "cache" / "modelscope" / "models")
     if first in {"repo_id", "model_id"}:
@@ -78,24 +90,19 @@ def supported_kwargs(function: Any, **kwargs: Any) -> dict[str, Any]:
 def download_modelscope_dataset(dataset_id: str, root: Path, pattern: str) -> Path:
     """Download only the known parquet files for one ModelScope dataset.
 
-    modelscope exposes the dataset helper in ``modelscope.hub.snapshot_download``;
-    the top-level re-export has moved between versions, so look it up by attribute
-    instead of relying on one import path plus an exception-type fallback.
+    The dataset helper has moved between modelscope releases, so look both helpers
+    up by attribute on the hub module rather than trusting one import path.
     """
-    from modelscope.hub import snapshot_download as hub_module
-
+    generic_fn, dataset_fn = hub_downloaders()
     cache = str(root / "cache" / "modelscope" / "datasets")
-    attempts: list[tuple[Any, dict[str, Any]]] = []
-    dataset_fn = getattr(hub_module, "dataset_snapshot_download", None)
-    if callable(dataset_fn):
-        attempts.append((dataset_fn, {"dataset_id": dataset_id}))
-    generic_fn = getattr(hub_module, "snapshot_download", None)
-    if callable(generic_fn):
-        first = next(iter(inspect.signature(generic_fn).parameters), "model_id")
-        attempts.append((generic_fn, {first: dataset_id, "repo_type": "dataset"}))
+    attempts: list[tuple[Any, dict[str, Any]]] = [(dataset_fn, {"dataset_id": dataset_id})]
+    first = next(iter(inspect.signature(generic_fn).parameters), "model_id")
+    attempts.append((generic_fn, {first: dataset_id, "repo_type": "dataset"}))
 
     errors: list[str] = []
     for function, id_kwargs in attempts:
+        if function is None:
+            continue
         kwargs = supported_kwargs(
             function, cache_dir=cache, allow_patterns=[pattern], **id_kwargs
         )
