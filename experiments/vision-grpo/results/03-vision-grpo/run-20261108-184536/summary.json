@@ -1,0 +1,112 @@
+{
+  "chapter": 3,
+  "model": "Qwen/Qwen3-VL-4B-Instruct",
+  "dataset": "hz2475/geoQA",
+  "profile": "full",
+  "loss_fn": "importance_sampling",
+  "steps": 10,
+  "batch_size": 2,
+  "group_size": 4,
+  "max_new_tokens": 512,
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/vision-grpo/readme.md",
+    "experiments/vision-grpo/train.py",
+    "experiments/vision-grpo/local_gpu.py"
+  ],
+  "history": [
+    {
+      "step": 0,
+      "reward": 0.0,
+      "format_rate": 0.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 512.0,
+      "loss": 0.0
+    },
+    {
+      "step": 1,
+      "reward": 1.0,
+      "format_rate": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 283.75,
+      "loss": 0.0
+    },
+    {
+      "step": 2,
+      "reward": 1.0,
+      "format_rate": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 353.5,
+      "loss": 0.0
+    },
+    {
+      "step": 3,
+      "reward": 1.0,
+      "format_rate": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 233.75,
+      "loss": 0.0
+    },
+    {
+      "step": 4,
+      "reward": 1.0,
+      "format_rate": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 173.5,
+      "loss": 0.0
+    },
+    {
+      "step": 5,
+      "reward": 0.0,
+      "format_rate": 0.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 512.0,
+      "loss": 0.0
+    },
+    {
+      "step": 6,
+      "reward": 0.0,
+      "format_rate": 0.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 512.0,
+      "loss": 0.0
+    },
+    {
+      "step": 7,
+      "reward": 1.0,
+      "format_rate": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 164.5,
+      "loss": 0.0
+    },
+    {
+      "step": 8,
+      "reward": 0.0,
+      "format_rate": 0.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 512.0,
+      "loss": 0.0
+    },
+    {
+      "step": 9,
+      "reward": 0.0,
+      "format_rate": 0.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 512.0,
+      "loss": 0.0
+    }
+  ],
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/03-vision-grpo/run-20261108-184536/adapter",
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10"
+}

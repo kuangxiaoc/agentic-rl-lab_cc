@@ -53,21 +53,21 @@
     },
     "2": {
       "details": {
-        "adapter": "/mnt/workspace/agentic-rl-lab/runs/02-grpo/run-20261108-183413/adapter",
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/02-grpo/run-20261108-184052/adapter",
         "error": "AttributeError: 'function' object has no attribute 'snapshot_download'",
         "error_log": "/mnt/workspace/agentic-rl-lab/runs/02-grpo/run-20261108-163919/error.txt",
         "exit_code": 1,
         "log": "/mnt/workspace/agentic-rl-lab/logs/chapter-02.log",
-        "steps": 2,
-        "summary": "/mnt/workspace/agentic-rl-lab/runs/02-grpo/run-20261108-183413/summary.json"
+        "steps": 10,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/02-grpo/run-20261108-184052/summary.json"
       },
-      "run_id": "run-20261108-183413",
+      "run_id": "run-20261108-184052",
       "status": "completed",
-      "updated_at": "2026-11-08T10:34:49+00:00"
+      "updated_at": "2026-11-08T10:44:14+00:00"
     },
     "3": {
       "details": {
-        "adapter": "/mnt/workspace/agentic-rl-lab/runs/03-vision-grpo/run-20261108-183451/adapter",
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/03-vision-grpo/run-20261108-184536/adapter",
         "dataset": "hz2475/geoQA",
         "error": "AttributeError: 'Qwen3VLProcessor' object has no attribute 'eos_token_id'",
         "error_log": "/mnt/workspace/agentic-rl-lab/runs/03-vision-grpo/run-20261108-182408/error.txt",
@@ -75,12 +75,12 @@
         "log": "/mnt/workspace/agentic-rl-lab/logs/chapter-03.log",
         "note": "no text-data substitute",
         "reason": "HF GeoQA preflight failed: LocalEntryNotFoundError: Got: ConnectError: [Errno 101] Network is unreachable\nAn error happened while trying to locate the files on the Hub, and we cannot find the appropriate snapshot folder for the specified revision on the local disk. Please check your internet connection and try again.",
-        "steps": 2,
-        "summary": "/mnt/workspace/agentic-rl-lab/runs/03-vision-grpo/run-20261108-183451/summary.json"
+        "steps": 10,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/03-vision-grpo/run-20261108-184536/summary.json"
       },
-      "run_id": "run-20261108-183451",
+      "run_id": "run-20261108-184536",
       "status": "completed",
-      "updated_at": "2026-11-08T10:35:40+00:00"
+      "updated_at": "2026-11-08T10:52:37+00:00"
     },
     "4": {
       "details": {},
@@ -121,5 +121,5 @@
   },
   "created_at": "2026-11-08T08:05:06+00:00",
   "schema_version": 1,
-  "updated_at": "2026-11-08T10:35:40+00:00"
+  "updated_at": "2026-11-08T10:52:37+00:00"
 }

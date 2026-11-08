@@ -1,0 +1,102 @@
+{
+  "chapter": 2,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "dataset": "AI-ModelScope/gsm8k",
+  "profile": "full",
+  "loss_fn": "importance_sampling",
+  "steps": 10,
+  "batch_size": 2,
+  "group_size": 4,
+  "max_new_tokens": 512,
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/grpo/readme.md",
+    "experiments/grpo/03-grpo.py",
+    "experiments/grpo/local_gpu.py"
+  ],
+  "history": [
+    {
+      "step": 0,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 62.25,
+      "loss": 0.0
+    },
+    {
+      "step": 1,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 75.75,
+      "loss": 0.0
+    },
+    {
+      "step": 2,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 132.75,
+      "loss": 0.0
+    },
+    {
+      "step": 3,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 137.75,
+      "loss": 0.0
+    },
+    {
+      "step": 4,
+      "reward": 0.5,
+      "degenerate": 0.0,
+      "train_samples": 4,
+      "avg_completion_tokens": 139.0,
+      "loss": -0.00019425153732299805
+    },
+    {
+      "step": 5,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 219.0,
+      "loss": 0.0
+    },
+    {
+      "step": 6,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 78.0,
+      "loss": 0.0
+    },
+    {
+      "step": 7,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 175.75,
+      "loss": 0.0
+    },
+    {
+      "step": 8,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 203.0,
+      "loss": 0.0
+    },
+    {
+      "step": 9,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "avg_completion_tokens": 214.75,
+      "loss": 0.0
+    }
+  ],
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/02-grpo/run-20261108-184052/adapter",
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10"
+}
