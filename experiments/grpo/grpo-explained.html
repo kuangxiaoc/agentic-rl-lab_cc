@@ -1,0 +1,1106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GRPO 全流程拆解 · agentic-rl-lab</title>
+<style>
+  :root {
+    --ink: #16130f;
+    --ink-soft: #4a423a;
+    --ink-faint: #857a6e;
+    --paper: #f6f1e7;
+    --paper-2: #fffdf8;
+    --rule: #ded3c2;
+    --rule-soft: #ebe2d4;
+    --good: #1f6f4a;
+    --good-bg: #e3f0e7;
+    --bad: #9c2f24;
+    --bad-bg: #f8e4df;
+    --warn: #8a5a12;
+    --warn-bg: #f9eed6;
+    --accent: #8c3a1e;
+    --code-bg: #241f1a;
+    --code-ink: #ece3d6;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --serif: "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at 12% 8%, #fdf7ea 0%, transparent 42%),
+      radial-gradient(circle at 88% 92%, #f1e9db 0%, transparent 46%),
+      var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 16.5px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 28px 120px;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 48px;
+    align-items: start;
+  }
+
+  nav {
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding: 44px 0 40px;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  nav .brand {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 16px;
+  }
+  nav ol { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+  nav li { margin: 0 0 2px; counter-increment: s; }
+  nav a {
+    display: flex;
+    gap: 9px;
+    padding: 6px 8px 6px 0;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-radius: 3px;
+    transition: color .16s, background .16s;
+  }
+  nav a::before {
+    content: counter(s, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    padding-top: 2px;
+    min-width: 18px;
+  }
+  nav a:hover { color: var(--accent); background: #efe6d6; }
+  nav a.on { color: var(--accent); font-weight: 600; background: #f3ead9; }
+  nav a.on::before { color: var(--accent); }
+
+  header { padding: 44px 0 34px; border-bottom: 2px solid var(--ink); }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-size: clamp(30px, 4.2vw, 46px);
+    line-height: 1.18;
+    margin: 0 0 18px;
+    font-weight: 700;
+    letter-spacing: -.015em;
+  }
+  .lede { font-size: 17.5px; color: var(--ink-soft); margin: 0 0 26px; max-width: 62ch; }
+  .facts {
+    display: flex; flex-wrap: wrap; gap: 0;
+    border: 1px solid var(--rule); background: var(--paper-2);
+    font-family: var(--mono); font-size: 12px;
+  }
+  .facts div {
+    padding: 10px 16px;
+    border-right: 1px solid var(--rule-soft);
+    color: var(--ink-soft);
+  }
+  .facts div:last-child { border-right: 0; }
+  .facts b { display: block; color: var(--ink); font-weight: 600; font-size: 13px; }
+  .facts span { color: var(--ink-faint); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+
+  section { padding: 52px 0 8px; scroll-margin-top: 8px; }
+  section + section { border-top: 1px solid var(--rule-soft); }
+  h2 {
+    font-size: 27px;
+    line-height: 1.3;
+    margin: 0 0 6px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+  }
+  h2 .num {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    display: block;
+    letter-spacing: .16em;
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+  h3 {
+    font-size: 17.5px;
+    margin: 34px 0 10px;
+    font-weight: 700;
+    letter-spacing: -.005em;
+  }
+  p { margin: 0 0 15px; max-width: 68ch; }
+  .muted { color: var(--ink-faint); font-size: 14px; }
+  strong { font-weight: 700; }
+  code {
+    font-family: var(--mono);
+    font-size: .875em;
+    background: #ece3d4;
+    padding: .1em .36em;
+    border-radius: 3px;
+    color: #5c3218;
+    white-space: nowrap;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 18px 20px;
+    border-radius: 5px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12.8px;
+    line-height: 1.72;
+    margin: 0 0 18px;
+    border-left: 3px solid var(--accent);
+  }
+  pre code { background: none; padding: 0; color: inherit; font-size: inherit; white-space: pre; }
+  pre .c { color: #8b8172; font-style: italic; }
+  pre .hi { background: #4a3320; display: inline-block; width: 100%; }
+  .file {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: .04em;
+    margin: 0 0 7px;
+  }
+
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 18px 0 22px; }
+  .card {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 18px 20px;
+  }
+  .card h4 { margin: 0 0 8px; font-size: 14.5px; font-weight: 700; letter-spacing: .01em; }
+  .card p { font-size: 14px; margin: 0 0 8px; color: var(--ink-soft); max-width: none; }
+  .card p:last-child { margin-bottom: 0; }
+  .card .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    display: block;
+    margin-bottom: 7px;
+  }
+
+  .flow { margin: 22px 0 26px; }
+  .step {
+    display: grid;
+    grid-template-columns: 34px minmax(0,1fr);
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .step:last-child { border-bottom: 0; }
+  .step .idx {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--paper);
+    background: var(--accent);
+    border-radius: 50%;
+    width: 24px; height: 24px;
+    display: grid; place-items: center;
+    margin-top: 2px;
+    font-weight: 600;
+  }
+  .step h4 { margin: 0 0 5px; font-size: 15px; font-weight: 700; }
+  .step p { margin: 0; font-size: 14.2px; color: var(--ink-soft); max-width: none; }
+  .step .loc {
+    font-family: var(--mono); font-size: 10.5px;
+    color: var(--ink-faint); margin-left: 6px; font-weight: 400;
+  }
+
+  .bars { margin: 20px 0 24px; font-family: var(--mono); font-size: 11.5px; }
+  .bar-row {
+    display: grid;
+    grid-template-columns: 46px 96px minmax(0,1fr) 96px;
+    gap: 10px;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .bar-row.head { color: var(--ink-faint); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid var(--rule); }
+  .bar-row .lbl { color: var(--ink-soft); }
+  .bar-track { height: 9px; background: #e9dfd0; border-radius: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; }
+  .bar-fill.train { background: var(--good); }
+  .bar-fill.skip { background: #cdbfa9; }
+  .bar-val { text-align: right; color: var(--ink-faint); }
+  .bar-val.on { color: var(--good); font-weight: 600; }
+
+  .answers { display: grid; gap: 14px; margin: 20px 0 24px; }
+  .ans {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--rule);
+    border-radius: 4px;
+    padding: 15px 18px;
+  }
+  .ans.wrong { border-left-color: var(--bad); background: linear-gradient(90deg, var(--bad-bg) 0%, var(--paper-2) 34%); }
+  .ans.right { border-left-color: var(--good); background: linear-gradient(90deg, var(--good-bg) 0%, var(--paper-2) 34%); }
+  .ans-head {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline;
+    font-family: var(--mono); font-size: 11px;
+    margin-bottom: 10px; color: var(--ink-faint);
+  }
+  .pill {
+    font-family: var(--mono); font-size: 10.5px;
+    padding: 2px 8px; border-radius: 10px; font-weight: 600;
+    letter-spacing: .04em;
+  }
+  .pill.wrong { background: var(--bad); color: #fff; }
+  .pill.right { background: var(--good); color: #fff; }
+  .adv { margin-left: auto; font-size: 12px; font-weight: 600; }
+  .adv.neg { color: var(--bad); }
+  .adv.pos { color: var(--good); }
+  .ans .body {
+    font-family: var(--mono);
+    font-size: 12.2px;
+    line-height: 1.68;
+    color: var(--ink-soft);
+    white-space: pre-wrap;
+    max-height: 168px;
+    overflow-y: auto;
+    padding-right: 6px;
+  }
+  .ans .body::-webkit-scrollbar { width: 6px; }
+  .ans .body::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+  .boxed { color: var(--accent); font-weight: 700; }
+
+  .table-wrap { overflow-x: auto; margin: 18px 0 22px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.6px; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th {
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-faint); border-bottom: 1px solid var(--rule);
+    font-weight: 600; white-space: nowrap;
+  }
+  td code { font-size: 12px; }
+  tbody tr:hover { background: #faf5eb; }
+
+  .formula {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--ink);
+    padding: 16px 20px;
+    margin: 18px 0;
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 2;
+    overflow-x: auto;
+  }
+  .formula .eq { color: var(--ink); }
+  .formula .note { color: var(--ink-faint); font-size: 12px; display: block; margin-top: 8px; font-family: var(--serif); }
+
+  .callout {
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--warn);
+    background: var(--warn-bg);
+    padding: 15px 18px;
+    border-radius: 4px;
+    margin: 20px 0;
+    font-size: 14.5px;
+  }
+  .callout.trap { border-left-color: var(--bad); background: var(--bad-bg); }
+  .callout.ok { border-left-color: var(--good); background: var(--good-bg); }
+  .callout b { display: block; margin-bottom: 5px; font-size: 14px; }
+  .callout p { margin: 0 0 8px; font-size: 14.2px; max-width: none; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .tree {
+    font-family: var(--mono); font-size: 12.4px; line-height: 1.9;
+    background: var(--paper-2); border: 1px solid var(--rule);
+    padding: 16px 20px; border-radius: 4px; overflow-x: auto;
+    margin: 18px 0 22px;
+  }
+  .tree .d { color: var(--accent); font-weight: 600; }
+  .tree .f { color: var(--ink-soft); }
+  .tree .cm { color: var(--ink-faint); font-style: italic; }
+
+  footer {
+    margin-top: 60px; padding-top: 24px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono); font-size: 11.5px;
+    color: var(--ink-faint);
+    display: flex; flex-wrap: wrap; gap: 8px 24px;
+  }
+
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: 1fr; gap: 0; padding: 0 18px 80px; }
+    nav { position: static; max-height: none; padding: 22px 0 0; border-bottom: 1px solid var(--rule); }
+    nav ol { display: flex; flex-wrap: wrap; gap: 2px 12px; }
+    nav a { padding: 4px 0; }
+    nav a::before { display: none; }
+    header { padding-top: 26px; }
+    .facts div { border-right: 0; width: 50%; }
+    .bar-row { grid-template-columns: 40px 78px minmax(0,1fr) 66px; gap: 7px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<nav>
+  <div class="brand">GRPO · Ch.02</div>
+  <ol>
+    <li><a href="#idea">一句话说清 GRPO</a></li>
+    <li><a href="#pipeline">训练循环五步</a></li>
+    <li><a href="#case">真实一组的四个答案</a></li>
+    <li><a href="#advantage">advantage 怎么算</a></li>
+    <li><a href="#loss">loss 怎么算</a></li>
+    <li><a href="#tensor">下标与形状</a></li>
+    <li><a href="#degenerate">为什么 10 步只学 1 步</a></li>
+    <li><a href="#engineering">工程骨架</a></li>
+    <li><a href="#results">结果怎么读</a></li>
+    <li><a href="#pitfalls">踩过的坑</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<header>
+  <div class="kicker">agentic-rl-lab · 本地 GPU 训练循环</div>
+  <h1>GRPO 到底在算什么</h1>
+  <p class="lede">
+    这一页把 <code>experiments/grpo/local_gpu.py</code> 的每一步，和它真实跑出来的
+    10 组数据对上。不假设你记得公式，只要求你能看懂数字从哪来、到哪去。
+  </p>
+  <div class="facts">
+    <div><span>模型</span><b>Qwen3-4B-Instruct-2507</b></div>
+    <div><span>数据</span><b>GSM8K · 7473 题</b></div>
+    <div><span>配置</span><b>full · 10 步</b></div>
+    <div><span>每组</span><b>4 条采样</b></div>
+    <div><span>GPU</span><b>A10 23GB</b></div>
+    <div><span>耗时</span><b>≈ 3 分钟</b></div>
+  </div>
+</header>
+
+<section id="idea">
+  <h2><span class="num">01</span>一句话说清 GRPO</h2>
+
+  <p>
+    同一道题，让模型自己答 <strong>G 次</strong>，然后用<strong>这 G 个答案的平均分</strong>当基准线。
+    比平均分高的答案被奖励，低的被压制。
+  </p>
+
+  <p>
+    关键在于：<strong>基准线是模型自己造的，不需要额外训练一个 value model。</strong>
+    这就是 GRPO 相对 PPO 最大的简化，也是它能在单卡上跑起来的原因。
+  </p>
+
+  <div class="formula">
+    <span class="eq">A<sub>i</sub> = r<sub>i</sub> − mean(r<sub>1</sub>, r<sub>2</sub>, …, r<sub>G</sub>)</span>
+    <span class="note">r 是规则打分（本题只有 0 或 1），A 是第 i 条答案的相对好坏。</span>
+  </div>
+
+  <p>
+    本项目的 reward 是<strong>可验证的</strong>：从回答里抠出 <code>\boxed{}</code> 的内容，
+    和 GSM8K 的标准答案做字符串比较。对就 1，错就 0。没有 reward model，没有人工标注，也没有 API 调用。
+  </p>
+
+  <div class="callout ok">
+    <b>为什么这个 reward 靠谱</b>
+    <p>
+      GSM8K 的答案都是纯数字，比较前只做两步归一化：去掉千分位逗号、去掉结尾句点。
+      所以 <code>1,000</code> 和 <code>1000</code> 算同一个答案，不会因为格式差异误判。
+    </p>
+  </div>
+</section>
+
+<section id="pipeline">
+  <h2><span class="num">02</span>训练循环五步</h2>
+
+  <p>
+    下面这五步就是 <code>local_gpu.py</code> 第 86–139 行的全部内容。
+    每步都标了行号，你可以对着文件看。
+  </p>
+
+  <div class="flow">
+    <div class="step">
+      <div class="idx">1</div>
+      <div>
+        <h4>取一道题，渲染成 prompt<span class="loc">L86–93</span></h4>
+        <p>
+          从 GSM8K 取第 <code>step</code> 题，用 chat template 拼成 3 条 few-shot 示例加当前题目，
+          再转成 token id。这一段通常是 <strong>149 个 token</strong>。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="idx">2</div>
+      <div>
+        <h4>采样 G 条回答，同时记下采样时的概率<span class="loc">L94</span></h4>
+        <p>
+          <code>model.generate(num_return_sequences=4)</code> 一次生成 4 条。
+          它同时返回每步的 logits，换算成 log 概率后存为 <code>old_logprobs</code>——
+          这是后面算 <code>ratio</code> 的基准。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="idx">3</div>
+      <div>
+        <h4>规则打分，再减组内均值<span class="loc">L106–107</span></h4>
+        <p>
+          4 条回答各得一个 0 或 1，然后减去这 4 个数的平均值，得到 4 个 advantage。
+          这就是上面那个公式。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="idx">4</div>
+      <div>
+        <h4>丢掉没有信号的样本<span class="loc">L113</span></h4>
+        <p>
+          <code>if advantage == 0.0: continue</code>。全对或全错的组，
+          每条 advantage 都是 0，整个 step 直接跳过，不碰权重。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="idx">5</div>
+      <div>
+        <h4>重新 forward，算 loss，反向传播<span class="loc">L126–138</span></h4>
+        <p>
+          把 <code>prompt + completion</code> 整段喂回模型，只取 completion 那几位的 log 概率，
+          和采样时存的对比得到 <code>ratio</code>，再乘 advantage。最后 <code>backward</code> 加 <code>step</code>。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <b>第 2 步和第 5 步是同一个模型</b>
+    <p>
+      采样时用 <code>model.eval()</code>，训练时切回 <code>model.train()</code>。
+      不是两个模型，是同一份 LoRA 权重在两种模式下各跑一次。为什么要切，见最后一节。
+    </p>
+  </div>
+</section>
+
+<section id="case">
+  <h2><span class="num">03</span>真实一组的四个答案</h2>
+
+  <p>
+    这是 <code>run-20261108-184052</code> 的第 4 步，也是 10 步里唯一真正更新了权重的一步。
+    题目和 4 条完整回答都来自 <code>samples.jsonl</code>。
+  </p>
+
+  <div class="card" style="margin-bottom:20px">
+    <span class="tag">GSM8K · step 4</span>
+    <p style="font-size:15.5px;color:var(--ink)">
+      James writes a 3-page letter to 2 different friends twice a week.
+      How many pages does he write a year?
+    </p>
+    <p class="muted" style="margin:0">标准答案 <code>624</code></p>
+  </div>
+
+  <div class="answers">
+    <div class="ans wrong">
+      <div class="ans-head">
+        <span class="pill wrong">✗ 错</span>
+        <span>answer 0</span>
+        <span>reward 0.0</span>
+        <span class="adv neg">advantage −0.5</span>
+      </div>
+      <div class="body">James writes a 3-page letter to 2 different friends twice a week.
+
+First, find how many letters he writes per week:
+- Each week, he writes to 2 friends, and he writes 3 pages per letter.
+- So, per week: 2 friends × 3 pages = 6 pages.
+
+Now, how many weeks in a year?
+- There are 52 weeks in a year.
+
+So, total pages per year:
+- 6 pages/week × 52 weeks = 312 pages.
+
+<span class="boxed">\boxed{312}</span></div>
+    </div>
+
+    <div class="ans wrong">
+      <div class="ans-head">
+        <span class="pill wrong">✗ 错</span>
+        <span>answer 1</span>
+        <span>reward 0.0</span>
+        <span class="adv neg">advantage −0.5</span>
+      </div>
+      <div class="body">... He does this **twice a week**, so:
+2 times/week × 6 pages = 6 pages per week? Wait — that's incorrect.
+
+Wait! Let's rephrase:
+He writes a 3-page letter **to each friend**.
+So each week, he sends:
+- 2 letters × 3 pages = 6 pages per week.
+
+So total pages per year = 6 pages/week × 52 weeks = 312.
+
+✅ Final answer: <span class="boxed">\boxed{312}</span></div>
+    </div>
+
+    <div class="ans right">
+      <div class="ans-head">
+        <span class="pill right">✓ 对</span>
+        <span>answer 2</span>
+        <span>reward 1.0</span>
+        <span class="adv pos">advantage +0.5</span>
+      </div>
+      <div class="body">First, calculate how many letters he writes per week:
+- Each week: 2 friends × 3 pages = 6 pages per week.
+
+He does this twice a week → So: 2 × 6 = 12 pages per week.
+
+Now, how many weeks in a year? Approximately 52 weeks.
+
+So total pages per year: 12 pages/week × 52 weeks = 624
+
+<span class="boxed">\boxed{624}</span></div>
+    </div>
+
+    <div class="ans right">
+      <div class="ans-head">
+        <span class="pill right">✓ 对</span>
+        <span>answer 3</span>
+        <span>reward 1.0</span>
+        <span class="adv pos">advantage +0.5</span>
+      </div>
+      <div class="body">- 2 friends × 2 times per week = 4 letters per week
+
+Each letter is 3 pages, so:
+- 4 letters × 3 pages = 12 pages per week
+
+Now, calculate the number of weeks in a year:
+Assume 52 weeks in a year.
+
+So total pages per year:
+- 12 pages/week × 52 weeks = 624
+
+<span class="boxed">\boxed{624}</span></div>
+    </div>
+  </div>
+
+  <div class="callout trap">
+    <b>answer 1 最值得看</b>
+    <p>
+      它中途写出了 <em>"Wait — that's incorrect."</em>，说明模型内部确实意识到漏了「twice a week」。
+      但它在自我纠正时<strong>又回到了同一个错误</strong>，把 6 页/周 当成最终结果。
+    </p>
+    <p>
+      这正是 GRPO 想压制的模式：<strong>不是算错，而是推理路径本身有系统性偏差</strong>。
+      answer 2 和 3 走了两条不同的正确路径——一条先算 12 页/周，一条先算 4 封/周——
+      它们拿到 +0.5，就是把「正确路径」的概率往上推。
+    </p>
+  </div>
+</section>
+
+<section id="advantage">
+  <h2><span class="num">04</span>advantage 怎么算</h2>
+
+  <p>
+    四个 reward 是 <code>[0, 0, 1, 1]</code>，均值 0.5。每个减 0.5：
+  </p>
+
+  <div class="formula">
+    <span class="eq">
+r = [0, 0, 1, 1] &nbsp;&nbsp; mean(r) = 0.5<br>
+A = [0−0.5, 0−0.5, 1−0.5, 1−0.5] = [−0.5, −0.5, +0.5, +0.5]
+    </span>
+    <span class="note">代码：common.group_advantages(rewards)，一行推导，没有任何可学习参数。</span>
+  </div>
+
+  <p>
+    这个 0.5 就是 GRPO 的 baseline。它不需要训练，因为<strong>它就是从这一组样本里现算出来的</strong>。
+    PPO 要用一个和策略同规模的 value model 去估计同样的东西，那才是 GRPO 省掉的成本。
+  </p>
+
+  <div class="callout">
+    <b>advantage 会被复制到每个 token 上</b>
+    <p>
+      一条回答有 N 个 token，这条回答的 advantage 会重复 N 次，作为每个 token 的权重。
+      代码在 <code>local_gpu.py:120</code>：<code>advantages=[advantage] * len(logprobs)</code>。
+    </p>
+    <p>
+      这是<strong>序列级信用分配</strong>：不区分哪个 token 贡献大，整条回答一起奖或一起罚。
+      简单，但也是 GRPO 的已知局限。
+    </p>
+  </div>
+</section>
+
+<section id="loss">
+  <h2><span class="num">05</span>loss 怎么算</h2>
+
+  <p>
+    核心只有三行，在 <code>scripts/local_gpu_trainer.py</code> 的 <code>sequence_policy_loss()</code> 里。
+  </p>
+
+  <p class="file">scripts/local_gpu_trainer.py · sequence_policy_loss()</p>
+  <pre><code><span class="c"># current: 训练时模型对 completion 每个 token 的 log 概率</span>
+<span class="c"># old:     采样时模型对同样 token 的 log 概率</span>
+ratio = torch.exp(current - old)
+
+<span class="hi">loss = -(ratio * advantage).mean()</span></code></pre>
+
+  <p>
+    <code>ratio</code> 就是第 1 章那个概率比例。第一次更新时，<code>current</code> 和
+    <code>old</code> 是同一份权重算的，所以 <code>ratio ≈ 1</code>。
+  </p>
+
+  <div class="formula">
+    <span class="eq">
+ratio = exp(current − old) ≈ 1<br>
+loss<sub>token</sub> = −(1 × advantage)
+    </span>
+    <span class="note">所以第一次更新时，loss 完全由 advantage 的符号和大小决定。</span>
+  </div>
+
+  <div class="callout trap">
+    <b>这一步的 loss 是 −0.0002，接近 0——但它真的学了</b>
+    <p>
+      组内 advantage 加起来正好是 0（这是均值中心化的必然结果），
+      所以 12 个 token 的 loss 加起来也接近 0。
+    </p>
+    <p>
+      但<strong>梯度不是 0</strong>：6 个 token 拿到正梯度、6 个拿到负梯度，
+      它们作用在同一批 LoRA 权重上，方向不同，权重就动了。
+      <strong>看 loss 判断有没有学习会被误导，要看 <code>train_samples</code> 和 reward 分布。</strong>
+    </p>
+  </div>
+
+  <h3>三种 loss 的差别</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>loss_fn</th><th>公式</th><th>行为</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>importance_sampling</code></td>
+          <td><code>-(ratio * adv).mean()</code></td>
+          <td>最直接。ratio 不设上限，一次更新可能走太远。本次实验用的就是这个。</td>
+        </tr>
+        <tr>
+          <td><code>ppo</code></td>
+          <td><code>-min(ratio*adv, clamp(ratio)*adv).mean()</code></td>
+          <td>ratio 越界后不再提供梯度，等于「关掉」这条 token 的更新。</td>
+        </tr>
+        <tr>
+          <td><code>cispo</code></td>
+          <td><code>-(detach(clamp(ratio)) * current * adv).mean()</code></td>
+          <td>clip 后当固定砝码，梯度仍来自 logprob，不会完全断电。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="tensor">
+  <h2><span class="num">06</span>下标与形状</h2>
+
+  <p>
+    这一段代码最容易看晕，因为它有一个差一位的对齐。看下面这张图就清楚了。
+  </p>
+
+  <p class="file">sequence_policy_loss() 里的下标算术</p>
+  <pre><code>input_ids = prompt + completion        <span class="c"># 149 + 3 = 152 个 token</span>
+
+logits  = model(input_ids).logits[0, :-1]   <span class="c"># 151 个位置</span>
+targets = input_ids[0, 1:]                  <span class="c"># 151 个 token</span>
+
+prompt_length = 152 - 3 = 149
+completion_positions = slice(149 - 1, 149 - 1 + 3)   <span class="c"># 位置 148, 149, 150</span></code></pre>
+
+  <p>
+    <code>logits[i]</code> 预测的是 <code>input_ids[i+1]</code>。所以：
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>位置</th><th>这个位置的 logits 预测</th><th>属于</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>147</td><td>input_ids[148]</td><td>prompt</td></tr>
+        <tr style="background:var(--good-bg)"><td><strong>148</strong></td><td><strong>input_ids[149] ← completion 第 1 个 token</strong></td><td><strong>completion 起点</strong></td></tr>
+        <tr style="background:var(--good-bg)"><td>149</td><td>input_ids[150]</td><td>completion</td></tr>
+        <tr style="background:var(--good-bg)"><td>150</td><td>input_ids[151]</td><td>completion 末尾</td></tr>
+        <tr><td>151</td><td>—（被 <code>:-1</code> 丢掉）</td><td>没有下一个 token 可预测</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    <code>prompt_length − 1 = 148</code> 就是 completion 第一个 token 的预测位置。
+    这就是为什么切片要减 1，不是写错了。
+  </p>
+
+  <div class="callout">
+    <b>这个 off-by-one 是 LLM 训练里最常见的 bug</b>
+    <p>
+      写错的话，loss 依然能算出来、也不会报错，只是把 prompt 的 token 也算进了 completion 区间，
+      训练信号就被稀释了。代码里 <code>completion_positions</code> 这一行值得多看两眼。
+    </p>
+  </div>
+</section>
+
+<section id="degenerate">
+  <h2><span class="num">07</span>为什么 10 步只学 1 步</h2>
+
+  <p>
+    这是 <code>run-20261108-184052</code> 全部 10 步的 <code>train_samples</code>。
+    绿色是真正执行了 <code>optimizer.step()</code> 的步。
+  </p>
+
+  <div class="bars">
+    <div class="bar-row head">
+      <span>step</span><span>reward</span><span>train_samples</span><span>loss</span>
+    </div>
+    <div class="bar-row">
+      <span class="lbl">0</span><span class="lbl">1.00</span>
+      <div class="bar-track"><div class="bar-fill skip" style="width:2%"></div></div>
+      <span class="bar-val">0 · 跳过</span>
+    </div>
+    <div class="bar-row">
+      <span class="lbl">1</span><span class="lbl">1.00</span>
+      <div class="bar-track"><div class="bar-fill skip" style="width:2%"></div></div>
+      <span class="bar-val">0 · 跳过</span>
+    </div>
+    <div class="bar-row">
+      <span class="lbl">2</span><span class="lbl">1.00</span>
+      <div class="bar-track"><div class="bar-fill skip" style="width:2%"></div></div>
+      <span class="bar-val">0 · 跳过</span>
+    </div>
+    <div class="bar-row">
+      <span class="lbl">3</span><span class="lbl">1.00</span>
+      <div class="bar-track"><div class="bar-fill skip" style="width:2%"></div></div>
+      <span class="bar-val">0 · 跳过</span>
+    </div>
+    <div class="bar-row">
+      <span class="lbl"><strong>4</strong></span><span class="lbl"><strong>0.50</strong></span>
+      <div class="bar-track"><div class="bar-fill train" style="width:100%"></div></div>
+      <span class="bar-val on">4 · 更新</span>
+    </div>
+    <div class="bar-row">
+      <span class="lbl">5</span><span class="lbl">1.00</span>
+      <div class="bar-track"><div class="bar-fill skip" style="width:2%"></div></div>
+      <span class="bar-val">0 · 跳过</span>
+    </div>
+    <div class="bar-row">
+      <span class="lbl">6</span><span class="lbl">1.00</span>
+      <div class="bar-track"><div class="bar-fill skip" style="width:2%"></div></div>
+      <span class="bar-val">0 · 跳过</span>
+    </div>
+    <div class="bar-row">
+      <span class="lbl">7</span><span class="lbl">1.00</span>
+      <div class="bar-track"><div class="bar-fill skip" style="width:2%"></div></div>
+      <span class="bar-val">0 · 跳过</span>
+    </div>
+    <div class="bar-row">
+      <span class="lbl">8</span><span class="lbl">1.00</span>
+      <div class="bar-track"><div class="bar-fill skip" style="width:2%"></div></div>
+      <span class="bar-val">0 · 跳过</span>
+    </div>
+    <div class="bar-row">
+      <span class="lbl">9</span><span class="lbl">1.00</span>
+      <div class="bar-track"><div class="bar-fill skip" style="width:2%"></div></div>
+      <span class="bar-val">0 · 跳过</span>
+    </div>
+  </div>
+
+  <p>
+    <code>degenerate</code> 这个字段就是标记这件事：<strong>1.0 表示这一组全对或全错，没有相对信号</strong>。
+    原版 PyTRIO 代码里叫 <code>frac_degenerate</code>，论文里也会专门讨论。
+  </p>
+
+  <p>
+    这不是代码 bug，是 Qwen3-4B 在 GSM8K 前 10 题上太强了——4 条答案全对，
+    组内方差为 0，GRPO 按定义就没有可学的东西。
+  </p>
+
+  <div class="callout">
+    <b>想看到更多训练信号，有三个方向</b>
+    <p>
+      <strong>加大 group_size</strong>：4 条全对，采 16 条可能就有错的了。<br>
+      <strong>提高 temperature</strong>：现在用 1.0，调高会让答案更分散。<br>
+      <strong>换更难的题</strong>：GSM8K 前几题偏简单，后面的题错误率更高。
+    </p>
+    <p class="muted" style="margin-top:8px">
+      这三个都是 <code>PROFILES</code> 里的参数，改起来是一行的事。
+    </p>
+  </div>
+</section>
+
+<section id="engineering">
+  <h2><span class="num">08</span>工程骨架</h2>
+
+  <p>
+    算法只有上面那些。剩下的 200 行代码都是为了让它在真实环境里跑得住。
+    这部分同样值得读，因为<strong>换到别的项目时，改的就是这一层</strong>。
+  </p>
+
+  <h3>文件分工</h3>
+  <div class="tree">
+<span class="d">experiments/grpo/</span>
+├── <span class="f">local_gpu.py</span>        <span class="cm"># 本章主脚本：训练循环，约 200 行</span>
+├── <span class="f">03-grpo.py</span>          <span class="cm"># 原版 PyTRIO 章节，只复用其中的纯函数</span>
+├── <span class="f">readme.md</span>           <span class="cm"># 文字版讲解</span>
+└── <span class="d">results/</span>            <span class="cm"># 跑完自动同步，可 commit</span>
+
+<span class="d">scripts/</span>
+├── <span class="f">local_gpu_trainer.py</span> <span class="cm"># 02/03 共用：QLoRA、采样、loss</span>
+├── <span class="f">local_gpu_common.py</span>  <span class="cm"># 纯算法：loss 公式、advantage、AST 加载器</span>
+├── <span class="f">modelscope_lib.py</span>    <span class="cm"># 工作区、状态、归档、Git 同步</span>
+└── <span class="f">run_modelscope.py</span>    <span class="cm"># 按顺序跑章节的调度器</span>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <span class="tag">复用而非复制</span>
+      <h4>AST 加载器</h4>
+      <p>
+        <code>03-grpo.py</code> 里有 <code>grade_answer</code> 这些纯函数，但它顶部 import 了
+        <code>pytrio</code> 和 <code>swanlab</code>，本地装不了。
+      </p>
+      <p>
+        <code>load_original_module()</code> 用 AST 只抠出需要的函数和常量，
+        绕开顶层 import。<strong>好处是 reward 逻辑和原版永远一致</strong>，不会出现两份实现漂移。
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="tag">显存</span>
+      <h4>4-bit QLoRA</h4>
+      <p>
+        模型以 NF4 4-bit 加载，只训练 LoRA adapter（<code>r=16</code>，<code>all-linear</code>）。
+      </p>
+      <p>
+        4B 模型 + 4-bit 量化 + 梯度检查点，在 A10 23GB 上稳定运行，
+        实测占用约 <strong>4.5GB</strong>。
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="tag">持久化</span>
+      <h4>三段式产物</h4>
+      <p>
+        <strong>大产物</strong>（adapter、模型缓存）留在 <code>/mnt/workspace</code>；
+        <strong>轻量记录</strong>（json/jsonl/log）同步到 Git 范围；
+        <strong>完整归档</strong>用 <code>export_results.sh</code> 打包下载。
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="tag">可恢复</span>
+      <h4>章节状态机</h4>
+      <p>
+        每章有 <code>running</code> / <code>completed</code> / <code>failed</code> /
+        <code>data_unavailable</code> 状态。重跑时默认跳过已完成的，
+        加 <code>--force</code> 才强制重跑。
+      </p>
+    </div>
+  </div>
+
+  <h3>一次运行的时序</h3>
+  <pre><code>bash scripts/run_modelscope.sh chapter 02 --profile full
+  │
+  ├─ run_modelscope.py 建工作区、写环境快照
+  ├─ subprocess 启动 local_gpu.py
+  │    ├─ 下载模型（首次）→ /mnt/workspace/cache/modelscope
+  │    ├─ 下载 GSM8K parquet
+  │    ├─ 加载 4-bit 模型 + LoRA
+  │    ├─ for step in range(10):   ← 上面的五步
+  │    ├─ 保存 adapter
+  │    └─ 写 summary.json / history.json
+  ├─ 状态改成 completed
+  └─ sync_results_to_repo() 把轻量记录复制进 experiments/grpo/results/</code></pre>
+</section>
+
+<section id="results">
+  <h2><span class="num">09</span>结果怎么读</h2>
+
+  <p>
+    跑完之后产物分两处，理解这个分工比记住文件名重要。
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>文件</th><th>在哪</th><th>看什么</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>config.json</code></td>
+          <td>results/02-grpo/&lt;run&gt;/</td>
+          <td>本次用了什么模型、几步、group_size、哪个 loss</td>
+        </tr>
+        <tr>
+          <td><code>samples.jsonl</code></td>
+          <td>同上</td>
+          <td><strong>最重要</strong>：每题 4 条完整回答 + reward + advantage</td>
+        </tr>
+        <tr>
+          <td><code>history.json</code></td>
+          <td>同上</td>
+          <td>10 步的 reward / degenerate / train_samples / loss</td>
+        </tr>
+        <tr>
+          <td><code>chapter-02.log</code></td>
+          <td>results/</td>
+          <td>完整 stdout，含下载进度和报错 traceback</td>
+        </tr>
+        <tr>
+          <td><code>adapter/</code></td>
+          <td><code>/mnt/workspace</code> 里</td>
+          <td>LoRA 权重，<strong>不进 Git</strong>（二进制太大）</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>一次真实运行的时间分布</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>step</th><th>耗时</th><th>生成 token</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>9s</td><td>75.8</td><td>短回答，全对，跳过</td></tr>
+        <tr><td>2–3</td><td>15s</td><td>~135</td><td>回答变长，仍全对</td></tr>
+        <tr><td><strong>4</strong></td><td><strong>25s</strong></td><td>139.0</td><td><strong>唯一训练步，多了 forward + backward</strong></td></tr>
+        <tr><td>5</td><td>26s</td><td>219.0</td><td>最长的回答，但仍全对</td></tr>
+        <tr><td>9</td><td>26s</td><td>214.8</td><td>回答越长越慢，生成是瓶颈</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <b>瓶颈在生成，不在训练</b>
+    <p>
+      每步 9–26 秒，绝大部分花在 <code>model.generate</code> 上。
+      真正训练的那一步只比其它步多几秒。
+    </p>
+    <p>
+      所以想加速，方向是<strong>减少生成 token 数</strong>（调小 <code>max_new_tokens</code>）
+      或者<strong>换更快的采样后端</strong>（vLLM / SGLang），而不是优化 loss 计算。
+    </p>
+  </div>
+</section>
+
+<section id="pitfalls">
+  <h2><span class="num">10</span>踩过的坑</h2>
+
+  <p>
+    下面每一条都是在 A10 上真实撞到、修掉、并留下测试的。
+    它们不是理论问题，是<strong>换台机器、换个模型版本就会再出现</strong>的问题。
+  </p>
+
+  <div class="callout trap">
+    <b>① 训练模式采样，输出全是乱码</b>
+    <p>
+      <strong>现象：</strong>reward 全 0，回答是 <code>'\,thimes{costan月tanftyrdimes...'</code> 这种。
+    </p>
+    <p>
+      <strong>原因：</strong>训练模式开了 gradient checkpointing，它和 KV cache 互斥。
+      <code>generate()</code> 每步被强制丢掉 <code>past_key_values</code>，
+      模型只能看到当前 1 个 token，位置编码却还在往后偏移，于是瞎猜。
+    </p>
+    <p>
+      <strong>修法：</strong>采样前 <code>model.eval()</code>，采完 <code>model.train()</code> 切回来。
+    </p>
+  </div>
+
+  <div class="callout trap">
+    <b>② 每组采了 16 条而不是 4 条</b>
+    <p>
+      <strong>原因：</strong>先把 batch-1 的 prompt 手工 repeat 4 次，又传了
+      <code>num_return_sequences=4</code>，结果 4 × 4 = 16 条。
+    </p>
+    <p>
+      <strong>修法：</strong>直接传 batch-1 的输入，让 <code>generate</code> 自己展开。
+    </p>
+  </div>
+
+  <div class="callout trap">
+    <b>③ 下载完 12GB 模型才报 AttributeError</b>
+    <p>
+      <strong>原因：</strong>AST 加载器用 <code>ast.literal_eval</code> 过滤常量，
+      而 <code>FEWSHOT_PREFIX</code> 是 <code>"..." + QUESTION_SUFFIX</code> 拼出来的，
+      不是纯字面量，被静默丢弃。
+    </p>
+    <p>
+      <strong>修法：</strong>改成表达式级安全检测，并让每个章节显式声明依赖的常量，
+      缺失就在训练开始前失败。
+    </p>
+  </div>
+
+  <div class="callout trap">
+    <b>④ huggingface.co 连不上</b>
+    <p>
+      <strong>现象：</strong>第 3 章 <code>LocalEntryNotFoundError: Network is unreachable</code>。
+    </p>
+    <p>
+      <strong>修法：</strong>默认 <code>HF_ENDPOINT=https://hf-mirror.com</code>，可覆盖。
+    </p>
+  </div>
+
+  <div class="callout ok">
+    <b>这些坑都留了回归测试</b>
+    <p>
+      <code>tests/</code> 下有 32 个不依赖 torch 的测试，
+      其中就有「采样必须在 eval 模式」「每组必须恰好 group_size 条」这两条。
+      改坏了会立刻红。
+    </p>
+  </div>
+</section>
+
+<footer>
+  <span>agentic-rl-lab · fork by kuangxiaoc</span>
+  <span>数据来源：run-20261108-184052（full profile，A10）</span>
+  <span>代码：experiments/grpo/local_gpu.py</span>
+</footer>
+
+</main>
+</div>
+
+<script>
+  const links = [...document.querySelectorAll('nav a')];
+  const sections = links.map(a => document.querySelector(a.getAttribute('href')));
+
+  const spy = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const i = sections.indexOf(entry.target);
+      if (i < 0) return;
+      links.forEach(l => l.classList.remove('on'));
+      links[i].classList.add('on');
+    });
+  }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+
+  sections.forEach(s => s && spy.observe(s));
+</script>
+</body>
+</html>
