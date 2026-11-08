@@ -39,7 +39,9 @@ class PureAlgorithmTests(unittest.TestCase):
 class OriginalCodeReuseTests(unittest.TestCase):
     def test_original_grpo_pure_logic_is_importable_without_pytrio(self):
         module = common.load_original_module(
-            "grpo_03", REPO_ROOT / "experiments" / "grpo" / "03-grpo.py"
+            "grpo_03",
+            REPO_ROOT / "experiments" / "grpo" / "03-grpo.py",
+            required=("FEWSHOT_PREFIX", "QUESTION_SUFFIX", "extract_gsm8k_answer", "grade_answer"),
         )
         self.assertEqual(module.extract_boxed("answer \\boxed{1,000}"), "1,000")
         self.assertEqual(module.normalize_answer("1,000."), "1000")
@@ -47,9 +49,39 @@ class OriginalCodeReuseTests(unittest.TestCase):
         self.assertEqual(module.grade_answer("\\boxed{42}", "42"), 1.0)
         self.assertEqual(module.grade_answer("\\boxed{41}", "42"), 0.0)
 
+    def test_constants_built_from_other_constants_are_kept(self):
+        """FEWSHOT_PREFIX is a list whose text adds QUESTION_SUFFIX, not a bare literal."""
+        module = common.load_original_module(
+            "grpo_03", REPO_ROOT / "experiments" / "grpo" / "03-grpo.py"
+        )
+        self.assertEqual(len(module.FEWSHOT_PREFIX), 2)
+        self.assertEqual({msg["role"] for msg in module.FEWSHOT_PREFIX}, {"user", "assistant"})
+        self.assertTrue(module.FEWSHOT_PREFIX[0]["content"].endswith(module.QUESTION_SUFFIX))
+        self.assertIn("\\boxed{", module.FEWSHOT_PREFIX[1]["content"])
+
+    def test_compiled_regex_constant_comes_from_the_original_file(self):
+        module = common.load_original_module(
+            "vision_train",
+            REPO_ROOT / "experiments" / "vision-grpo" / "train.py",
+            required=("BOXED_CHOICE_PATTERN", "extract_choice"),
+        )
+        self.assertEqual(module.BOXED_CHOICE_PATTERN.pattern, r"\\boxed\s*\{\s*([A-D])\s*\}")
+        self.assertEqual(module.extract_choice("\\boxed{d}"), "D")
+
+    def test_required_attributes_fail_loudly(self):
+        with self.assertRaises(AttributeError) as context:
+            common.load_original_module(
+                "grpo_03",
+                REPO_ROOT / "experiments" / "grpo" / "03-grpo.py",
+                required=("A_CONSTANT_that_was_dropped",),
+            )
+        self.assertIn("did not expose", str(context.exception))
+
     def test_original_vision_pure_logic_is_importable_without_pytrio(self):
         module = common.load_original_module(
-            "vision_train", REPO_ROOT / "experiments" / "vision-grpo" / "train.py"
+            "vision_train",
+            REPO_ROOT / "experiments" / "vision-grpo" / "train.py",
+            required=("CHOICE_LETTERS", "format_question", "extract_choice"),
         )
         self.assertEqual(module.extract_choice("final \\boxed{b}"), "B")
         self.assertIsNone(module.extract_choice("no answer"))

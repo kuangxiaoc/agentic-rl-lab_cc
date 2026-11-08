@@ -50,6 +50,11 @@ def doctor(root: Path, profile: str) -> int:
         print(f"torch={torch.__version__} cuda_available={torch.cuda.is_available()}")
         if torch.cuda.is_available():
             print(f"gpu={torch.cuda.get_device_name(0)}")
+            props = torch.cuda.get_device_properties(0)
+            print(
+                f"vram={props.total_memory / 1024**3:.1f}GiB "
+                f"capability={torch.cuda.get_device_capability(0)}"
+            )
     except ImportError as exc:
         print(f"torch=missing ({exc})")
     for name in ("transformers", "peft", "bitsandbytes", "modelscope", "datasets", "accelerate"):
@@ -58,9 +63,26 @@ def doctor(root: Path, profile: str) -> int:
             print(f"{name}={getattr(module, '__version__', 'installed')}")
         except ImportError as exc:
             print(f"{name}=missing ({exc})")
+    # 4-bit loading is the step that can fail with an intact-looking install, so
+    # report the compiled extension state before any chapter spends time on a download.
+    try:
+        from bitsandbytes import cextension
+
+        setup = getattr(cextension, "setup", None)
+        print(f"bitsandbytes_cuda={getattr(setup, 'available', 'unknown')}")
+    except Exception as exc:  # noqa: BLE001 - diagnostics must never fail the doctor
+        print(f"bitsandbytes_cuda=error ({type(exc).__name__}: {exc})")
     print(f"api_key_present DASHSCOPE_API_KEY={bool(os.environ.get('DASHSCOPE_API_KEY'))}")
     print("external_api_calls=disabled (budget reservation only)")
     return 0
+
+
+def log_tail(log_path: Path, lines: int = 25) -> list[str]:
+    """Read the end of a chapter log; the failure cause lives here, not on stdout."""
+    try:
+        return log_path.read_text(encoding="utf-8", errors="replace").splitlines()[-lines:]
+    except OSError as exc:
+        return [f"could not read {log_path}: {type(exc).__name__}: {exc}"]
 
 
 def run(
@@ -125,6 +147,8 @@ def run(
             )
             failures.append(chapter)
             print(f"[fail] chapter {chapter:02d}: exit={result.returncode}, log={log_path}")
+            for line in log_tail(log_path):
+                print(f"    {line[-200:]}")
             if not continue_on_error:
                 break
         else:
@@ -135,6 +159,7 @@ def run(
         print(f"[sync] chapter {chapter:02d}: {destination.relative_to(REPO_ROOT)}")
     if failures:
         print(f"failed chapters: {failures}")
+        print("fix hint: read the traceback above, or the synced copy under the chapter results dir")
         return 1
     return 0
 

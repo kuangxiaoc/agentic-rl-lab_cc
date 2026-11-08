@@ -52,56 +52,66 @@ def check_gpu() -> Any:
 
 def download_modelscope_model(model_id: str, root: Path) -> Path:
     """Download a model from ModelScope into the persistent cache."""
-    try:
-        from modelscope import snapshot_download
-    except ImportError:
-        from modelscope.hub.snapshot_download import snapshot_download
+    from modelscope.hub import snapshot_download as hub_module
 
-    kwargs = {"cache_dir": str(root / "cache" / "modelscope" / "models")}
-    signature = inspect.signature(snapshot_download)
-    first = next(iter(signature.parameters), "model_id")
+    function = hub_module.snapshot_download
+    first = next(iter(inspect.signature(function).parameters), "model_id")
+    cache_dir = str(root / "cache" / "modelscope" / "models")
     if first in {"repo_id", "model_id"}:
-        kwargs[first] = model_id
-        path = snapshot_download(**kwargs)
+        path = function(**supported_kwargs(function, cache_dir=cache_dir, **{first: model_id}))
     else:
-        path = snapshot_download(model_id, **kwargs)
+        path = function(model_id, **supported_kwargs(function, cache_dir=cache_dir))
     return Path(path).resolve()
+
+
+def supported_kwargs(function: Any, **kwargs: Any) -> dict[str, Any]:
+    """Keep only the keyword arguments the installed library version declares."""
+    try:
+        parameters = inspect.signature(function).parameters
+    except (TypeError, ValueError):
+        return kwargs
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values()):
+        return kwargs
+    return {key: value for key, value in kwargs.items() if key in parameters}
 
 
 def download_modelscope_dataset(dataset_id: str, root: Path, pattern: str) -> Path:
-    """Download only the known parquet files for one ModelScope dataset."""
-    try:
-        from modelscope import dataset_snapshot_download, snapshot_download
-    except ImportError:
-        from modelscope.hub.snapshot_download import (
-            dataset_snapshot_download,
-            snapshot_download,
-        )
+    """Download only the known parquet files for one ModelScope dataset.
 
-    cache = root / "cache" / "modelscope" / "datasets"
-    try:
-        path = dataset_snapshot_download(
-            dataset_id=dataset_id,
-            cache_dir=str(cache),
-            allow_patterns=[pattern],
+    modelscope exposes the dataset helper in ``modelscope.hub.snapshot_download``;
+    the top-level re-export has moved between versions, so look it up by attribute
+    instead of relying on one import path plus an exception-type fallback.
+    """
+    from modelscope.hub import snapshot_download as hub_module
+
+    cache = str(root / "cache" / "modelscope" / "datasets")
+    attempts: list[tuple[Any, dict[str, Any]]] = []
+    dataset_fn = getattr(hub_module, "dataset_snapshot_download", None)
+    if callable(dataset_fn):
+        attempts.append((dataset_fn, {"dataset_id": dataset_id}))
+    generic_fn = getattr(hub_module, "snapshot_download", None)
+    if callable(generic_fn):
+        first = next(iter(inspect.signature(generic_fn).parameters), "model_id")
+        attempts.append((generic_fn, {first: dataset_id, "repo_type": "dataset"}))
+
+    errors: list[str] = []
+    for function, id_kwargs in attempts:
+        kwargs = supported_kwargs(
+            function, cache_dir=cache, allow_patterns=[pattern], **id_kwargs
         )
-    except (AttributeError, TypeError):
-        signature = inspect.signature(snapshot_download)
-        kwargs: dict[str, Any] = {
-            "cache_dir": str(cache),
-            "repo_type": "dataset",
-        }
-        if "allow_patterns" in signature.parameters:
-            kwargs["allow_patterns"] = [pattern]
-        elif "allow_file_pattern" in signature.parameters:
-            kwargs["allow_file_pattern"] = [pattern]
-        first = next(iter(signature.parameters), "model_id")
-        if first in {"repo_id", "model_id"}:
-            kwargs[first] = dataset_id
-            path = snapshot_download(**kwargs)
-        else:
-            path = snapshot_download(dataset_id, **kwargs)
-    return Path(path).resolve()
+        try:
+            path = function(**kwargs)
+        except Exception as exc:  # noqa: BLE001 - report every hub attempt
+            errors.append(f"{function.__name__}{sorted(kwargs)}: {type(exc).__name__}: {exc}")
+            continue
+        if path:
+            return Path(path).resolve()
+        errors.append(f"{function.__name__} returned no local path")
+    raise DataUnavailable(
+        "Could not download dataset "
+        + dataset_id
+        + ("; attempts: " + " | ".join(errors) if errors else "")
+    )
 
 
 def load_parquet_rows(path: Path) -> list[dict[str, Any]]:
@@ -198,21 +208,12 @@ def build_qlora_model(model_dir: Path, rank: int = 16, vision: bool = False) -> 
     return model, text_tokenizer, tokenizer
 
 
-def call_supported(function: Any, **kwargs: Any) -> Any:
-    """Drop optional kwargs that the installed library version does not accept."""
-    try:
-        supported = inspect.signature(function).parameters
-    except (TypeError, ValueError):
-        return function(**kwargs)
-    accepts_extra = any(
-        parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in supported.values()
-    )
-    filtered = {
-        key: value
-        for key, value in kwargs.items()
-        if key in supported or accepts_extra
-    }
-    return function(**filtered)
+def chat_template_mentions(tokenizer: Any, variable: str) -> bool:
+    """Check whether the model's own Jinja template reads one generation variable."""
+    template = getattr(tokenizer, "chat_template", None)
+    if isinstance(template, dict):
+        return any(variable in (value or "") for value in template.values() if isinstance(value, str))
+    return isinstance(template, str) and variable in template
 
 
 def apply_chat_template(tokenizer: Any, messages: list[dict[str, Any]], vision: bool = False) -> Any:
@@ -222,14 +223,29 @@ def apply_chat_template(tokenizer: Any, messages: list[dict[str, Any]], vision: 
         "return_dict": True,
         "return_tensors": "pt",
     }
-    if not vision:
+    # Passing the conversation positionally works for both the old `conversation=`
+    # and the current `messages=` parameter name, so the rename cannot break 02/03.
+    # `enable_thinking` only exists in thinking-capable templates, so it is passed
+    # only when the model's own template reads it; Qwen3-*-Instruct has no such flag.
+    if not vision and chat_template_mentions(tokenizer, "enable_thinking"):
         kwargs["enable_thinking"] = False
-    result = call_supported(
-        tokenizer.apply_chat_template, conversation=messages, **kwargs
-    )
+    result = tokenizer.apply_chat_template(messages, **kwargs)
     if hasattr(result, "pop"):
         result.pop("token_type_ids", None)
     return result
+
+
+def pad_token_id(tokenizer: Any) -> int | None:
+    """Qwen chat models have no real pad token, so stop generation on EOS.
+
+    A vision processor may not expose token ids at all; returning None then lets
+    Transformers fall back to the model's own generation config.
+    """
+    for name in ("pad_token_id", "eos_token_id"):
+        value = getattr(tokenizer, name, None)
+        if isinstance(value, int):
+            return value
+    return None
 
 
 def move_inputs(inputs: Any, device: Any, torch_module: Any) -> dict[str, Any]:
@@ -270,23 +286,19 @@ def generate_group(
     torch_module.manual_seed(seed)
     input_ids = inputs["input_ids"]
     prompt_length = input_ids.shape[1]
-    expanded = {
-        key: value.repeat(group_size, *([1] * (value.dim() - 1)))
-        if hasattr(value, "repeat") and value.shape[0] == 1
-        else value
-        for key, value in inputs.items()
-    }
     with torch_module.no_grad():
         # Include generation scores so the sampling policy's logprobs are retained.
+        # `num_return_sequences` expands the batch-1 prompt inside generate(), which
+        # also repeats multimodal tensors; repeating them here first would sample
+        # group_size ** 2 completions for one GRPO group.
         output = model.generate(
-            **expanded,
+            **inputs,
             do_sample=True,
             num_return_sequences=group_size,
             max_new_tokens=max_new_tokens,
             temperature=temperature,
             top_p=top_p,
-            pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
-            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=pad_token_id(tokenizer),
             return_dict_in_generate=True,
             output_scores=True,
         )
@@ -310,7 +322,7 @@ def generate_group(
             old_logprobs.append(token_logprobs)
             texts.append(tokenizer.decode(tokens, skip_special_tokens=True))
         valid_lengths = [len(tokens) for tokens in completions]
-        del expanded, output, sequences, scores
+        del output, sequences, scores
     torch_module.cuda.empty_cache()
     if min(valid_lengths, default=0) < max(valid_lengths, default=0):
         print(

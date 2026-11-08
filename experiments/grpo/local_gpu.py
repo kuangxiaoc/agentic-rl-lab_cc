@@ -39,7 +39,9 @@ def main() -> int:
     args = trainer.chapter_cli("本地 GPU 版 GRPO / GSM8K")
     root, run_dir, run_id, config = trainer.prepare_run(2, args)
     original = common.load_original_module(
-        "grpo_03", REPO_ROOT / "experiments" / "grpo" / "03-grpo.py"
+        "grpo_03",
+        REPO_ROOT / "experiments" / "grpo" / "03-grpo.py",
+        required=("FEWSHOT_PREFIX", "QUESTION_SUFFIX", "extract_gsm8k_answer", "grade_answer"),
     )
     summary: dict[str, object] = {
         "chapter": 2,
@@ -199,6 +201,8 @@ def main() -> int:
             "failed",
             {"error": f"{type(exc).__name__}: {exc}", "error_log": str(run_dir / "error.txt")},
         )
+        # The runner captures stderr in the chapter log, so the traceback must reach it.
+        traceback.print_exc()
         print(f"chapter 02 failed: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         return 1
 

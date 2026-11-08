@@ -58,7 +58,9 @@ def main() -> int:
     args = trainer.chapter_cli("本地 GPU 版 Vision GRPO / GeoQA")
     root, run_dir, run_id, config = trainer.prepare_run(3, args)
     original = common.load_original_module(
-        "vision_train", REPO_ROOT / "experiments" / "vision-grpo" / "train.py"
+        "vision_train",
+        REPO_ROOT / "experiments" / "vision-grpo" / "train.py",
+        required=("CHOICE_LETTERS", "format_question", "extract_choice"),
     )
     summary: dict[str, object] = {
         "chapter": 3,
@@ -231,6 +233,8 @@ def main() -> int:
             "failed",
             {"error": f"{type(exc).__name__}: {exc}", "error_log": str(run_dir / "error.txt")},
         )
+        # The runner captures stderr in the chapter log, so the traceback must reach it.
+        traceback.print_exc()
         print(f"chapter 03 failed: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         return 1
 
