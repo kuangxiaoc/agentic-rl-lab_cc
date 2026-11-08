@@ -107,9 +107,24 @@ class BudgetAndArchiveTests(unittest.TestCase):
             joined = "\n".join(names)
             self.assertIn("results/state.json", joined)
             self.assertIn("results/runs/01-loss-functions/run-1/adapter_model.safetensors", joined)
-            self.assertIn("code/chapter.py", joined)
+            # Sources are already in Git, so the default archive stays results-only.
+            self.assertNotIn("code/chapter.py", joined)
             self.assertNotIn(".env", joined)
             self.assertNotIn("cache/model.safetensors", joined)
+
+    def test_archive_can_include_code_on_request(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            repo = Path(tmp) / "repo"
+            root.mkdir()
+            repo.mkdir()
+            (root / "state.json").write_text('{"ok": true}\n', encoding="utf-8")
+            (repo / "chapter.py").write_text("print('study')\n", encoding="utf-8")
+            archive = lib.create_archive(root, repo, include_code=True)
+            with tarfile.open(archive, "r:gz") as tar:
+                joined = "\n".join(tar.getnames())
+            self.assertIn("code/chapter.py", joined)
+            self.assertIn("results/state.json", joined)
 
     def test_report_and_study_notes_are_generated(self):
         with tempfile.TemporaryDirectory() as tmp:

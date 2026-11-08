@@ -293,8 +293,13 @@ def _copy_synced_file(source: Path, target: Path) -> None:
         shutil.copy2(source, target)
 
 
-def create_archive(root: Path, repo: Path) -> Path:
-    """Package persistent results and readable source code for local download."""
+def create_archive(root: Path, repo: Path, include_code: bool = False) -> Path:
+    """Package persistent results for local download.
+
+    Code is not included by default: the same sources are already in Git, and a
+    second copy inside the archive drifts from the committed version. Pass
+    ``include_code=True`` only when you want a self-contained snapshot.
+    """
     root = Path(root).resolve()
     repo = Path(repo).resolve()
     ensure_within_root(root, root)
@@ -308,12 +313,13 @@ def create_archive(root: Path, repo: Path) -> Path:
             source = root / name
             if source.exists():
                 tar.add(source, arcname=f"results/{name}", filter=_archive_filter)
-        tar.add(repo, arcname="code", filter=_archive_filter)
+        if include_code:
+            tar.add(repo, arcname="code", filter=_archive_filter)
         readme = (
             "# 实验归档\n\n"
             f"生成时间：{_now()}\n\n"
             "- `results/`：状态、指标、日志、检查点、报告和学习笔记\n"
-            "- `code/`：本 fork 的可读源码与原版章节\n"
+            "- 源码不在此归档内；同一份代码在 Git 仓库中，`git pull` 即可获得\n"
             "- 模型缓存、`.env`、`.git` 与超过 100 MiB 的文件不会进入归档\n"
         )
         content = readme.encode("utf-8")

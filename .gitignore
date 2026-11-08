@@ -3,6 +3,9 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Local experiment archives pulled from the GPU box (large, not source)
+.local-exports/
+
 # C extensions
 *.so
 
