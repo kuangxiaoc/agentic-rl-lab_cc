@@ -193,6 +193,19 @@ class ChatTemplateTests(unittest.TestCase):
         self.assertEqual(trainer.pad_token_id(FakeTokenizer()), EOS)
         self.assertIsNone(trainer.pad_token_id(object()))
 
+    def test_processor_inner_tokenizer_is_unwrapped(self):
+        """Qwen3VLProcessor wraps the tokenizer and has no eos_token_id itself."""
+        inner = FakeTokenizer(pad_token_id=0)
+
+        class FakeProcessor:
+            tokenizer = inner
+
+        processor = FakeProcessor()
+        self.assertFalse(hasattr(processor, "eos_token_id"))
+        self.assertIs(trainer.text_tokenizer(processor), inner)
+        self.assertEqual(trainer.pad_token_id(processor), 0)
+        self.assertIs(trainer.text_tokenizer(inner), inner)
+
 
 class SupportedKwargsTests(unittest.TestCase):
     def test_unknown_kwargs_are_dropped(self):
@@ -296,6 +309,17 @@ class GenerateGroupTests(unittest.TestCase):
             device="cuda:0",
         )
         self.assertFalse(model.training)
+
+    def test_processor_is_accepted_for_eos_and_decoding(self):
+        inner = FakeTokenizer()
+
+        class FakeProcessor:
+            tokenizer = inner
+
+        call, _, (completions, _, texts, _) = self.run_group(2, tokenizer=FakeProcessor())
+        self.assertEqual(call["pad_token_id"], EOS)
+        self.assertEqual(completions[0], [7, 8, EOS])
+        self.assertEqual(len(texts), 2)
 
 
 if __name__ == "__main__":

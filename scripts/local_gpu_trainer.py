@@ -253,12 +253,25 @@ def apply_chat_template(tokenizer: Any, messages: list[dict[str, Any]], vision: 
     return result
 
 
+def text_tokenizer(tokenizer: Any) -> Any:
+    """Return whatever exposes token ids: a tokenizer, or a processor's inner one.
+
+    ``Qwen3VLProcessor`` wraps the tokenizer and has no ``eos_token_id`` of its own,
+    so callers must unwrap it before reading ids or decoding.
+    """
+    if getattr(tokenizer, "eos_token_id", None) is not None:
+        return tokenizer
+    inner = getattr(tokenizer, "tokenizer", None)
+    return inner if inner is not None else tokenizer
+
+
 def pad_token_id(tokenizer: Any) -> int | None:
     """Qwen chat models have no real pad token, so stop generation on EOS.
 
     A vision processor may not expose token ids at all; returning None then lets
     Transformers fall back to the model's own generation config.
     """
+    tokenizer = text_tokenizer(tokenizer)
     for name in ("pad_token_id", "eos_token_id"):
         value = getattr(tokenizer, name, None)
         if isinstance(value, int):
@@ -304,6 +317,7 @@ def generate_group(
     torch_module.manual_seed(seed)
     input_ids = inputs["input_ids"]
     prompt_length = input_ids.shape[1]
+    text_tok = text_tokenizer(tokenizer)
     # Gradient checkpointing is incompatible with the KV cache, so generate() would
     # drop past_key_values every step and sample from a single-token context, which
     # decodes as gibberish. Sample in eval mode, then hand the model back in train mode.
@@ -327,7 +341,7 @@ def generate_group(
         )
         sequences = output.sequences
         scores = output.scores
-        eos_ids = {tokenizer.eos_token_id} if tokenizer.eos_token_id is not None else set()
+        eos_ids = {text_tok.eos_token_id} if text_tok.eos_token_id is not None else set()
         completions: list[list[int]] = []
         old_logprobs: list[list[float]] = []
         texts: list[str] = []
@@ -343,7 +357,7 @@ def generate_group(
                 logits = scores[position][index].float()
                 token_logprobs.append(torch_module.log_softmax(logits, dim=-1)[token].item())
             old_logprobs.append(token_logprobs)
-            texts.append(tokenizer.decode(tokens, skip_special_tokens=True))
+            texts.append(text_tok.decode(tokens, skip_special_tokens=True))
         valid_lengths = [len(tokens) for tokens in completions]
         del output, sequences, scores
     if was_training:
