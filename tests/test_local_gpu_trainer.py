@@ -104,9 +104,12 @@ class FakeOutput:
 class FakeModel:
     def __init__(self):
         self.calls = []
+        self.training = True
+        self.training_when_generating = []
 
     def generate(self, **kwargs):
         self.calls.append(kwargs)
+        self.training_when_generating.append(self.training)
         prompt = kwargs["input_ids"][0].tolist()
         group = kwargs["num_return_sequences"]
         rows = [
@@ -115,6 +118,14 @@ class FakeModel:
         ]
         scores = [_ScoreStep(step) for step in range(max(len(row) - len(prompt) for row in rows))]
         return FakeOutput([_Row(row) for row in rows], scores)
+
+    def eval(self):
+        self.training = False
+        return self
+
+    def train(self):
+        self.training = True
+        return self
 
 
 class FakeTokenizer:
@@ -248,6 +259,43 @@ class GenerateGroupTests(unittest.TestCase):
         call, _, (completions, _, _, _) = self.run_group(4)
         self.assertEqual(call["num_return_sequences"], 4)
         self.assertEqual(len(completions), 4)
+
+    def test_sampling_runs_in_eval_mode_and_restores_train_mode(self):
+        """Gradient checkpointing disables the KV cache, so sampling must use eval mode."""
+        model = FakeModel()
+        model.train()
+        inputs = {"input_ids": _Matrix([PROMPT])}
+        trainer.generate_group(
+            model,
+            FakeTokenizer(),
+            inputs,
+            group_size=2,
+            max_new_tokens=8,
+            temperature=1.0,
+            top_p=1.0,
+            seed=1,
+            torch_module=FakeTorch(),
+            device="cuda:0",
+        )
+        self.assertEqual(model.training_when_generating, [False])
+        self.assertTrue(model.training, "model must be returned in train mode for the loss step")
+
+    def test_a_model_already_in_eval_mode_is_left_alone(self):
+        model = FakeModel()
+        model.eval()
+        trainer.generate_group(
+            model,
+            FakeTokenizer(),
+            {"input_ids": _Matrix([PROMPT])},
+            group_size=1,
+            max_new_tokens=8,
+            temperature=1.0,
+            top_p=1.0,
+            seed=1,
+            torch_module=FakeTorch(),
+            device="cuda:0",
+        )
+        self.assertFalse(model.training)
 
 
 if __name__ == "__main__":

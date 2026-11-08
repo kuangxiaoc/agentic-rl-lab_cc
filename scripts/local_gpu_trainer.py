@@ -293,6 +293,11 @@ def generate_group(
     torch_module.manual_seed(seed)
     input_ids = inputs["input_ids"]
     prompt_length = input_ids.shape[1]
+    # Gradient checkpointing is incompatible with the KV cache, so generate() would
+    # drop past_key_values every step and sample from a single-token context, which
+    # decodes as gibberish. Sample in eval mode, then hand the model back in train mode.
+    was_training = model.training
+    model.eval()
     with torch_module.no_grad():
         # Include generation scores so the sampling policy's logprobs are retained.
         # `num_return_sequences` expands the batch-1 prompt inside generate(), which
@@ -330,6 +335,8 @@ def generate_group(
             texts.append(tokenizer.decode(tokens, skip_special_tokens=True))
         valid_lengths = [len(tokens) for tokens in completions]
         del output, sequences, scores
+    if was_training:
+        model.train()
     torch_module.cuda.empty_cache()
     if min(valid_lengths, default=0) < max(valid_lengths, default=0):
         print(
