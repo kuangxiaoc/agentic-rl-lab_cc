@@ -1,3 +1,4 @@
+import math
 import sys
 import unittest
 from pathlib import Path
@@ -213,6 +214,63 @@ class DAPOOriginalRewardTests(unittest.TestCase):
         )
         self.assertEqual(result.length_penalty, 0.0)
         self.assertEqual(result.shaped_reward, 1.0)
+
+
+class GSPOTests(unittest.TestCase):
+    def test_sequence_ratio_is_the_geometric_mean_of_token_ratios(self):
+        # every token logprob shifts by ln(1.5), so the sequence ratio is 1.5
+        delta = math.log(1.5)
+        self.assertAlmostEqual(common.sequence_ratio([0.0] * 4, [delta] * 4), 1.5)
+
+    def test_sequence_ratio_does_not_grow_with_length(self):
+        """The whole point of GSPO: a 200-token answer is not penalised vs 20."""
+        delta = math.log(1.5)
+        short = common.sequence_ratio([0.0] * 20, [delta] * 20)
+        long = common.sequence_ratio([0.0] * 200, [delta] * 200)
+        self.assertAlmostEqual(short, long)
+        # A token-level product would explode: 1.5 ** 200 is astronomically large.
+        self.assertLess(long, 2.0)
+
+    def test_sequence_ratio_handles_uneven_token_shifts(self):
+        # mean of [ln2, ln8] = ln4 -> ratio 4
+        ratios = common.sequence_ratio([0.0, 0.0], [math.log(2), math.log(8)])
+        self.assertAlmostEqual(ratios, 4.0)
+
+    def test_sequence_ratio_rejects_bad_input(self):
+        with self.assertRaises(ValueError):
+            common.sequence_ratio([], [])
+        with self.assertRaises(ValueError):
+            common.sequence_ratio([0.0, 0.0], [0.0])
+
+    def test_gspo_loss_averages_sequences_not_tokens(self):
+        delta = math.log(2.0)
+        # one long sequence and one short sequence with the same ratio
+        loss, ratios = common.gspo_loss(
+            [
+                ([0.0] * 100, [delta] * 100, 1.0),
+                ([0.0] * 2, [delta] * 2, 1.0),
+            ]
+        )
+        self.assertEqual(len(ratios), 2)
+        self.assertAlmostEqual(ratios[0], 2.0)
+        self.assertAlmostEqual(ratios[1], 2.0)
+        # clip_high=4e-4 so both clip to 1.0004; equal weight -> -1.0004
+        self.assertAlmostEqual(loss, -1.0004)
+
+    def test_gspo_loss_uses_asymmetric_clip_bounds(self):
+        delta_up = math.log(1.5)
+        delta_down = math.log(0.5)
+        loss_up, ratios_up = common.gspo_loss([([0.0], [delta_up], 1.0)])
+        loss_down, ratios_down = common.gspo_loss([([0.0], [delta_down], -1.0)])
+        self.assertAlmostEqual(ratios_up[0], 1.5)
+        self.assertAlmostEqual(ratios_down[0], 0.5)
+        # positive advantage clips at 1 + 4e-4; negative advantage at 1 - 3e-4
+        self.assertAlmostEqual(loss_up, -1.0004)
+        self.assertAlmostEqual(loss_down, 0.9997)
+
+    def test_gspo_loss_rejects_empty_batch(self):
+        with self.assertRaises(ValueError):
+            common.gspo_loss([])
 
 
 if __name__ == "__main__":

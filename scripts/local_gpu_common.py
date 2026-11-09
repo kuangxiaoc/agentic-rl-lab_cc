@@ -136,6 +136,56 @@ def dapo_loss(
     return -sum(sequence_means) / len(sequence_means)
 
 
+def sequence_ratio(
+    sampling_logprobs: Iterable[float], current_logprobs: Iterable[float]
+) -> float:
+    """GSPO's sequence-level importance ratio: the geometric mean of token ratios.
+
+    log_ratio = mean_t(current_t - sampling_t)
+    ratio     = exp(log_ratio)
+
+    Averaging in log space keeps the ratio scale-free with respect to completion
+    length, which is the whole point: a 20-token and a 200-token answer are
+    compared on the same scale instead of the longer one being penalised.
+    """
+    sampling = [float(value) for value in sampling_logprobs]
+    current = [float(value) for value in current_logprobs]
+    if not sampling or len(sampling) != len(current):
+        raise ValueError("sampling and current logprobs must be non-empty and equal length")
+    log_ratio = sum(
+        now - old for now, old in zip(current, sampling, strict=True)
+    ) / len(sampling)
+    return math.exp(log_ratio)
+
+
+def gspo_loss(
+    sequences: Iterable[tuple[Iterable[float], Iterable[float], float]],
+    *,
+    clip_low: float = 3e-4,
+    clip_high: float = 4e-4,
+) -> tuple[float, list[float]]:
+    """GSPO's clipped objective over whole sequences.
+
+    Each item is ``(sampling_logprobs, current_logprobs, advantage)``. Every
+    sequence gets one ratio and one clipped objective; the loss averages over
+    sequences, so a long answer cannot dominate merely by having more tokens.
+
+    Returns ``(loss, ratios)`` so callers can log the ratio distribution.
+    """
+    objectives: list[float] = []
+    ratios: list[float] = []
+    for sampling, current, advantage in sequences:
+        ratio = sequence_ratio(sampling, current)
+        clipped = min(max(ratio, 1.0 - clip_low), 1.0 + clip_high)
+        unclipped_objective = ratio * advantage
+        clipped_objective = clipped * advantage
+        objectives.append(min(unclipped_objective, clipped_objective))
+        ratios.append(ratio)
+    if not objectives:
+        raise ValueError("gspo_loss requires at least one sequence")
+    return -sum(objectives) / len(objectives), ratios
+
+
 def completion_valid_length(tokens: Iterable[int], eos_ids: set[int] | frozenset[int]) -> int:
     """Include the first EOS token; ignore any tokens generated after it."""
     values = list(tokens)

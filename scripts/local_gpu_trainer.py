@@ -418,6 +418,51 @@ def sequence_policy_loss(
     raise ValueError(f"Unknown loss function: {loss_fn}")
 
 
+def sequence_policy_loss_gspo(
+    model: Any,
+    sample: Sample,
+    torch_module: Any,
+    device: Any,
+    clip_low: float = 3e-4,
+    clip_high: float = 4e-4,
+) -> Any:
+    """GSPO: one ratio per answer, from the geometric mean of its token ratios.
+
+    Chapter 02/07 compute a per-token ratio and clip each token. GSPO instead
+    averages the log-ratio over the completion, so every answer contributes a
+    single clipped objective and length no longer changes the ratio's scale.
+    """
+    input_ids = torch_module.tensor(
+        [sample.input_ids], device=device, dtype=torch_module.long
+    )
+    attention_mask = torch_module.ones_like(input_ids)
+    kwargs: dict[str, Any] = {"input_ids": input_ids, "attention_mask": attention_mask}
+    if sample.extra_inputs:
+        kwargs.update(sample.extra_inputs)
+    outputs = model(**kwargs, use_cache=False)
+    logits = outputs.logits[0, :-1].float()
+    targets = input_ids[0, 1:]
+    prompt_length = len(sample.input_ids) - len(sample.completion_ids)
+    completion_positions = slice(prompt_length - 1, prompt_length - 1 + len(sample.completion_ids))
+    current = torch_module.log_softmax(logits, dim=-1).gather(
+        1, targets.unsqueeze(1)
+    ).squeeze(1)[completion_positions]
+    valid_length = min(len(current), len(sample.old_logprobs), len(sample.advantages))
+    if valid_length == 0:
+        raise ValueError("A training sample has no valid completion logprobs")
+    current = current[:valid_length]
+    old = torch_module.tensor(
+        sample.old_logprobs[:valid_length], device=device, dtype=torch_module.float32
+    )
+    # One advantage per answer; GSPO scores whole sequences, not tokens.
+    advantage = float(sample.advantages[0])
+    log_ratio = (current - old).mean()
+    ratio = torch_module.exp(log_ratio)
+    clipped = torch_module.clamp(ratio, 1.0 - clip_low, 1.0 + clip_high)
+    objective = torch_module.minimum(ratio * advantage, clipped * advantage)
+    return -objective
+
+
 def save_run_config(run_dir: Path, payload: dict[str, Any]) -> None:
     (run_dir / "config.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"

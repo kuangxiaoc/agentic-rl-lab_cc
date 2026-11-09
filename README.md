@@ -63,7 +63,7 @@
 | [General OPD](./experiments/general-opd/readme.md) | 用 DeepMath-103K 跑通 Student 采样、Teacher 打分与 reverse KL 的最小闭环 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/general-opd/) |
 | [Medical OPD](./experiments/medical-opd/readme.md) | 从 Medical SFT 出发，用 SAR-OPD 和 IDT-OPD 增强医疗能力，同时保持通用能力 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/medical-opd/) |
 | [DAPO](./experiments/dapo/readme.md) | 拆解四项核心改进，并记录 Dynamic Sampling 在真实训练中的时间成本；附本地 GPU 版 | [代码](./experiments/dapo/local_gpu.py) |
-| [GSPO](./experiments/gspo/readme.md) | 将重要性比率与裁剪从 token 级提升到 sequence 级 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/gspo/) |
+| [GSPO](./experiments/gspo/readme.md) | 将重要性比率与裁剪从 token 级提升到 sequence 级；附本地 GPU 版 | [代码](./experiments/gspo/local_gpu.py) |
 | [OPSD](./experiments/opsd/readme.md) | 用固定的 step-0 Teacher 蒸馏 Student 自采样轨迹 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/opsd/) |
 | [AgentOPSD](./experiments/agentopsd/readme.md) | 用带 Skill 的 Self-Teacher 分配 turn-level credit | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/agentopsd/) |
 | [Search-R1](./experiments/search-r1/readme.md) | 用 Qwen3.5-4B、PyTRIO 和可切换的在线搜索后端复现多轮搜索 RL | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/search-r1/) |

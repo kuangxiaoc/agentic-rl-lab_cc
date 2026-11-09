@@ -13,7 +13,7 @@ bash scripts/bootstrap_modelscope.sh
 bash scripts/run_modelscope.sh
 ```
 
-默认按阅读顺序运行 `1-3`，默认 profile 是 `smoke`。第 07 章（DAPO）已有本地 GPU 版，需要显式指定：`bash scripts/run_modelscope.sh chapter 07`。第 04–06 章（PyTrio-Jev / General OPD / Medical OPD）尚未移植，会如实标记 `not_ported`。首次运行会检查并安装缺失的训练库，但**不会**覆盖镜像自带的 GPU 版 `torch`；请永远不要在服务器执行 `uv sync --locked`，因为原仓库的 `uv.lock` 指向 CPU torch。若镜像没有 CUDA `torch`，bootstrap 会直接失败并提示选择 CUDA 13.0 / torch 2.13 环境。
+默认按阅读顺序运行 `1-3`，默认 profile 是 `smoke`。第 07 章（DAPO）与第 08 章（GSPO）已有本地 GPU 版，用 `bash scripts/run_modelscope.sh chapter 07`（或 `08`）单章运行。第 04–06 章（PyTrio-Jev / General OPD / Medical OPD）尚未移植，会如实标记 `not_ported`。首次运行会检查并安装缺失的训练库，但**不会**覆盖镜像自带的 GPU 版 `torch`；请永远不要在服务器执行 `uv sync --locked`，因为原仓库的 `uv.lock` 指向 CPU torch。若镜像没有 CUDA `torch`，bootstrap 会直接失败并提示选择 CUDA 13.0 / torch 2.13 环境。
 
 所有产物统一写入 `/mnt/workspace/agentic-rl-lab/`：
 

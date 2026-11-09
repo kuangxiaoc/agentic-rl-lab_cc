@@ -26,12 +26,14 @@ CHAPTER_NAMES = {
     2: "02-grpo",
     3: "03-vision-grpo",
     7: "07-dapo",
+    8: "08-gspo",
 }
 CHAPTER_RESULT_DIRS = {
     1: "experiments/loss-functions/results",
     2: "experiments/grpo/results",
     3: "experiments/vision-grpo/results",
     7: "experiments/dapo/results",
+    8: "experiments/gspo/results",
 }
 VALID_STATUSES = {
     "not_ported",

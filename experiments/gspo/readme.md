@@ -316,3 +316,111 @@ one sequence-level clipping decision
 ## 总结
 
 GSPO 的思路很直接：保留 GRPO 的 group rollout、reward 和 relative advantage，把重要性比率与 clipping 的单位从 token 改成完整 sequence。我们用 PyTRIO 跑通了这条 custom loss 训练链路，也完成了 Base + 5 个 checkpoint 的 AIME25 评测。Step 20 的单次 Pass@12 提高了 6.66 个百分点，格式遵循率和回答长度的变化更加稳定；数学准确率是否能持续提升，还需要 matched GRPO、更多随机种子和重复评测来回答。
+
+---
+
+# 附：本地 GPU 版 GSPO（不用 PyTRIO）
+
+正文讲的是 PyTRIO 远端训练版的实现。如果你只有一张本地/云端 GPU，可以用 [`local_gpu.py`](./local_gpu.py) 跑同一套算法：它沿用第 02 章已验证的单卡 QLoRA 循环，只把「token 级 ratio」换成「序列级 ratio」。
+
+统一启动说明见 [`MODELSCOPE_LOCAL_GPU.md`](../../MODELSCOPE_LOCAL_GPU.md)。
+
+## 先跑通最小闭环
+
+```bash
+bash scripts/run_modelscope.sh chapter 08
+```
+
+默认 `RUN_PROFILE=smoke`，与第 02 章共用 `Qwen/Qwen3-4B-Instruct-2507` 和 `AI-ModelScope/gsm8k` 缓存，02 跑过就不会再下载模型。
+
+> 数据取舍：正文用 DAPO-Math-17K（需先跑 `prepare_data.py` 清洗去重）。本地版直接用 GSM8K，是为了和 02 / 07 章在**同一批题**上对比 loss 的差异。想换成 DAPO-Math，只需替换 `DATASET_ID` 和 `DATASET_PATTERN` 两个常量。
+
+产物：
+
+```text
+/mnt/workspace/agentic-rl-lab/runs/08-gspo/<run_id>/
+├── config.json
+├── samples.jsonl           # 每题回答、reward、advantage、completion 长度
+├── history.json
+└── summary.json
+
+experiments/gspo/results/    # 自动同步，可 commit/push
+├── 08-gspo/<run_id>/*.json
+├── chapter-08.log
+└── chapter-08.jsonl
+```
+
+## 唯一的算法改动
+
+第 02 / 07 章为每个 token 算一个 ratio 并分别裁剪。GSPO 把整条回答压成一个 ratio——token ratio 的**几何平均**：
+
+$$
+\log r_i = \frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\left(\log \pi_\theta(o_{i,t}) - \log \pi_{\text{old}}(o_{i,t})\right)
+\qquad
+r_i = \exp(\log r_i)
+$$
+
+然后整条序列共享一个裁剪区间：
+
+$$
+\mathcal{L}_{\text{GSPO}} = -\frac{1}{G}\sum_{i=1}^{G}\min\left(r_i A_i,\ \mathrm{clip}(r_i,\ 1-\epsilon_{\text{low}},\ 1+\epsilon_{\text{high}})\,A_i\right)
+$$
+
+对应 [`local_gpu_trainer.py`](../../scripts/local_gpu_trainer.py) 的 `sequence_policy_loss_gspo()`。
+
+### 为什么要在 log 空间平均
+
+如果在概率空间连乘，`1.5 ** 200` 会直接溢出；在 log 空间先平均再取 exp，ratio 的量级与回答长度无关：
+
+| 每条 token 的 log 差 | 20 token | 200 token | token 级连乘 |
+|---|---|---|---|
+| `ln(1.5)` | ratio = 1.5 | ratio = 1.5 | `1.5**200 ≈ 10^35` |
+
+这就是 GSPO 相对 token-level 方法的核心优势：长短回答在同一尺度上比较。单元测试 `test_sequence_ratio_does_not_grow_with_length` 锁定了这一点。
+
+### 为什么裁剪区间这么小
+
+默认 `clip_low=3e-4`、`clip_high=4e-4`，比 PPO 的 0.2 小三个数量级。原因是序列级 ratio 已经对每个 token 的变化做了平均，同样的策略偏移会在整条序列上累积，因此边界必须收紧得多。
+
+注意这两个值是**相对 1.0 的偏移**，不是绝对边界：
+
+```python
+clipped = torch.clamp(ratio, 1.0 - clip_low, 1.0 + clip_high)
+```
+
+## 和 07 章对比
+
+`--token-level-clip` 保留了一个诊断开关：用同一批采样，改回第 02 章的逐 token 裁剪，方便观察两种 reduction 的 loss 差异。
+
+```bash
+# 序列级（GSPO 默认）
+bash scripts/run_modelscope.sh chapter 08 --force
+
+# 同一批数据，改回逐 token 裁剪
+bash scripts/run_modelscope.sh chapter 08 --force --chapter-arg=--token-level-clip
+```
+
+## 本地训练循环
+
+```text
+GSM8K 题目
+  ↓ apply_chat_template
+prompt tokens
+  ↓ model.generate(group_size)        # 采样时切 eval()，避免 KV cache 被 checkpointing 关掉
+一组 completion + old_logprobs
+  ↓ \boxed{} 规则 reward
+rewards
+  ↓ reward - mean(reward)             # GRPO 的均值中心化
+advantages
+  ↓ mean_t(current_t - old_t)         # GSPO：先平均 log 差
+  ↓ exp(...) → 一个序列一个 ratio
+  ↓ clamp(ratio, 1-3e-4, 1+4e-4)
+  ↓ -mean_i(min(ratio*A, clip*A))
+LoRA 参数更新
+```
+
+## 已知限制
+
+- 只替换训练循环，**不包含**正文的 AIME25 评测（`eval.py`）与 `analyse.py` 绘图流程。
+- 数据用 GSM8K 而非 DAPO-Math-17K，理由见上文「数据取舍」。
+- 序列级 ratio、长度无关性、非对称裁剪已有 50 项本地单元测试覆盖，但**尚未在真实 GPU 上完整跑通**。首次在服务器运行时请先看 `logs/chapter-08.log`。
