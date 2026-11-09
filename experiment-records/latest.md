@@ -21,5 +21,6 @@
 | 15 | not_ported | - | {} |
 | 16 | not_ported | - | {} |
 
-04-16 的 `not_ported` 是如实记录，不代表运行成功。
+本文件是上一次服务器运行的快照。04–08 的本地代码已经移植，但这次快照没有重新运行它们；
+状态为 `not_ported` 只代表当时尚未执行。09–16 仍未移植。
 外部 API 预算与密钥状态见 `api_budget.json` 和 `environment.json`。

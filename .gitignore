@@ -271,6 +271,9 @@ experiments/tempo/datasets/
 !experiments/loss-functions/results/
 !experiments/grpo/results/
 !experiments/vision-grpo/results/
+!experiments/pytrio-jev/results/
+!experiments/general-opd/results/
+!experiments/medical-opd/results/
 !experiment-records/
 experiments/*/results/**/*.safetensors
 experiments/*/results/**/*.bin

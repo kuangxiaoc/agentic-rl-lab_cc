@@ -20,7 +20,7 @@
   <a href="https://www.zhihu.com/people/feng-qi-xia-pian"><img alt="Zhihu" src="https://img.shields.io/badge/Zhihu-知乎-4362f6?style=flat" /></a>
   <a href="https://www.xiaohongshu.com/user/profile/63c2055e000000002502c58c"><img alt="Rednote" src="https://img.shields.io/badge/Rednote-小红书-e93c49?style=flat" /></a>
   <a href="https://github.com/datawhalechina/agentic-rl-lab"><img alt="visitors" src="https://komarev.com/ghpvc/?username=KMnO4-zx-agentic-rl-lab&amp;label=visitors&amp;color=1283c3&amp;style=flat" /></a>
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.13%2B-306998?style=flat" />
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.12%2B-306998?style=flat" />
 </p>
 
 </div>
@@ -38,7 +38,7 @@
 
 ## 项目介绍
 
-&emsp;&emsp;这是 fork 后的**单卡本地 GPU 教程仓库**。前三章把原版借助 [PyTRIO](https://pytrio.com) 远端算力完成的训练循环，改写为在魔搭 NVIDIA GPU 实例上直接运行的 PyTorch / Transformers / PEFT 代码；原版章节仍保留作对照。这个 fork 主要做三件事：
+&emsp;&emsp;这是 fork 后的**单卡本地 GPU 教程仓库**。01–08 章已把原版借助 [PyTRIO](https://pytrio.com) 远端算力完成的训练循环，改写为在魔搭 NVIDIA GPU 实例上直接运行的 PyTorch / Transformers / PEFT 代码；原版章节仍保留作对照。09–16 章暂未移植，会如实标记 `not_ported`。这个 fork 主要做三件事：
 
 1. 先把算法讲明白：它从哪篇论文来，解决什么问题，核心变量是什么。
 2. 再用本地 GPU 代码复现：数据、reward、采样 logprob、loss、`backward()`、checkpoint 都放在仓库里。
@@ -59,9 +59,9 @@
 | [Loss Function](./experiments/loss-functions/readme.md) | 本地 GPU 张量演示 `importance_sampling`、`ppo`、`cispo` 的 loss 与梯度 | [代码](./experiments/loss-functions/local_gpu.py) |
 | [GRPO](./experiments/grpo/readme.md) | Qwen3-4B + GSM8K，本地 4-bit QLoRA 采样、reward、advantage 与 `backward()` | [代码](./experiments/grpo/local_gpu.py) |
 | [Vision GRPO](./experiments/vision-grpo/readme.md) | Qwen3-VL + GeoQA，本地图文 processor 与 Vision GRPO 训练闭环 | [代码](./experiments/vision-grpo/local_gpu.py) |
-| [PyTrio-Jev](./experiments/pytrio-jev/readme.md) | 一顿麦当劳早餐，人人皆可训练自己的 Jev 决策模型 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/pytrio-jev/) |
-| [General OPD](./experiments/general-opd/readme.md) | 用 DeepMath-103K 跑通 Student 采样、Teacher 打分与 reverse KL 的最小闭环 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/general-opd/) |
-| [Medical OPD](./experiments/medical-opd/readme.md) | 从 Medical SFT 出发，用 SAR-OPD 和 IDT-OPD 增强医疗能力，同时保持通用能力 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/medical-opd/) |
+| [PyTrio-Jev](./experiments/pytrio-jev/readme.md) | Qwen3-4B + typed-decisions，本地 marker-only masked SFT 与候选 softmax | [代码](./experiments/pytrio-jev/local_gpu.py) · [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/pytrio-jev/) |
+| [General OPD](./experiments/general-opd/readme.md) | Qwen3-1.7B student + Qwen3-4B teacher，本地 DeepMath OPD 与 reverse KL | [代码](./experiments/general-opd/local_gpu.py) · [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/general-opd/) |
+| [Medical OPD](./experiments/medical-opd/readme.md) | 本地 Medical SFT、SAR-OPD / IDT-OPD 与 MedQA / C-Eval 评测 | [代码](./experiments/medical-opd/local_gpu.py) · [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/medical-opd/) |
 | [DAPO](./experiments/dapo/readme.md) | 拆解四项核心改进，并记录 Dynamic Sampling 在真实训练中的时间成本；附本地 GPU 版 | [代码](./experiments/dapo/local_gpu.py) |
 | [GSPO](./experiments/gspo/readme.md) | 将重要性比率与裁剪从 token 级提升到 sequence 级；附本地 GPU 版 | [代码](./experiments/gspo/local_gpu.py) |
 | [OPSD](./experiments/opsd/readme.md) | 用固定的 step-0 Teacher 蒸馏 Student 自采样轨迹 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/opsd/) |
@@ -75,7 +75,7 @@
 
 ## 快速启动
 
-> 当前主线是**单卡魔搭 GPU 本地实现**。01–03 章 `readme.md` 已改为本地 GPU 教程；04–16 章仍保留原版 PyTRIO 内容并标记 `not_ported`。运行、归档和 Git 回传说明见 [魔搭 GPU 改造说明](./MODELSCOPE_LOCAL_GPU.md)。
+> 当前主线是**单卡魔搭 GPU 本地实现**。01–08 章已有 `local_gpu.py`，04–06 的运行说明附在各自 `readme.md` 末尾；09–16 章仍保留原版 PyTRIO 内容并标记 `not_ported`。运行、归档和 Git 回传说明见 [魔搭 GPU 改造说明](./MODELSCOPE_LOCAL_GPU.md)。
 
 &emsp;&emsp;如果是直接 clone 这个仓库：
 

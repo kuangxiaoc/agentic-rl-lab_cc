@@ -25,6 +25,9 @@ CHAPTER_NAMES = {
     1: "01-loss-functions",
     2: "02-grpo",
     3: "03-vision-grpo",
+    4: "04-pytrio-jev",
+    5: "05-general-opd",
+    6: "06-medical-opd",
     7: "07-dapo",
     8: "08-gspo",
 }
@@ -32,6 +35,9 @@ CHAPTER_RESULT_DIRS = {
     1: "experiments/loss-functions/results",
     2: "experiments/grpo/results",
     3: "experiments/vision-grpo/results",
+    4: "experiments/pytrio-jev/results",
+    5: "experiments/general-opd/results",
+    6: "experiments/medical-opd/results",
     7: "experiments/dapo/results",
     8: "experiments/gspo/results",
 }
@@ -409,7 +415,17 @@ def write_study_notes(root: Path) -> Path:
    本地 `model.generate`、旧策略 logprob、组内 advantage、PEFT 梯度更新。
 3. `experiments/vision-grpo/readme.md` → `train.py` → `local_gpu.py`：观察图片如何进入
    processor、旧版 chunk 对齐如何变成本地 attention mask 与 pixel values。
-4. 04-16 暂时标记 `not_ported`，不会伪造成功结果；外部搜索/裁判/教师 API 先只记录预算。
+4. `experiments/pytrio-jev/readme.md` → `train.py` → `local_gpu.py`：对比 PyTRIO 的
+   marker-only masked SFT 与本地 QLoRA 单次 forward 分类。
+5. `experiments/general-opd/readme.md` → `01-demo-sync.py` → `local_gpu.py`：对比
+   `compute_logprobs` 与本地 teacher forward，亲手算 reverse KL。
+6. `experiments/medical-opd/readme.md` → `03/04/05-*.py` → `local_gpu.py`：把
+   Medical SFT、Medical OPD、Base-anchor OPD 和可选 IDT 串成一条本地训练链。
+7. `experiments/dapo/readme.md` → `train.py` → `local_gpu.py`：对照 Dynamic Sampling
+   和 token-level loss 在本地如何落到 `model.generate` 与 `backward()`。
+8. `experiments/gspo/readme.md` → `train.py` → `local_gpu.py`：对照 sequence-level
+   importance ratio 与本地整条 completion 的 log-ratio。
+9. 09-16 暂时标记 `not_ported`，不会伪造成功结果；外部搜索/裁判/教师 API 先只记录预算。
 
 每次运行的配置、stdout/stderr、metrics、LoRA adapter、`state.json` 和环境快照都在本目录。
 服务器释放前执行 `bash scripts/export_results.sh`，下载 `exports/*.tar.gz` 即可离线学习。
@@ -438,7 +454,7 @@ def write_report(root: Path, state: dict[str, Any] | None = None) -> Path:
         )
     lines += [
         "",
-        "04-16 的 `not_ported` 是如实记录，不代表运行成功。",
+        "09-16 的 `not_ported` 是如实记录，不代表运行成功。",
         "外部 API 预算与密钥状态见 `api_budget.json` 和 `environment.json`。",
         "",
     ]

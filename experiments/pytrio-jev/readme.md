@@ -234,6 +234,32 @@ experiments/pytrio-jev/
 
 完整命令清单见 [`start.md`](https://github.com/datawhalechina/agentic-rl-lab/blob/main/experiments/pytrio-jev/start.md)
 
+## 8. 本地 GPU 版（本 fork 附录）
+
+本 fork 新增 [`local_gpu.py`](./local_gpu.py) 和 [`local_gpu_data.py`](./local_gpu_data.py)，把这一章从 PyTRIO 远端训练改成魔搭单卡本地 QLoRA：
+
+- Base 模型：`Qwen/Qwen3-4B-Instruct-2507`
+- 数据：ModelScope `LocalLLaMA/typed-decisions` 的 train/test parquet
+- 训练：只在每个 `decision` marker 前一个位置监督答案符号，其余 token 不计 loss
+- 评测：在候选符号 logits 上做受限 softmax，直接读回选项概率
+
+在服务器仓库根目录运行：
+
+```bash
+bash scripts/bootstrap_modelscope.sh
+bash scripts/run_modelscope.sh chapter 04
+```
+
+每次运行的 `config.json`、`history.json`、`eval.jsonl`、`eval_metrics.json`、`summary.json` 和 LoRA adapter 都在：
+
+```text
+/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/<run_id>/
+```
+
+runner 会把轻量记录同步到 `experiments/pytrio-jev/results/`，服务器上 `git add experiments/pytrio-jev/results experiment-records && git commit && git push` 后，本地 `git pull` 就能阅读。完整 adapter 和模型缓存仍留在 `/mnt/workspace`，可用 `bash scripts/export_results.sh` 下载归档。
+
+本地版目前只跑 typed-decisions 的 train/test，不默认下载 ToolACE 和 Jevbench 五项评测，因此 `eval_metrics.json` 的准确率不能直接和上面的论文级五项平均分比较。它的目标是先跑通 marker 对齐、masked SFT、候选 softmax 和 Git 回传链路；原版 `train.py` / `data.py` 仍保留，方便对照 PyTRIO Datum 的构造方式。
+
 ## 总结
 
 这次复现完成了共享 state、marker 占位、受限 softmax 和温度校准的完整训练与推理链路。五项平均分达到 83.74，两项超过 Jev；Hard 准确率下降也说明，训练效果仍受数据分布限制。

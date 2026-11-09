@@ -189,7 +189,7 @@ ratio = exp(current_logprobs - old_logprobs)
 - `history.json` / `chapter-03.jsonl`：reward、`format_rate`、`degenerate`、训练样本数、平均生成长度、loss。
 - `summary.json`：最终摘要、adapter 路径、torch/GPU 信息。
 - `data_unavailable.txt`：数据不可用的具体原因。
-- `experiment-records/latest.md`：16 个章节状态，04–16 保持 `not_ported`。
+- `experiment-records/latest.md`：16 个章节状态；09–16 暂未移植，04–08 已有本地代码但需要实际运行后才变成 `completed`。
 
 smoke 的目标不是刷准确率，而是确认：图片能进 processor、生成 scores 能转 old logprob、boxed 选项能打分、图文 forward 能 backward、状态和记录能同步到 Git。
 
@@ -215,4 +215,4 @@ smoke 的目标不是刷准确率，而是确认：图片能进 processor、生�
 - 原版 100-step 结果和图表属于 PyTRIO 云端实验记录，不代表本本地 GPU smoke 的效果。
 - 第一版不调用外部搜索、裁判或教师 API。
 
-完成 01–03 后，建议把 `experiment-records/latest.md`、三章 `results/` 和 `exports/*.tar.gz` 一起带回本地：前者适合用 Git 版本化地回看每次实验，后者保存完整 adapter 和运行环境记录。
+完成本地章节后，建议把 `experiment-records/latest.md`、各章 `results/` 和 `exports/*.tar.gz` 一起带回本地：前者适合用 Git 版本化地回看每次实验，后者保存完整 adapter 和运行环境记录。

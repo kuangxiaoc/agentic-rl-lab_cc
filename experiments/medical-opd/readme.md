@@ -774,6 +774,41 @@ train/ceval_ratio
 
 最后，这篇复现的是 OPD 的训练闭环，并基于它做了两个应用方案。它不是对 GKD、MiniLLM 或其他 OPD 论文全部数据、模型和 benchmark 的严格复刻。本文能够确认的是：在这套本地代码、训练配置和固定评测下，两种多能力 OPD 训练路径都跑通了，并产生了可复核的 checkpoint 结果。
 
+## 本地 GPU 版（本 fork 附录）
+
+本 fork 新增 [`local_gpu.py`](./local_gpu.py)，把 Medical SFT、Medical OPD、Base-anchor OPD 和可选 IDT 串成一条魔搭单卡训练链：
+
+- Student：`Qwen/Qwen3-1.7B`
+- Medical Teacher：`Qwen/Qwen3-4B-Instruct-2507` + Medical SFT LoRA
+- Base-anchor Teacher：冻结的原始 `Qwen/Qwen3-1.7B`
+- 数据：ModelScope Medical SFT JSON、MedQA-zh、C-Eval non-med
+- 默认模式：`sar`，即 Medical SFT → Medical OPD → Base-anchor OPD → 本地评测
+
+在服务器仓库根目录运行：
+
+```bash
+bash scripts/bootstrap_modelscope.sh
+bash scripts/run_modelscope.sh chapter 06
+```
+
+运行 IDT 交替双教师模式：
+
+```bash
+bash scripts/run_modelscope.sh chapter 06 \
+  --chapter-arg=--mode \
+  --chapter-arg=idt
+```
+
+每次运行的 SFT / OPD history、`samples.jsonl`、`summary.json`、`eval/metrics.json` 和 adapter 都在：
+
+```text
+/mnt/workspace/agentic-rl-lab/runs/06-medical-opd/<run_id>/
+```
+
+轻量记录会同步到 `experiments/medical-opd/results/`。服务器释放前可以用 `bash scripts/export_results.sh` 打包完整结果；模型缓存、完整数据和 adapter 大权重不进入 Git。
+
+本地版的 `medical-sft-limit` 默认只取 2000 条 Medical SFT 数据，smoke 评测默认各取 20 题，C-Eval 使用 `val` 做 OPD prompt pool、`dev` 做本地评测；这些设置是为了在 24GB 单卡上先跑通机制，不等同于原版 4B Student / 4B Teacher、600 题 MedQA 和 300 题 C-Eval 的完整实验规模。MedQA/C-Eval 准确率只用于观察训练趋势，不能解释为临床诊断能力。Student 与两个 Teacher 必须使用兼容的 Qwen3 tokenizer；普通聊天 API 也不能替代逐 token logprob Teacher。
+
 ## 小结
 
 这次实验最开始只是想给 4B 模型增加一点中文医疗能力，最后真正遇到的问题却是领域增强和通用能力遗忘之间的平衡。

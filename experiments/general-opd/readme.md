@@ -418,6 +418,38 @@ uv run python experiments/general-opd/02-demo-async.py \
 
 异步版会并发处理 batch 内的 prompt，并并发提交同一 prompt 下多条 completion 的 teacher logprob 请求。它没有改变 OPD 算法，只是提高远程采样和打分阶段的并发利用率。
 
+## 本地 GPU 版（本 fork 附录）
+
+本 fork 新增 [`local_gpu.py`](./local_gpu.py) 和共享的 [`scripts/local_opd.py`](../../scripts/local_opd.py)，在魔搭单卡上复现同一条 OPD 数据流：
+
+- Student：`Qwen/Qwen3-1.7B` + fresh QLoRA
+- Teacher：`Qwen/Qwen3-4B-Instruct-2507`，4-bit 冻结
+- 数据：ModelScope `AI-ModelScope/DeepMath-103K` 的一个 parquet 分片
+- 信号：Student 采样轨迹的旧 logprob 与 Teacher 对同一 token 轨迹的 logprob 相减，得到 reverse KL advantage
+
+在服务器仓库根目录运行：
+
+```bash
+bash scripts/bootstrap_modelscope.sh
+bash scripts/run_modelscope.sh chapter 05
+```
+
+也可以按顺序一次跑 04–06：
+
+```bash
+RUN_CHAPTERS=4-6 bash scripts/run_modelscope.sh
+```
+
+每次运行的 `config.json`、`samples.jsonl`、`history.json`、`summary.json` 和 Student adapter 都在：
+
+```text
+/mnt/workspace/agentic-rl-lab/runs/05-general-opd/<run_id>/
+```
+
+轻量记录会同步到 `experiments/general-opd/results/`，适合 commit 后拉回本地阅读；adapter 大权重、模型缓存和完整数据不进入 Git，使用 `bash scripts/export_results.sh` 归档下载。
+
+本地版为了在 A10 上稳定跑通，使用 1.7B Student + 4B Teacher，只读取一个 DeepMath 分片，并且没有实现原版的异步并发、vLLM/SGLang 或分布式训练。它可以验证 OPD 的 token 对齐和 reverse KL 更新，但 smoke 结果不能当作原版 4B Student / 27B Teacher 的论文级复现。Student 和 Teacher 必须使用兼容的 Qwen3 tokenizer；不要直接把 Qwen3.5 Teacher 换进来。
+
 ## 总结
 
 通用 OPD 的最小流程只有五步：

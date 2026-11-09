@@ -1,4 +1,4 @@
-"""Shared local GPU primitives for 02/03. Imported only by those chapter scripts."""
+"""Shared local GPU primitives for the local chapter scripts."""
 
 from __future__ import annotations
 
@@ -224,6 +224,58 @@ def build_qlora_model(model_dir: Path, rank: int = 16, vision: bool = False) -> 
 
     text_tokenizer = tokenizer if vision else AutoTokenizer.from_pretrained(str(model_dir))
     return model, text_tokenizer, tokenizer
+
+
+def build_quantized_model(model_dir: Path) -> Any:
+    """Load a frozen 4-bit model for local teacher / evaluation inference."""
+    import torch
+    from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+
+    quantization = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_compute_dtype=torch.bfloat16,
+    )
+    model = AutoModelForCausalLM.from_pretrained(
+        str(model_dir),
+        quantization_config=quantization,
+        device_map={"": 0},
+        attn_implementation="sdpa",
+        low_cpu_mem_usage=True,
+    )
+    model.config.use_cache = False
+    model.eval()
+    for parameter in model.parameters():
+        parameter.requires_grad = False
+    return model
+
+
+def load_text_tokenizer(model_dir: Path) -> Any:
+    """Load only the text tokenizer, avoiding a processor for text-only chapters."""
+    from transformers import AutoTokenizer
+
+    return AutoTokenizer.from_pretrained(str(model_dir))
+
+
+def build_qlora_from_adapter(model_dir: Path, adapter_dir: Path) -> tuple[Any, Any, None]:
+    """Resume a local QLoRA student from an adapter written by ``save_adapter``."""
+    from peft import PeftModel, prepare_model_for_kbit_training
+
+    model = build_quantized_model(model_dir)
+    model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
+    model.gradient_checkpointing_enable()
+    model.enable_input_require_grads()
+    model = PeftModel.from_pretrained(model, str(adapter_dir), is_trainable=True)
+    model.train()
+    return model, load_text_tokenizer(model_dir), None
+
+
+def attach_adapter(model: Any, adapter_dir: Path) -> Any:
+    """Attach a frozen LoRA adapter to an already quantized model."""
+    from peft import PeftModel
+
+    return PeftModel.from_pretrained(model, str(adapter_dir), is_trainable=False)
 
 
 def chat_template_mentions(tokenizer: Any, variable: str) -> bool:
