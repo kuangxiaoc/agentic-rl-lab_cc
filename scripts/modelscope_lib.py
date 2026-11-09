@@ -25,13 +25,13 @@ CHAPTER_NAMES = {
     1: "01-loss-functions",
     2: "02-grpo",
     3: "03-vision-grpo",
-    4: "04-dapo",
+    7: "07-dapo",
 }
 CHAPTER_RESULT_DIRS = {
     1: "experiments/loss-functions/results",
     2: "experiments/grpo/results",
     3: "experiments/vision-grpo/results",
-    4: "experiments/dapo/results",
+    7: "experiments/dapo/results",
 }
 VALID_STATUSES = {
     "not_ported",

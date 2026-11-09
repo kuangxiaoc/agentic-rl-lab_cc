@@ -471,22 +471,22 @@ DAPO 的四个改动都是冲着 long CoT RL 的具体毛病去的：entropy col
 ## 先跑通最小闭环
 
 ```bash
-bash scripts/run_modelscope.sh chapter 04
+bash scripts/run_modelscope.sh chapter 07
 ```
 
 默认 `RUN_PROFILE=smoke`，与第 02 章共用 `Qwen/Qwen3-4B-Instruct-2507` 和 `AI-ModelScope/gsm8k` 缓存，02 跑过就不会再下载模型。产物：
 
 ```text
-/mnt/workspace/agentic-rl-lab/runs/04-dapo/<run_id>/
+/mnt/workspace/agentic-rl-lab/runs/07-dapo/<run_id>/
 ├── config.json
 ├── samples.jsonl           # 每题回答、reward、advantage、长度惩罚
 ├── history.json
 └── summary.json
 
 experiments/dapo/results/    # 自动同步，可 commit/push
-├── 04-dapo/<run_id>/*.json
-├── chapter-04.log
-└── chapter-04.jsonl
+├── 07-dapo/<run_id>/*.json
+├── chapter-07.log
+└── chapter-07.jsonl
 ```
 
 ## 四项改动与开关
@@ -518,7 +518,7 @@ if args.dynamic_sampling and not effective:
     continue  # 记录 skipped_by_dynamic_sampling=1，不进入 backward
 ```
 
-被跳过的组数会写进 `metrics/chapter-04.jsonl`。
+被跳过的组数会写进 `metrics/chapter-07.jsonl`。
 
 ### Token-Level Loss
 
@@ -558,23 +558,23 @@ return -1.0
 
 ```bash
 # 基线
-bash scripts/run_modelscope.sh chapter 04 --force
+bash scripts/run_modelscope.sh chapter 07 --force
 
 # Clip-Higher
-bash scripts/run_modelscope.sh chapter 04 --force --chapter-arg=--clip-high=1.28
+bash scripts/run_modelscope.sh chapter 07 --force --chapter-arg=--clip-high=1.28
 
 # + Dynamic Sampling
-bash scripts/run_modelscope.sh chapter 04 --force \
+bash scripts/run_modelscope.sh chapter 07 --force \
   --chapter-arg=--clip-high=1.28 \
   --chapter-arg=--dynamic-sampling
 
 # + Token-Level Loss
-bash scripts/run_modelscope.sh chapter 04 --force \
+bash scripts/run_modelscope.sh chapter 07 --force \
   --chapter-arg=--dynamic-sampling \
   --chapter-arg=--token-level-loss
 
 # + 长度惩罚（full profile）
-bash scripts/run_modelscope.sh chapter 04 --profile full --force \
+bash scripts/run_modelscope.sh chapter 07 --profile full --force \
   --chapter-arg=--dynamic-sampling \
   --chapter-arg=--token-level-loss \
   --chapter-arg=--overlong-cache=128
@@ -613,4 +613,4 @@ LoRA 参数更新
 
 - 本脚本只替换训练循环，**不包含**原版的 AIME25 评测（`eval.py`）与数据去重准备（`prepare_data.py`）；训练数据直接用 GSM8K，便于和 02 章对比。
 - `--token-level-loss` 在每条样本上单独 `backward()`，梯度累积结果与一次性 pooled loss 等价，但显存峰值更低、速度略慢。
-- reward、advantage、clip 与两种 reduction 的数学已有 43 项本地单元测试覆盖，但**尚未在真实 GPU 上完整跑通**。首次在服务器运行时请先看 `logs/chapter-04.log`。
+- reward、advantage、clip 与两种 reduction 的数学已有 43 项本地单元测试覆盖，但**尚未在真实 GPU 上完整跑通**。首次在服务器运行时请先看 `logs/chapter-07.log`。

@@ -1,4 +1,4 @@
-"""04 DAPO: the same single-GPU QLoRA loop as GRPO, with DAPO's four changes.
+"""07 DAPO: the same single-GPU QLoRA loop as GRPO, with DAPO's four changes.
 
 Every difference from chapter 02 is a flag, so you can turn one on at a time and
 watch the metrics change:
@@ -101,10 +101,10 @@ def load_dapo_reward() -> object:
 
 def main() -> int:
     args = parse_args()
-    root, run_dir, run_id, config = trainer.prepare_run(4, args)
+    root, run_dir, run_id, config = trainer.prepare_run(7, args)
     reward_module = load_dapo_reward()
     summary: dict[str, object] = {
-        "chapter": 4,
+        "chapter": 7,
         "model": MODEL_ID,
         "dataset": DATASET_ID,
         "profile": args.profile,
@@ -208,7 +208,7 @@ def main() -> int:
                     "loss": 0.0,
                 }
                 history.append(metric)
-                lib.append_metrics(root, 4, run_id, metric)
+                lib.append_metrics(root, 7, run_id, metric)
                 print(json.dumps(metric, ensure_ascii=False), flush=True)
                 continue
 
@@ -273,7 +273,7 @@ def main() -> int:
                 "loss": loss_value,
             }
             history.append(metric)
-            lib.append_metrics(root, 4, run_id, metric)
+            lib.append_metrics(root, 7, run_id, metric)
             print(json.dumps(metric, ensure_ascii=False), flush=True)
             with (run_dir / "samples.jsonl").open("a", encoding="utf-8") as handle:
                 handle.write(
@@ -313,7 +313,7 @@ def main() -> int:
         )
         trainer.update_training_state(
             root,
-            4,
+            7,
             run_id,
             "completed",
             {
@@ -323,22 +323,22 @@ def main() -> int:
                 "summary": str(run_dir / "summary.json"),
             },
         )
-        print(f"chapter 04 completed: {run_dir}", flush=True)
+        print(f"chapter 07 completed: {run_dir}", flush=True)
         return 0
     except KeyboardInterrupt:
-        trainer.update_training_state(root, 4, run_id, "failed", {"reason": "interrupted"})
+        trainer.update_training_state(root, 7, run_id, "failed", {"reason": "interrupted"})
         raise
     except Exception as exc:
         (run_dir / "error.txt").write_text(traceback.format_exc(), encoding="utf-8")
         trainer.update_training_state(
             root,
-            4,
+            7,
             run_id,
             "failed",
             {"error": f"{type(exc).__name__}: {exc}", "error_log": str(run_dir / "error.txt")},
         )
         traceback.print_exc()
-        print(f"chapter 04 failed: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+        print(f"chapter 07 failed: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         return 1
 
 

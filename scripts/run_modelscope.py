@@ -19,7 +19,7 @@ CHAPTER_SCRIPTS = {
     1: REPO_ROOT / "experiments" / "loss-functions" / "local_gpu.py",
     2: REPO_ROOT / "experiments" / "grpo" / "local_gpu.py",
     3: REPO_ROOT / "experiments" / "vision-grpo" / "local_gpu.py",
-    4: REPO_ROOT / "experiments" / "dapo" / "local_gpu.py",
+    7: REPO_ROOT / "experiments" / "dapo" / "local_gpu.py",
 }
 
 
