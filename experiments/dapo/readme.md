@@ -459,3 +459,158 @@ DAPO 的四个改动都是冲着 long CoT RL 的具体毛病去的：entropy col
 
 1. [DAPO PyTRIO 完整代码](https://github.com/datawhalechina/agentic-rl-lab/tree/main/experiments/dapo)
 2. [PyTRIO 文档](https://docs.pytrio.com/docs)
+
+---
+
+# 附：本地 GPU 版 DAPO（不用 PyTRIO）
+
+上面正文讲的是 PyTRIO 远端训练版的实现。如果你只有一张本地/云端 GPU（比如魔搭 DSW 的 A10），可以用 [`local_gpu.py`](./local_gpu.py) 跑同一套算法：它沿用第 02 章已验证的单卡 QLoRA 循环，只把 DAPO 的四项改动做成可独立开关的参数，方便一次只打开一项、在指标上观察它改了什么。
+
+统一启动说明见 [`MODELSCOPE_LOCAL_GPU.md`](../../MODELSCOPE_LOCAL_GPU.md)。
+
+## 先跑通最小闭环
+
+```bash
+bash scripts/run_modelscope.sh chapter 04
+```
+
+默认 `RUN_PROFILE=smoke`，与第 02 章共用 `Qwen/Qwen3-4B-Instruct-2507` 和 `AI-ModelScope/gsm8k` 缓存，02 跑过就不会再下载模型。产物：
+
+```text
+/mnt/workspace/agentic-rl-lab/runs/04-dapo/<run_id>/
+├── config.json
+├── samples.jsonl           # 每题回答、reward、advantage、长度惩罚
+├── history.json
+└── summary.json
+
+experiments/dapo/results/    # 自动同步，可 commit/push
+├── 04-dapo/<run_id>/*.json
+├── chapter-04.log
+└── chapter-04.jsonl
+```
+
+## 四项改动与开关
+
+| 改动 | 参数 | 解决的问题 |
+|---|---|---|
+| Clip-Higher | `--clip-high 1.28` | 正 advantage 的 token 被 1.2 上界卡住，熵下降过快 |
+| Dynamic Sampling | `--dynamic-sampling` | 全对/全错组方差为 0，白算一次前向反向 |
+| Token-Level Loss | `--token-level-loss` | 按回答平均让长回答的每个 token 权重变小 |
+| Soft Overlong Punishment | `--overlong-cache N` | 超长回答只在最后一小段被线性扣分 |
+
+### Clip-Higher
+
+标准 PPO 的裁剪区间对称，正 advantage 的 `ratio` 一旦超过上界就不再贡献梯度。DAPO 把上界单独抬到 1.28、下界保持 0.8：
+
+```python
+clipped = torch.clamp(ratio, 0.8, 1.28)
+```
+
+对应 [`local_gpu_trainer.py`](../../scripts/local_gpu_trainer.py) 的 `sequence_policy_loss(..., clip_low=, clip_high=)`。
+
+### Dynamic Sampling
+
+一组回答全对或全错时组内标准差为 0，advantage 全 0，反向传播没有梯度。DAPO 直接丢掉这类组：
+
+```python
+effective = common.is_effective_group(correct_flags, group_size)
+if args.dynamic_sampling and not effective:
+    continue  # 记录 skipped_by_dynamic_sampling=1，不进入 backward
+```
+
+被跳过的组数会写进 `metrics/chapter-04.jsonl`。
+
+### Token-Level Loss
+
+GRPO 是「先按回答求 token 均值，再对回答求均值」，每条回答等权；DAPO 把所有 completion token 摊平后求均值，长回答因此权重更大：
+
+$$
+\mathcal{L}_{\text{GRPO}} = -\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t} \min(\cdots)
+\qquad
+\mathcal{L}_{\text{DAPO}} = -\frac{1}{\sum_i |o_i|}\sum_{i}\sum_{t} \min(\cdots)
+$$
+
+脚本里先取每条回答的 `-mean(objective)`，再乘 `n_i / N` 加权求和，与直接 pooled mean 等价：
+
+```python
+total_tokens = sum(len(sample.completion_ids) for sample in samples)
+loss = loss * (len(sample.completion_ids) / total_tokens)
+```
+
+`scripts/local_gpu_common.py` 的 `dapo_loss(reduction="token" | "sample")` 是同一套数学的纯函数版本；单元测试用长度 4 和长度 1 的两条回答验证了差异（`-0.6` vs `-0.75`）。
+
+### Soft Overlong Punishment
+
+直接复用本目录 [`reward.py`](./reward.py) 的 `soft_overlong_penalty`，通过 AST 加载器取用，不导入 `math_verify`：
+
+```python
+penalty_start = max_tokens - overlong_cache
+if completion_tokens <= penalty_start:
+    return 0.0
+if completion_tokens <= max_tokens:
+    return -(completion_tokens - penalty_start) / overlong_cache
+return -1.0
+```
+
+## 一次只打开一项
+
+默认全关，等价于「GRPO + DAPO reward 形态」。建议逐项打开，每次对比 `history.json`：
+
+```bash
+# 基线
+bash scripts/run_modelscope.sh chapter 04 --force
+
+# Clip-Higher
+bash scripts/run_modelscope.sh chapter 04 --force --chapter-arg=--clip-high=1.28
+
+# + Dynamic Sampling
+bash scripts/run_modelscope.sh chapter 04 --force \
+  --chapter-arg=--clip-high=1.28 \
+  --chapter-arg=--dynamic-sampling
+
+# + Token-Level Loss
+bash scripts/run_modelscope.sh chapter 04 --force \
+  --chapter-arg=--dynamic-sampling \
+  --chapter-arg=--token-level-loss
+
+# + 长度惩罚（full profile）
+bash scripts/run_modelscope.sh chapter 04 --profile full --force \
+  --chapter-arg=--dynamic-sampling \
+  --chapter-arg=--token-level-loss \
+  --chapter-arg=--overlong-cache=128
+```
+
+## 本地训练循环
+
+```text
+GSM8K 题目
+  ↓ apply_chat_template
+prompt tokens
+  ↓ model.generate(group_size)        # 采样时切 eval()，避免 KV cache 被 checkpointing 关掉
+一组 completion + old_logprobs
+  ↓ score_answer                     # ±1 正确性 + 可选长度惩罚
+rewards
+  ↓ is_effective_group               # Dynamic Sampling
+  ↓ normalized_group_advantages      # (r - mean) / (std + eps)
+advantages
+  ↓ sequence_policy_loss(ppo, clip_low=0.8, clip_high=1.28)
+  ↓ token-level reweight             # 可选
+LoRA 参数更新
+```
+
+## 复用原版代码
+
+`local_gpu.py` 不导入 `pytrio` / `swanlab` / `math_verify`，只用 AST 加载器取纯函数：
+
+| 来源 | 取用的内容 |
+|---|---|
+| `experiments/dapo/reward.py` | `extract_last_boxed`、`answers_equivalent`、`soft_overlong_penalty`、`score_answer`、`RewardResult` |
+| `scripts/local_gpu_common.py` | `normalized_group_advantages`、`is_effective_group`、`dapo_loss` |
+
+`math_verify` 未安装时退化为字符串精确比较，并在日志里明确打印提示，不会静默改变判分语义。
+
+## 已知限制
+
+- 本脚本只替换训练循环，**不包含**原版的 AIME25 评测（`eval.py`）与数据去重准备（`prepare_data.py`）；训练数据直接用 GSM8K，便于和 02 章对比。
+- `--token-level-loss` 在每条样本上单独 `backward()`，梯度累积结果与一次性 pooled loss 等价，但显存峰值更低、速度略慢。
+- reward、advantage、clip 与两种 reduction 的数学已有 43 项本地单元测试覆盖，但**尚未在真实 GPU 上完整跑通**。首次在服务器运行时请先看 `logs/chapter-04.log`。

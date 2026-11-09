@@ -377,6 +377,8 @@ def sequence_policy_loss(
     torch_module: Any,
     device: Any,
     loss_fn: str = "importance_sampling",
+    clip_low: float = 1.0 / 1.2,
+    clip_high: float = 1.2,
 ) -> Any:
     """Compute one completion's local policy-gradient loss from current logprobs."""
     input_ids = torch_module.tensor(
@@ -408,12 +410,10 @@ def sequence_policy_loss(
     if loss_fn == "importance_sampling":
         return -(ratio * advantage).mean()
     if loss_fn == "ppo":
-        clip_high = 1.2
-        clipped = torch_module.clamp(ratio, 1.0 / clip_high, clip_high)
+        clipped = torch_module.clamp(ratio, clip_low, clip_high)
         return -torch_module.minimum(ratio * advantage, clipped * advantage).mean()
     if loss_fn == "cispo":
-        clip_high = 1.2
-        clipped = torch_module.clamp(ratio, 1.0 / clip_high, clip_high).detach()
+        clipped = torch_module.clamp(ratio, clip_low, clip_high).detach()
         return -(clipped * current * advantage).mean()
     raise ValueError(f"Unknown loss function: {loss_fn}")
 

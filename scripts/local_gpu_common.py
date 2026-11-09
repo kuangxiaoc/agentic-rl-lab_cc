@@ -5,7 +5,9 @@ from __future__ import annotations
 import ast
 import math
 import re
+import sys
 import types
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -39,6 +41,99 @@ def group_advantages(rewards: Iterable[float]) -> list[float]:
         raise ValueError("A GRPO group must contain at least one reward")
     mean = sum(values) / len(values)
     return [reward - mean for reward in values]
+
+
+def normalized_group_advantages(
+    rewards: Iterable[float], epsilon: float = 1e-4
+) -> list[float]:
+    """DAPO's standardised group advantage: (r - mean) / (std + eps), N-1 denominator.
+
+    GRPO mean-centres only. DAPO divides by the sample standard deviation so every
+    group contributes comparable gradient magnitude regardless of reward spread.
+    A degenerate group (all rewards equal) yields zeros, which is the intended
+    no-signal behaviour rather than a division by zero.
+    """
+    values = [float(reward) for reward in rewards]
+    if not values:
+        raise ValueError("A DAPO group must contain at least one reward")
+    mean = sum(values) / len(values)
+    if len(values) == 1:
+        return [0.0]
+    variance = sum((value - mean) ** 2 for value in values) / (len(values) - 1)
+    std = math.sqrt(variance)
+    if std == 0.0:
+        return [0.0] * len(values)
+    denominator = std + epsilon
+    return [(value - mean) / denominator for value in values]
+
+
+def is_effective_group(
+    rewards: Iterable[float], expected_group_size: int
+) -> bool:
+    """DAPO Dynamic Sampling: keep only groups with both a right and a wrong answer.
+
+    All-correct and all-wrong groups have zero variance, so they carry no learning
+    signal and are dropped before the backward pass.
+    """
+    correct = sum(1 for reward in rewards if reward > 0)
+    return 0 < correct < expected_group_size
+
+
+def clipped_objectives(
+    ratios: Iterable[float],
+    advantages: Iterable[float],
+    *,
+    clip_low: float = 0.8,
+    clip_high: float = 1.28,
+) -> list[float]:
+    """Per-token DAPO/PPO surrogate before reduction.
+
+    objective_t = min(ratio_t * A_t, clip(ratio_t, low, high) * A_t)
+
+    ``clip_high`` defaults to 1.28 ("Clip-Higher") so positive-advantage tokens may
+    grow faster than PPO's symmetric 1.2 bound, which is DAPO's main stability fix
+    for the entropy collapse of standard GRPO.
+    """
+    ratio_values = [float(value) for value in ratios]
+    advantage_values = [float(value) for value in advantages]
+    if len(ratio_values) != len(advantage_values):
+        raise ValueError("ratios and advantages must have the same length")
+    if not ratio_values:
+        raise ValueError("clipped_objectives requires at least one token")
+    return [
+        min(ratio * advantage, min(max(ratio, clip_low), clip_high) * advantage)
+        for ratio, advantage in zip(ratio_values, advantage_values, strict=True)
+    ]
+
+
+def dapo_loss(
+    sequences: Iterable[tuple[Iterable[float], Iterable[float]]],
+    *,
+    clip_low: float = 0.8,
+    clip_high: float = 1.28,
+    reduction: str = "token",
+) -> float:
+    """Reduce a batch of ``(ratios, advantages)`` sequences to one scalar loss.
+
+    ``reduction="token"`` (DAPO) pools every completion token and weights tokens
+    equally, so long answers dominate. ``reduction="sample"`` (GRPO) averages each
+    answer first, so every answer contributes equally. The difference is the whole
+    point of DAPO's token-level policy-gradient loss.
+    """
+    if reduction not in {"token", "sample"}:
+        raise ValueError(f"Unknown reduction: {reduction}")
+    per_sequence: list[list[float]] = []
+    for ratios, advantages in sequences:
+        per_sequence.append(
+            clipped_objectives(ratios, advantages, clip_low=clip_low, clip_high=clip_high)
+        )
+    if not per_sequence:
+        raise ValueError("dapo_loss requires at least one sequence")
+    if reduction == "token":
+        pooled = [value for sequence in per_sequence for value in sequence]
+        return -sum(pooled) / len(pooled)
+    sequence_means = [sum(sequence) / len(sequence) for sequence in per_sequence]
+    return -sum(sequence_means) / len(sequence_means)
 
 
 def completion_valid_length(tokens: Iterable[int], eos_ids: set[int] | frozenset[int]) -> int:
@@ -90,13 +185,29 @@ def _safe_constant(node: ast.AST, known_names: set[str]) -> bool:
     return False
 
 
+def _is_dataclass_decorator(node: ast.AST) -> bool:
+    """Accept ``@dataclass`` and ``@dataclass(...)``; reject anything else."""
+    if isinstance(node, ast.Name):
+        return node.id == "dataclass"
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "dataclass"
+    )
+
+
 def load_original_module(
-    name: str, path: str | Path, required: tuple[str, ...] = ()
+    name: str,
+    path: str | Path,
+    required: tuple[str, ...] = (),
+    namespace: dict[str, Any] | None = None,
 ) -> types.ModuleType:
     """Load an original chapter's pure constants/functions without its PyTRIO imports.
 
     ``required`` is the chapter's real dependency list; anything the original file
     no longer exposes must fail here rather than after a 12GB model download.
+    ``namespace`` supplies stand-ins for heavy imports the kept functions use, so a
+    chapter's reward logic can be reused without installing its full dependency set.
     """
     source_path = Path(path).resolve()
     tree = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
@@ -116,7 +227,13 @@ def load_original_module(
         "extract_gsm8k_answer",
         "extract_choice",
         "format_question",
+        # DAPO
+        "extract_last_boxed",
+        "answers_equivalent",
+        "soft_overlong_penalty",
+        "score_answer",
     }
+    wanted_classes = {"RewardResult"}
     wanted_constants = {
         "QUESTION_SUFFIX",
         "FEWSHOT_PREFIX",
@@ -125,11 +242,18 @@ def load_original_module(
         "DEFAULT_MODEL",
         "IMAGE_PAD_TOKEN",
         "BOXED_CHOICE_PATTERN",
+        "ANSWER_WINDOW_CHARS",
     }
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in wanted_functions:
             keep.append(node)
             kept_names.add(node.name)
+        elif isinstance(node, ast.ClassDef) and node.name in wanted_classes:
+            # Dataclasses such as DAPO's RewardResult are pure structure: keep them
+            # only when every decorator is one of the safe stdlib ones.
+            if all(_is_dataclass_decorator(item) for item in node.decorator_list):
+                keep.append(node)
+                kept_names.add(node.name)
         elif isinstance(node, ast.Assign):
             names = [target.id for target in node.targets if isinstance(target, ast.Name)]
             if (
@@ -144,7 +268,11 @@ def load_original_module(
                 kept_names.update(names)
     module = types.ModuleType(name)
     module.__file__ = str(source_path)
-    module.__dict__.update({"re": re, "Path": Path})
+    module.__dict__.update({"re": re, "Path": Path, "dataclass": dataclass, "math": math})
+    if namespace:
+        module.__dict__.update(namespace)
+    # dataclass() resolves annotations through sys.modules[cls.__module__].
+    sys.modules[name] = module
     tree_out = ast.Module(body=keep, type_ignores=[])
     ast.fix_missing_locations(tree_out)
     compiled = compile(tree_out, str(source_path), "exec")

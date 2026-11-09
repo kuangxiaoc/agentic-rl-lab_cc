@@ -19,6 +19,7 @@ CHAPTER_SCRIPTS = {
     1: REPO_ROOT / "experiments" / "loss-functions" / "local_gpu.py",
     2: REPO_ROOT / "experiments" / "grpo" / "local_gpu.py",
     3: REPO_ROOT / "experiments" / "vision-grpo" / "local_gpu.py",
+    4: REPO_ROOT / "experiments" / "dapo" / "local_gpu.py",
 }
 
 
@@ -31,6 +32,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--force", action="store_true", help="重跑已完成的章节")
     parser.add_argument("--continue-on-error", action="store_true")
     parser.add_argument("--skip-model-downloads", action="store_true", help="diagnostic only: fail 02/03 before downloads")
+    parser.add_argument(
+        "--chapter-arg",
+        action="append",
+        default=[],
+        metavar="ARG",
+        help="extra flag forwarded to every chapter script, for example "
+        "--chapter-arg=--dynamic-sampling",
+    )
     return parser.parse_args()
 
 
@@ -92,6 +101,7 @@ def run(
     force: bool,
     continue_on_error: bool,
     skip_model_downloads: bool = False,
+    chapter_args: list[str] | None = None,
 ) -> int:
     lib.initialize_state(root)
     lib.init_budget(root)
@@ -132,7 +142,13 @@ def run(
         print(f"[run ] chapter {chapter:02d}: {script.relative_to(REPO_ROOT)} -> {log_path}")
         with log_path.open("a", encoding="utf-8") as log:
             result = subprocess.run(
-                [sys.executable, str(script), "--workspace-root", str(root)],
+                [
+                    sys.executable,
+                    str(script),
+                    "--workspace-root",
+                    str(root),
+                    *(chapter_args or []),
+                ],
                 cwd=REPO_ROOT,
                 env=env,
                 stdout=log,
@@ -186,6 +202,7 @@ def main() -> int:
         args.force,
         args.continue_on_error,
         args.skip_model_downloads,
+        args.chapter_arg,
     )
 
 
