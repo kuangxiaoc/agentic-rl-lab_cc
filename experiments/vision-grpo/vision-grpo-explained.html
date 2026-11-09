@@ -1,0 +1,1179 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vision GRPO 全流程拆解 · agentic-rl-lab</title>
+<style>
+  :root {
+    --ink: #131417;
+    --ink-soft: #454a52;
+    --ink-faint: #7f868f;
+    --paper: #f2f4f4;
+    --paper-2: #fcfdfd;
+    --rule: #d3d9db;
+    --rule-soft: #e4e9ea;
+    --good: #1c6b52;
+    --good-bg: #dff0e9;
+    --bad: #98302b;
+    --bad-bg: #f7e3e1;
+    --warn: #7d5a12;
+    --warn-bg: #f7eed8;
+    --accent: #155e63;
+    --accent-soft: #dceced;
+    --code-bg: #1b2224;
+    --code-ink: #dfe8e8;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --serif: "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at 10% 6%, #fbfdfd 0%, transparent 44%),
+      radial-gradient(circle at 90% 94%, #e9eeee 0%, transparent 48%),
+      var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 16.5px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 28px 120px;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 48px;
+    align-items: start;
+  }
+
+  nav {
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding: 44px 0 40px;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  nav .brand {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 16px;
+  }
+  nav ol { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+  nav li { margin: 0 0 2px; counter-increment: s; }
+  nav a {
+    display: flex;
+    gap: 9px;
+    padding: 6px 8px 6px 0;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-radius: 3px;
+    transition: color .16s, background .16s;
+  }
+  nav a::before {
+    content: counter(s, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    padding-top: 2px;
+    min-width: 18px;
+  }
+  nav a:hover { color: var(--accent); background: var(--accent-soft); }
+  nav a.on { color: var(--accent); font-weight: 600; background: var(--accent-soft); }
+  nav a.on::before { color: var(--accent); }
+
+  header { padding: 44px 0 34px; border-bottom: 2px solid var(--ink); }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-size: clamp(30px, 4.2vw, 46px);
+    line-height: 1.18;
+    margin: 0 0 18px;
+    font-weight: 700;
+    letter-spacing: -.015em;
+  }
+  .lede { font-size: 17.5px; color: var(--ink-soft); margin: 0 0 26px; max-width: 62ch; }
+  .facts {
+    display: flex; flex-wrap: wrap; gap: 0;
+    border: 1px solid var(--rule); background: var(--paper-2);
+    font-family: var(--mono); font-size: 12px;
+  }
+  .facts div {
+    padding: 10px 16px;
+    border-right: 1px solid var(--rule-soft);
+    color: var(--ink-soft);
+  }
+  .facts div:last-child { border-right: 0; }
+  .facts b { display: block; color: var(--ink); font-weight: 600; font-size: 13px; }
+  .facts span { color: var(--ink-faint); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+
+  section { padding: 52px 0 8px; scroll-margin-top: 8px; }
+  section + section { border-top: 1px solid var(--rule-soft); }
+  h2 {
+    font-size: 27px;
+    line-height: 1.3;
+    margin: 0 0 6px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+  }
+  h2 .num {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    display: block;
+    letter-spacing: .16em;
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+  h3 {
+    font-size: 17.5px;
+    margin: 34px 0 10px;
+    font-weight: 700;
+    letter-spacing: -.005em;
+  }
+  p { margin: 0 0 15px; max-width: 68ch; }
+  .muted { color: var(--ink-faint); font-size: 14px; }
+  strong { font-weight: 700; }
+  code {
+    font-family: var(--mono);
+    font-size: .875em;
+    background: #e2e9ea;
+    padding: .1em .36em;
+    border-radius: 3px;
+    color: #0f4a4f;
+    white-space: nowrap;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 18px 20px;
+    border-radius: 5px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12.8px;
+    line-height: 1.72;
+    margin: 0 0 18px;
+    border-left: 3px solid var(--accent);
+  }
+  pre code { background: none; padding: 0; color: inherit; font-size: inherit; white-space: pre; }
+  pre .c { color: #7e8c8e; font-style: italic; }
+  pre .hi { background: #14363a; display: inline-block; width: 100%; }
+  .file {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: .04em;
+    margin: 0 0 7px;
+  }
+
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 18px 0 22px; }
+  .card {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 18px 20px;
+  }
+  .card h4 { margin: 0 0 8px; font-size: 14.5px; font-weight: 700; letter-spacing: .01em; }
+  .card p { font-size: 14px; margin: 0 0 8px; color: var(--ink-soft); max-width: none; }
+  .card p:last-child { margin-bottom: 0; }
+  .card .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    display: block;
+    margin-bottom: 7px;
+  }
+
+  .flow { margin: 22px 0 26px; }
+  .step {
+    display: grid;
+    grid-template-columns: 34px minmax(0,1fr);
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .step:last-child { border-bottom: 0; }
+  .step .idx {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #fff;
+    background: var(--accent);
+    border-radius: 50%;
+    width: 24px; height: 24px;
+    display: grid; place-items: center;
+    margin-top: 2px;
+    font-weight: 600;
+  }
+  .step h4 { margin: 0 0 5px; font-size: 15px; font-weight: 700; }
+  .step p { margin: 0; font-size: 14.2px; color: var(--ink-soft); max-width: none; }
+  .step .loc {
+    font-family: var(--mono); font-size: 10.5px;
+    color: var(--ink-faint); margin-left: 6px; font-weight: 400;
+  }
+  .step .diff {
+    display: inline-block;
+    font-family: var(--mono); font-size: 9.5px;
+    background: var(--accent-soft); color: var(--accent);
+    padding: 1px 7px; border-radius: 8px;
+    margin-left: 6px; vertical-align: 1px;
+    letter-spacing: .04em;
+  }
+
+  .bars { margin: 20px 0 24px; font-family: var(--mono); font-size: 11.5px; }
+  .bar-row {
+    display: grid;
+    grid-template-columns: 42px 54px 78px minmax(0,1fr) 92px;
+    gap: 10px;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .bar-row.head { color: var(--ink-faint); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid var(--rule); }
+  .bar-row .lbl { color: var(--ink-soft); }
+  .bar-track { height: 9px; background: #dde4e5; border-radius: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; }
+  .bar-fill.ok { background: var(--good); }
+  .bar-fill.cut { background: var(--bad); }
+  .bar-fill.skip { background: #c3cccd; }
+  .bar-val { text-align: right; color: var(--ink-faint); }
+  .bar-val.bad { color: var(--bad); font-weight: 600; }
+  .bar-val.ok { color: var(--good); font-weight: 600; }
+
+  .answers { display: grid; gap: 14px; margin: 20px 0 24px; }
+  .ans {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--rule);
+    border-radius: 4px;
+    padding: 15px 18px;
+  }
+  .ans.wrong { border-left-color: var(--bad); background: linear-gradient(90deg, var(--bad-bg) 0%, var(--paper-2) 32%); }
+  .ans.right { border-left-color: var(--good); background: linear-gradient(90deg, var(--good-bg) 0%, var(--paper-2) 32%); }
+  .ans.cut { border-left-color: var(--warn); background: linear-gradient(90deg, var(--warn-bg) 0%, var(--paper-2) 32%); }
+  .ans-head {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline;
+    font-family: var(--mono); font-size: 11px;
+    margin-bottom: 10px; color: var(--ink-faint);
+  }
+  .pill {
+    font-family: var(--mono); font-size: 10.5px;
+    padding: 2px 8px; border-radius: 10px; font-weight: 600;
+    letter-spacing: .04em;
+  }
+  .pill.wrong { background: var(--bad); color: #fff; }
+  .pill.right { background: var(--good); color: #fff; }
+  .pill.cut { background: var(--warn); color: #fff; }
+  .adv { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--ink-faint); }
+  .ans .body {
+    font-family: var(--mono);
+    font-size: 12.2px;
+    line-height: 1.68;
+    color: var(--ink-soft);
+    white-space: pre-wrap;
+    max-height: 172px;
+    overflow-y: auto;
+    padding-right: 6px;
+  }
+  .ans .body::-webkit-scrollbar { width: 6px; }
+  .ans .body::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+  .boxed { color: var(--accent); font-weight: 700; }
+  .cutmark { color: var(--warn); font-weight: 700; }
+
+  .table-wrap { overflow-x: auto; margin: 18px 0 22px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.6px; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th {
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-faint); border-bottom: 1px solid var(--rule);
+    font-weight: 600; white-space: nowrap;
+  }
+  td code { font-size: 12px; }
+  tbody tr:hover { background: #f7fafa; }
+
+  .formula {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--ink);
+    padding: 16px 20px;
+    margin: 18px 0;
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 2;
+    overflow-x: auto;
+  }
+  .formula .eq { color: var(--ink); }
+  .formula .note { color: var(--ink-faint); font-size: 12px; display: block; margin-top: 8px; font-family: var(--serif); }
+
+  .callout {
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--warn);
+    background: var(--warn-bg);
+    padding: 15px 18px;
+    border-radius: 4px;
+    margin: 20px 0;
+    font-size: 14.5px;
+  }
+  .callout.trap { border-left-color: var(--bad); background: var(--bad-bg); }
+  .callout.ok { border-left-color: var(--good); background: var(--good-bg); }
+  .callout b { display: block; margin-bottom: 5px; font-size: 14px; }
+  .callout p { margin: 0 0 8px; font-size: 14.2px; max-width: none; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .tree {
+    font-family: var(--mono); font-size: 12.4px; line-height: 1.9;
+    background: var(--paper-2); border: 1px solid var(--rule);
+    padding: 16px 20px; border-radius: 4px; overflow-x: auto;
+    margin: 18px 0 22px;
+  }
+  .tree .d { color: var(--accent); font-weight: 600; }
+  .tree .f { color: var(--ink-soft); }
+  .tree .cm { color: var(--ink-faint); font-style: italic; }
+
+  /* 多模态输入示意 */
+  .mm {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    gap: 10px;
+    align-items: center;
+    margin: 22px 0;
+    font-family: var(--mono);
+    font-size: 11.5px;
+  }
+  .mm .box {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 14px 12px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .mm .box b { display: block; font-size: 12px; margin-bottom: 4px; }
+  .mm .box span { color: var(--ink-faint); font-size: 10.5px; }
+  .mm .arrow { color: var(--accent); font-size: 18px; text-align: center; }
+  .mm .box.out { background: var(--accent-soft); border-color: var(--accent); }
+
+  footer {
+    margin-top: 60px; padding-top: 24px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono); font-size: 11.5px;
+    color: var(--ink-faint);
+    display: flex; flex-wrap: wrap; gap: 8px 24px;
+  }
+
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: 1fr; gap: 0; padding: 0 18px 80px; }
+    nav { position: static; max-height: none; padding: 22px 0 0; border-bottom: 1px solid var(--rule); }
+    nav ol { display: flex; flex-wrap: wrap; gap: 2px 12px; }
+    nav a { padding: 4px 0; }
+    nav a::before { display: none; }
+    header { padding-top: 26px; }
+    .facts div { border-right: 0; width: 50%; }
+    .bar-row { grid-template-columns: 34px 44px 64px minmax(0,1fr) 70px; gap: 6px; }
+    .mm { grid-template-columns: 1fr; }
+    .mm .arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<nav>
+  <div class="brand">Vision GRPO · Ch.03</div>
+  <ol>
+    <li><a href="#idea">在第 2 章上加一张图</a></li>
+    <li><a href="#input">图片怎么变成 token</a></li>
+    <li><a href="#pipeline">训练循环的差异</a></li>
+    <li><a href="#case">真实一组：平行四边形</a></li>
+    <li><a href="#truncate">512 token 截断</a></li>
+    <li><a href="#degenerate">10 步全是退化组</a></li>
+    <li><a href="#engineering">工程：先预检再下载</a></li>
+    <li><a href="#results">结果怎么读</a></li>
+    <li><a href="#pitfalls">踩过的坑</a></li>
+    <li><a href="#next">如果继续做</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<header>
+  <div class="kicker">agentic-rl-lab · 多模态训练循环</div>
+  <h1>Vision GRPO：图进来之后</h1>
+  <p class="lede">
+    第 2 章的所有东西都还在——采样、组内 advantage、policy loss。
+    这一章只回答一个问题：<strong>一张几何图是怎么变成模型能读的 token 的</strong>，
+    以及它给训练带来了哪些新麻烦。
+  </p>
+  <div class="facts">
+    <div><span>模型</span><b>Qwen3-VL-4B-Instruct</b></div>
+    <div><span>数据</span><b>GeoQA · 3503 题</b></div>
+    <div><span>配置</span><b>full · 10 步</b></div>
+    <div><span>上限</span><b>512 token</b></div>
+    <div><span>耗时</span><b>≈ 5.8 分钟</b></div>
+    <div><span>梯度更新</span><b>0 次</b></div>
+  </div>
+</header>
+
+<section id="idea">
+  <h2><span class="num">01</span>在第 2 章上加一张图</h2>
+
+  <p>
+    第 2 章：一道 GSM8K 数学题，纯文本，答案是数字。
+    第 3 章：一道 GeoQA 几何题，<strong>题目 + 一张图</strong>，答案是 A/B/C/D 四个选项之一。
+  </p>
+
+  <p>
+    GRPO 的骨架完全没变。变的只有两件事：
+  </p>
+
+  <div class="grid2">
+    <div class="card">
+      <span class="tag">变化一</span>
+      <h4>输入多了一个模态</h4>
+      <p>
+        文本 token 之外，还有一张图片被编码成<strong>视觉 token</strong>。
+        两者拼在同一条序列里，模型一次 forward 同时看到。
+      </p>
+    </div>
+    <div class="card">
+      <span class="tag">变化二</span>
+      <h4>reward 变成选项匹配</h4>
+      <p>
+        不再比较数字，而是从回答里抠出 <code>\boxed{A}</code> 到 <code>\boxed{D}</code>，
+        和正确选项比。因此多了一个指标 <code>format_rate</code>。
+      </p>
+    </div>
+  </div>
+
+  <p>
+    所以这一页的重点不是"再讲一遍 GRPO"，而是<strong>视觉输入这条支线</strong>，
+    以及它带来的两个新问题：模型写不完答案、以及所有组都退化。
+  </p>
+
+  <div class="callout ok">
+    <b>和上章共用的部分</b>
+    <p>
+      <code>generate_group()</code>、<code>sequence_policy_loss()</code>、<code>group_advantages()</code>
+      全部原样复用。第 3 章的 <code>local_gpu.py</code> 只改了输入构造和打分函数，
+      训练循环的 5 个步骤一行没动。
+    </p>
+  </div>
+</section>
+
+<section id="input">
+  <h2><span class="num">02</span>图片怎么变成 token</h2>
+
+  <p>
+    这是本章唯一真正新的机制。传统做法要手动切图、算 patch、拼占位符，
+    但 Transformers 的 <code>AutoProcessor</code> 把这些都包好了。
+  </p>
+
+  <div class="mm">
+    <div class="box">
+      <b>一张 RGB 图</b>
+      <span>PIL.Image</span>
+    </div>
+    <div class="arrow">+</div>
+    <div class="box">
+      <b>题目 + 四选项</b>
+      <span>纯文本</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="box out">
+      <b>AutoProcessor</b>
+      <span>apply_chat_template</span>
+    </div>
+  </div>
+
+  <p>
+    调用只需要一次，返回的字典里同时装着文本和视觉张量：
+  </p>
+
+  <p class="file">experiments/vision-grpo/local_gpu.py · build_messages() + apply_chat_template()</p>
+  <pre><code>messages = [{
+    <span class="c"># 关键：content 是一个列表，图片和文本并列</span>
+    "role": "user",
+    "content": [
+        {"type": "image", "image": image},
+        {"type": "text",  "text": format_question(subject, choices)},
+    ],
+}]
+
+inputs = processor.apply_chat_template(
+    messages,
+    tokenize=True,
+    add_generation_prompt=True,
+    return_dict=True,
+    return_tensors="pt",
+)
+
+<span class="c"># 返回的字典大概长这样：</span>
+<span class="hi">inputs["input_ids"]        # 文本 token，含视觉占位符</span>
+inputs["attention_mask"]   # 哪些位置要参与注意力
+inputs["pixel_values"]     # 图片切成的 patch 张量
+inputs["image_grid_thw"]   # 每个 patch 的网格尺寸</code></pre>
+
+  <p>
+    <strong>关键点是 <code>input_ids</code> 里已经有视觉占位符。</strong>
+    图片不是"另外塞进去"的，而是被展开成一串特殊 token 嵌在文本序列里。
+    模型 forward 时，这些占位符的位置会被 <code>pixel_values</code> 的内容填充。
+  </p>
+
+  <div class="callout">
+    <b>为什么这很重要</b>
+    <p>
+      因为这意味着<strong>视觉 token 和文本 token 共用同一套位置编码</strong>。
+      所以 completion 的起点仍然可以用 <code>len(input_ids)</code> 算出来，
+      第 2 章那个 <code>prompt_length - 1</code> 的切片逻辑<strong>完全不用改</strong>。
+    </p>
+    <p>
+      原版 PyTRIO 要手动算 <code>expected_tokens</code> 去和远端对齐，
+      本地版因为 processor 和模型是同一套实现，不需要这个检查。
+    </p>
+  </div>
+
+  <h3>图片从哪来</h3>
+  <p>
+    GeoQA 的 parquet 里，图片有两种存法：PIL 对象，或者 <code>{"bytes": ...}</code>。
+    <code>as_rgb_image()</code> 把两者统一转成 RGB，因为模型只接受三通道。
+  </p>
+
+  <pre><code><span class="k">def</span> as_rgb_image(value):
+    <span class="k">if</span> isinstance(value, Image.Image):
+        <span class="k">return</span> value.convert("RGB")
+    <span class="k">if</span> isinstance(value, dict):
+        value = value.get("bytes") <span class="k">or</span> value.get("image")
+    <span class="k">return</span> Image.open(io.BytesIO(value)).convert("RGB")</code></pre>
+</section>
+
+<section id="pipeline">
+  <h2><span class="num">03</span>训练循环的差异</h2>
+
+  <p>
+    五步骨架和第 2 章一样。下面只标出<strong>不一样的地方</strong>，没标的行就是原样复用。
+  </p>
+
+  <div class="flow">
+    <div class="step">
+      <div class="idx">1</div>
+      <div>
+        <h4>取一行，解出图片<span class="loc">L99–104</span><span class="diff">新增</span></h4>
+        <p>
+          <code>row["image"]</code> 转 RGB，<code>row["label"]</code> 转成 A/B/C/D 当标准答案。
+          然后 <code>build_messages()</code> 把图和题拼成一条消息。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="idx">2</div>
+      <div>
+        <h4>采样 4 条回答<span class="loc">L106</span></h4>
+        <p>
+          和第 2 章同一个 <code>generate_group()</code>。
+          区别只是输入里多了 <code>pixel_values</code>，模型在生成时能"看见"图。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="idx">3</div>
+      <div>
+        <h4>抠选项打分<span class="loc">L118–120</span><span class="diff">新增</span></h4>
+        <p>
+          <code>extract_choice()</code> 找最后一个 <code>\boxed{A-D}</code>，
+          和 <code>gold_choice</code> 比。找不到 boxed 就记 <code>None</code>，reward = 0。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="idx">4</div>
+      <div>
+        <h4>保留视觉张量给训练用<span class="loc">L123–127</span><span class="diff">新增</span></h4>
+        <p>
+          <code>vision_inputs</code> 从 <code>inputs</code> 里挑出 <code>pixel_values</code>
+          这些非文本字段，挂到 <code>Sample.extra_inputs</code> 上。
+          训练 forward 时它们会一起传进模型。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="idx">5</div>
+      <div>
+        <h4>loss + backward<span class="loc">L145–158</span></h4>
+        <p>
+          完全复用第 2 章。唯一的细节：<code>sequence_policy_loss()</code> 会把
+          <code>extra_inputs</code> 一起塞进 <code>model(**kwargs)</code>，
+          所以图文 forward 和采样时的条件一致。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <b>新增的指标：format_rate</b>
+    <p>
+      <code>format_rate = 有 boxed 选项的回答数 / 4</code>。
+      它和 reward 是两个不同的东西：
+    </p>
+    <p>
+      <strong>format_rate = 0</strong>：模型没写出 <code>\boxed{}</code>，格式不对。<br>
+      <strong>format_rate = 1 但 reward = 0</strong>：格式对，但选错了。
+    </p>
+    <p>
+      分开看才知道问题出在"写不出来"还是"想错了"。
+    </p>
+  </div>
+</section>
+
+<section id="case">
+  <h2><span class="num">04</span>真实一组：平行四边形</h2>
+
+  <p>
+    <code>run-20261108-184536</code> 第 1 步，题目 id 9286，标准答案 D。
+    这是本章最干净的一组——4 条回答全部正确。
+  </p>
+
+  <div class="card" style="margin-bottom:20px">
+    <span class="tag">GeoQA · step 1 · id 9286</span>
+    <p style="font-size:15.5px;color:var(--ink)">
+      平行四边形 ABCD 中，∠B 比 ∠A 大 40°，求 ∠D 的度数。
+    </p>
+    <p class="muted" style="margin:0">标准答案 <code>D</code> · 110°</p>
+  </div>
+
+  <div class="answers">
+    <div class="ans right">
+      <div class="ans-head">
+        <span class="pill right">✓ 对</span>
+        <span>answer 0</span>
+        <span>reward 1.0</span>
+        <span class="adv">advantage 0.0</span>
+      </div>
+      <div class="body">在平行四边形ABCD中，我们知道：
+- 对边平行：AB ∥ CD，AD ∥ BC
+- 邻角互补：∠A + ∠B = 180°
+- 对角相等：∠A = ∠C，∠B = ∠D
+
+题目给出：∠B 比 ∠A 大 40°，即 ∠B = ∠A + 40°。
+
+又因为邻角互补：
+∠A + ∠B = 180°
+∠A + (∠A + 40°) = 180°
+2∠A + 40° = 180°
+2∠A = 140°
+∠A = 70°
+
+那么 ∠B = 70° + 40° = 110°
+
+由于在平行四边形中，对角相等，所以：
+∠D = ∠B = 110°
+
+因此，正确答案是 D. 110°。
+
+<span class="boxed">\boxed{D}</span></div>
+    </div>
+
+    <div class="ans right">
+      <div class="ans-head">
+        <span class="pill right">✓ 对</span>
+        <span>answer 3</span>
+        <span>reward 1.0</span>
+        <span class="adv">advantage 0.0</span>
+      </div>
+      <div class="body">... ∠A = 70°，所以 ∠D = ∠A = 70°？不对，这是错的！
+**注意！** 在平行四边形中，**对角相等**，即 ∠A = ∠C，∠B = ∠D。
+
+所以 ∠D = ∠B = 110°。
+
+验证：∠A = 70°，∠B = 110°，70 + 110 = 180°，符合邻角互补。
+∠D = 110°，∠C = 70°，也满足对角相等。
+
+所以，∠D = 110°。
+最终答案是：<span class="boxed">\boxed{D}</span></div>
+    </div>
+  </div>
+
+  <div class="callout trap">
+    <b>这一组的 advantage 全是 0</b>
+    <p>
+      4 条全对，reward 都是 1，均值也是 1，所以每条 advantage = 1 − 1 = 0。
+      <strong>没有相对好坏，就没有训练信号。</strong>
+      代码在第 <code>131</code> 行 <code>continue</code> 掉全部样本，<code>train_samples = 0</code>。
+    </p>
+    <p>
+      这是本章 10 步的共同结局——每一组要么全对、要么全错，
+      从来没有出现过"部分对部分错"的组。
+    </p>
+  </div>
+
+  <p>
+    值得注意的是 answer 3：它中途写了一句
+    <em>"所以 ∠D = ∠A = 70°？不对，这是错的！"</em>，
+    然后自我纠正到正确结论。这种<strong>自我纠错后答对</strong>的轨迹，
+    恰恰是 GRPO 最想强化的——但前提是组里有别的样本答错，才有对比。
+  </p>
+</section>
+
+<section id="truncate">
+  <h2><span class="num">05</span>512 token 截断</h2>
+
+  <p>
+    这是本章最值得注意的现象。<code>max_new_tokens=512</code> 是硬上限，
+    模型生成到这里会被强制切断——<strong>不管推理有没有结束</strong>。
+  </p>
+
+  <div class="bar-row head" style="display:grid;grid-template-columns:60px 100px 100px 1fr;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);border-bottom:1px solid var(--rule);padding:5px 0">
+    <span>step</span><span>tokens</span><span>boxed</span><span>结局</span>
+  </div>
+  <div class="bars" style="margin-top:0">
+    <div class="bar-row" style="grid-template-columns:60px 100px 100px 1fr">
+      <span class="lbl">0</span><span class="lbl">512.0</span><span class="lbl" style="color:var(--bad)">0 个</span>
+      <div class="bar-track"><div class="bar-fill cut" style="width:100%"></div></div>
+    </div>
+    <div class="bar-row" style="grid-template-columns:60px 100px 100px 1fr">
+      <span class="lbl">1</span><span class="lbl">283.8</span><span class="lbl" style="color:var(--good)">4 个</span>
+      <div class="bar-track"><div class="bar-fill ok" style="width:55%"></div></div>
+    </div>
+    <div class="bar-row" style="grid-template-columns:60px 100px 100px 1fr">
+      <span class="lbl">2</span><span class="lbl">353.5</span><span class="lbl" style="color:var(--good)">4 个</span>
+      <div class="bar-track"><div class="bar-fill ok" style="width:69%"></div></div>
+    </div>
+    <div class="bar-row" style="grid-template-columns:60px 100px 100px 1fr">
+      <span class="lbl">3</span><span class="lbl">233.8</span><span class="lbl" style="color:var(--good)">4 个</span>
+      <div class="bar-track"><div class="bar-fill ok" style="width:46%"></div></div>
+    </div>
+    <div class="bar-row" style="grid-template-columns:60px 100px 100px 1fr">
+      <span class="lbl">4</span><span class="lbl">173.5</span><span class="lbl" style="color:var(--good)">4 个</span>
+      <div class="bar-track"><div class="bar-fill ok" style="width:34%"></div></div>
+    </div>
+    <div class="bar-row" style="grid-template-columns:60px 100px 100px 1fr">
+      <span class="lbl">5</span><span class="lbl">512.0</span><span class="lbl" style="color:var(--bad)">0 个</span>
+      <div class="bar-track"><div class="bar-fill cut" style="width:100%"></div></div>
+    </div>
+    <div class="bar-row" style="grid-template-columns:60px 100px 100px 1fr">
+      <span class="lbl">6</span><span class="lbl">512.0</span><span class="lbl" style="color:var(--bad)">0 个</span>
+      <div class="bar-track"><div class="bar-fill cut" style="width:100%"></div></div>
+    </div>
+    <div class="bar-row" style="grid-template-columns:60px 100px 100px 1fr">
+      <span class="lbl">7</span><span class="lbl">164.5</span><span class="lbl" style="color:var(--good)">4 个</span>
+      <div class="bar-track"><div class="bar-fill ok" style="width:32%"></div></div>
+    </div>
+    <div class="bar-row" style="grid-template-columns:60px 100px 100px 1fr">
+      <span class="lbl">8</span><span class="lbl">512.0</span><span class="lbl" style="color:var(--bad)">0 个</span>
+      <div class="bar-track"><div class="bar-fill cut" style="width:100%"></div></div>
+    </div>
+    <div class="bar-row" style="grid-template-columns:60px 100px 100px 1fr">
+      <span class="lbl">9</span><span class="lbl">512.0</span><span class="lbl" style="color:var(--bad)">0 个</span>
+      <div class="bar-track"><div class="bar-fill cut" style="width:100%"></div></div>
+    </div>
+  </div>
+
+  <p>
+    规律非常干净：<strong>tokens 打到 512 的 5 个步，boxed 全是 0；没打满的 5 个步，boxed 全是 4。</strong>
+    没有一个例外。
+  </p>
+
+  <h3>截断现场</h3>
+  <p>
+    step 5 的一道圆题，答案应该写 60°。这是第 3 条回答的最后部分——推理已经算出 60° 了，
+    但还没来得及写 <code>\boxed{}</code> 就被切断了：
+  </p>
+
+  <div class="ans cut">
+    <div class="ans-head">
+      <span class="pill cut">✂ 截断</span>
+      <span>step 5 · answer 2</span>
+      <span>512 token</span>
+      <span class="adv">reward 0.0</span>
+    </div>
+    <div class="body">... 在△ADC中：
+
+∠ACD = 90°，
+
+∠ADC = 30° （刚才推出）
+
+所以 ∠CAD = 180° - 90° - 30° = 60°
+
+所以答案是 **60°**
+
+也可以这样想：
+
+因为AD是直径，所以∠ACD = 90°（直径所对的圆周角）
+
+∠ABC = ∠ADC = <span class="cutmark">▌</span></div>
+  </div>
+
+  <div class="callout trap">
+    <b>它其实答对了，但拿不到分</b>
+    <p>
+      这条回答算出了 60°，也就是正确答案。但因为截断发生在写 <code>\boxed{}</code> 之前，
+      <code>extract_choice()</code> 找不到选项，返回 <code>None</code>，reward 记 0。
+    </p>
+    <p>
+      所以 <code>format_rate = 0</code> 的这 5 步，<strong>不能简单理解成"模型不会做"</strong>。
+      其中一部分是"会做，但话太多"。
+    </p>
+  </div>
+
+  <p>
+    这也解释了为什么 step 0、5、6、8、9 的耗时都是 49–50 秒，
+    而答完的步只要 20–42 秒——<strong>生成到上限是最慢的情况</strong>。
+  </p>
+</section>
+
+<section id="degenerate">
+  <h2><span class="num">06</span>10 步全是退化组</h2>
+
+  <p>
+    第 2 章 10 步里有 1 步产生了梯度。这一章是 <strong>0 步</strong>。
+    原因比第 2 章更纯粹：<strong>4 条回答的 reward 永远完全相同</strong>。
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>step</th><th>reward 分布</th><th>train_samples</th><th>为什么</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>0</td><td>[0, 0, 0, 0]</td><td>0</td><td>全被截断，都没写 boxed</td></tr>
+        <tr><td>1</td><td>[1, 1, 1, 1]</td><td>0</td><td>全对</td></tr>
+        <tr><td>2</td><td>[1, 1, 1, 1]</td><td>0</td><td>全对</td></tr>
+        <tr><td>3</td><td>[1, 1, 1, 1]</td><td>0</td><td>全对</td></tr>
+        <tr><td>4</td><td>[1, 1, 1, 1]</td><td>0</td><td>全对</td></tr>
+        <tr><td>5</td><td>[0, 0, 0, 0]</td><td>0</td><td>全被截断</td></tr>
+        <tr><td>6</td><td>[0, 0, 0, 0]</td><td>0</td><td>全被截断</td></tr>
+        <tr><td>7</td><td>[1, 1, 1, 1]</td><td>0</td><td>全对</td></tr>
+        <tr><td>8</td><td>[0, 0, 0, 0]</td><td>0</td><td>全被截断</td></tr>
+        <tr><td>9</td><td>[0, 0, 0, 0]</td><td>0</td><td>全被截断</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    注意 <strong>没有一行是 [1, 0, 1, 0] 这种混合分布</strong>。
+    这不是巧合，是本章的核心结构性原因：
+  </p>
+
+  <div class="callout">
+    <b>为什么视觉题更难出现混合组</b>
+    <p>
+      第 2 章的答案是自由数字，4 条采样可以各自算错成不同值，容易分化。
+      第 3 章只有 4 个选项，<strong>模型一旦读懂了图，4 条基本都会选同一个</strong>——
+      采样温度 1.0 带来的多样性，不足以让它在 4 个选项之间摇摆。
+    </p>
+    <p>
+      再加上 512 token 的截断是<strong>确定性</strong>的：题目一难，4 条会同时撞上限，
+      同时拿 0 分。两种机制都指向同一个结果——组内没有方差。
+    </p>
+  </div>
+
+  <p>
+    所以这一章诚实的结果是：<strong>训练循环跑通了，但在这 10 步里没有产生任何学习</strong>。
+    这不是 bug，是配置（题目难度、group_size、token 上限）和这个模型能力共同决定的。
+  </p>
+</section>
+
+<section id="engineering">
+  <h2><span class="num">07</span>工程：先预检再下载</h2>
+
+  <p>
+    本章的执行顺序和第 2 章<strong>刻意不同</strong>。第 2 章是先下载模型再加载数据，
+    第 3 章反过来——<strong>先确认数据可用，再花时间下载 8GB 模型</strong>。
+  </p>
+
+  <pre><code>bash scripts/run_modelscope.sh chapter 03
+  │
+  ├─ 1. 预检 GeoQA（HF 镜像）
+  │     ├─ 下载 data/*.parquet
+  │     ├─ 过滤 original_split == "train"
+  │     └─ 检查每行有 image + 4 个 choices
+  │     ↓ 失败就写 data_unavailable，<span class="hi">不下载模型</span>
+  │
+  ├─ 2. 下载 Qwen3-VL-4B-Instruct（约 8GB）
+  ├─ 3. 4-bit QLoRA 加载
+  ├─ 4. for step in range(10):   ← 图文采样 → 打分 → loss
+  └─ 5. 保存 adapter + 同步记录</code></pre>
+
+  <div class="grid2">
+    <div class="card">
+      <span class="tag">为什么先预检</span>
+      <h4>省下 8GB 下载</h4>
+      <p>
+        HF 数据源可能连不上、字段可能变、图片可能解不开。
+        这些都在下载模型之前检查，失败就立刻停。
+      </p>
+    </div>
+    <div class="card">
+      <span class="tag">状态机</span>
+      <h4>data_unavailable ≠ failed</h4>
+      <p>
+        数据不可用是一种<strong>合法结局</strong>，不是错误。
+        章节状态记成 <code>data_unavailable</code>，runner 不会把它算成失败。
+      </p>
+    </div>
+    <div class="card">
+      <span class="tag">诚实性约束</span>
+      <h4>绝不用文本数据顶替</h4>
+      <p>
+        代码里写死了：GeoQA 拿不到就记 <code>data_unavailable</code>，
+        <strong>不会偷偷换成 GSM8K</strong>，也不会伪造一个成功结果。
+      </p>
+    </div>
+    <div class="card">
+      <span class="tag">实际结果</span>
+      <h4>3503 行通过预检</h4>
+      <p>
+        <code>data_preflight.json</code> 记录了通过的行数。
+        本次预检成功，才继续下载模型。
+      </p>
+    </div>
+  </div>
+
+  <h3>产物结构</h3>
+  <div class="tree">
+<span class="d">experiments/vision-grpo/</span>
+├── <span class="f">local_gpu.py</span>          <span class="cm"># 本章主脚本</span>
+├── <span class="f">train.py</span>              <span class="cm"># 原版 PyTRIO 章节，复用 format_question / extract_choice</span>
+├── <span class="f">readme.md</span>             <span class="cm"># 文字版讲解</span>
+└── <span class="d">results/03-vision-grpo/</span>
+    ├── <span class="f">run-20261108-182013/</span> <span class="cm"># data_unavailable：HF 连不上</span>
+    ├── <span class="f">run-20261108-182408/</span> <span class="cm"># failed：processor 没有 eos_token_id</span>
+    ├── <span class="f">run-20261108-182859/</span> <span class="cm"># smoke，128 token，全截断</span>
+    ├── <span class="f">run-20261108-183451/</span> <span class="cm"># smoke，128 token，全截断</span>
+    └── <span class="d">run-20261108-184536/</span> <span class="cm"># full，512 token ← 本页数据</span>
+  </div>
+
+  <p class="muted">
+    五个 run 目录保留在 Git 里，正好是一份完整的调试历史：
+    从"网络不通"到"API 不匹配"再到"跑通但全退化"。
+  </p>
+</section>
+
+<section id="results">
+  <h2><span class="num">08</span>结果怎么读</h2>
+
+  <p>
+    本章比第 2 章多了一个字段 <code>format_rate</code>，也多了 <code>data_preflight.json</code>。
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>文件</th><th>看什么</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>data_preflight.json</code></td>
+          <td>GeoQA 通过了多少行。<code>{"train_rows": 3503}</code></td>
+        </tr>
+        <tr>
+          <td><code>samples.jsonl</code></td>
+          <td><strong>最重要</strong>：每题 id、gold_choice、predicted、4 条完整回答</td>
+        </tr>
+        <tr>
+          <td><code>history.json</code></td>
+          <td>10 步的 reward / <strong>format_rate</strong> / degenerate / train_samples</td>
+        </tr>
+        <tr>
+          <td><code>data_unavailable.txt</code></td>
+          <td>数据预检失败时的具体原因，只在这种结局下出现</td>
+        </tr>
+        <tr>
+          <td><code>adapter/</code></td>
+          <td>LoRA 权重，在 <code>/mnt/workspace</code>，<strong>不进 Git</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>耗时分布</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>类型</th><th>步数</th><th>单步耗时</th><th>token 数</th></tr></thead>
+      <tbody>
+        <tr><td>正常答完</td><td>5</td><td>20–42s</td><td>164–354</td></tr>
+        <tr><td>撞 512 上限</td><td>5</td><td>49–50s</td><td>512</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <b>这章比第 2 章慢一倍</b>
+    <p>
+      第 2 章 10 步约 3 分钟，第 3 章约 5.8 分钟。
+      原因有两个：视觉 token 让序列更长（forward 更贵），
+      而且有一半的步撞满了 512 token 上限。
+    </p>
+  </div>
+</section>
+
+<section id="pitfalls">
+  <h2><span class="num">09</span>踩过的坑</h2>
+
+  <p>
+    本章在服务器上留下了一条完整的失败轨迹。下面每一条都能在
+    <code>results/</code> 的某个 run 目录里找到原始证据。
+  </p>
+
+  <div class="callout trap">
+    <b>① HF 连不上，数据预检失败</b>
+    <p>
+      <strong>证据：</strong><code>run-20261108-182013/data_unavailable.txt</code>
+    </p>
+    <p>
+      <code>LocalEntryNotFoundError: ConnectError: [Errno 101] Network is unreachable</code>
+    </p>
+    <p>
+      <strong>修法：</strong>默认 <code>HF_ENDPOINT=https://hf-mirror.com</code>。
+      国内 GPU 机器基本都连不上 huggingface.co。
+    </p>
+  </div>
+
+  <div class="callout trap">
+    <b>② processor 没有 eos_token_id</b>
+    <p>
+      <strong>证据：</strong><code>run-20261108-182408/error.txt</code>
+    </p>
+    <p>
+      <code>AttributeError: 'Qwen3VLProcessor' object has no attribute 'eos_token_id'</code>
+    </p>
+    <p>
+      <strong>原因：</strong><code>Qwen3VLProcessor</code> 是个包装器，
+      真正的 tokenizer 藏在 <code>.tokenizer</code> 里。
+    </p>
+    <p>
+      <strong>修法：</strong>加一个 <code>text_tokenizer()</code>，遇到 processor 就自动拆包。
+      这个坑只在视觉章节出现，第 2 章用的是纯 <code>AutoTokenizer</code>，不会有。
+    </p>
+  </div>
+
+  <div class="callout trap">
+    <b>③ 128 token 全部截断</b>
+    <p>
+      <strong>证据：</strong><code>run-20261108-182859</code> 和 <code>183451</code>，
+      两个 smoke run 的 4 条回答全部 128.0 token，format_rate 全 0。
+    </p>
+    <p>
+      <strong>原因：</strong>几何题需要写完整推理，128 token 连题目重述都不够。
+    </p>
+    <p>
+      <strong>修法：</strong>full profile 提到 512。但 512 仍然不够——
+      5 个步照样撞上限。
+    </p>
+  </div>
+
+  <div class="callout ok">
+    <b>这个坑和训练模式采样是同一类</b>
+    <p>
+      第 2 章那个"训练模式采样输出乱码"的 bug，在视觉章节同样存在，
+      但修复在共用的 <code>generate_group()</code> 里，所以这里自动就好了。
+      <strong>这就是把逻辑抽到共用模块的价值。</strong>
+    </p>
+  </div>
+</section>
+
+<section id="next">
+  <h2><span class="num">10</span>如果继续做</h2>
+
+  <p>
+    这一章的代码是对的，跑不出学习效果是因为<strong>配置</strong>，不是实现。
+    三个可量化的调整方向：
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>问题</th><th>调整</th><th>预期效果</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>撞 512 上限</td>
+          <td><code>max_new_tokens</code> 提到 1024</td>
+          <td>减少截断，但单步耗时翻倍</td>
+        </tr>
+        <tr>
+          <td>4 条答案总一样</td>
+          <td><code>group_size</code> 提到 8 或 16</td>
+          <td>更容易采到不同选项，出现混合组</td>
+        </tr>
+        <tr>
+          <td>题目对 4B 太简单</td>
+          <td>换更难的几何数据集，或只跑模型错的题</td>
+          <td>直接制造组内方差</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    还有一个更根本的思路：<strong>把"截断"本身变成信号</strong>。
+    现在截断的回答 reward 记 0，和"答错"混在一起。
+    如果加一条规则——没写 boxed 但推理里有正确答案，给部分分——
+    退化组就会减少。但这就偏离了原版的可验证 reward 定义，属于设计取舍。
+  </p>
+
+  <div class="callout">
+    <b>对学习来说，这一章最有价值的是什么</b>
+    <p>
+      不是"训练成功了"，而是<strong>看到一次诚实的负结果</strong>：
+      代码正确、数据正确、模型加载正确，但就是没有训练信号。
+    </p>
+    <p>
+      真实项目里这种情况非常常见，而大部分教程不会展示。
+      日志里清清楚楚写着 <code>train_samples = 0</code>、
+      <code>degenerate = 1.0</code>、<code>format_rate = 0</code>——
+      这就是判断"要不要继续调参"的证据。
+    </p>
+  </div>
+</section>
+
+<footer>
+  <span>agentic-rl-lab · fork by kuangxiaoc</span>
+  <span>数据来源：run-20261108-184536（full profile，A10）</span>
+  <span>代码：experiments/vision-grpo/local_gpu.py</span>
+</footer>
+
+</main>
+</div>
+
+<script>
+  const links = [...document.querySelectorAll('nav a')];
+  const sections = links.map(a => document.querySelector(a.getAttribute('href')));
+
+  const spy = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const i = sections.indexOf(entry.target);
+      if (i < 0) return;
+      links.forEach(l => l.classList.remove('on'));
+      links[i].classList.add('on');
+    });
+  }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+
+  sections.forEach(s => s && spy.observe(s));
+</script>
+</body>
+</html>
