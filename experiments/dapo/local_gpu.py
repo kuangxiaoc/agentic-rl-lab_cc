@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -43,7 +44,41 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="本地 GPU 版 DAPO / GSM8K")
     parser.add_argument("--workspace-root", default=None)
     parser.add_argument("--run-id", default=None)
-    parser.add_argument("--profile", default="smoke", choices=("smoke", "full"))
+    parser.add_argument(
+        "--profile",
+        default=os.environ.get("RUN_PROFILE", "smoke"),
+        choices=("smoke", "full"),
+    )
+    parser.add_argument(
+        "--steps",
+        type=int,
+        default=0,
+        help="目标有效更新次数；0 表示使用 profile 默认值",
+    )
+    parser.add_argument(
+        "--group-size",
+        type=int,
+        default=0,
+        help="每题采样数；0 表示使用 profile 默认值",
+    )
+    parser.add_argument(
+        "--max-new-tokens",
+        type=int,
+        default=0,
+        help="每条 completion 的最大 token 数；0 表示使用 profile 默认值",
+    )
+    parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=0,
+        help="Dynamic Sampling 下最多采样尝试次数；0 表示 steps 的四倍",
+    )
+    parser.add_argument(
+        "--start-index",
+        type=int,
+        default=0,
+        help="从 GSM8K 的第几条开始，避免总在同样几道简单题上退化",
+    )
     parser.add_argument("--clip-low", type=float, default=DAPO_CLIP_LOW)
     parser.add_argument("--clip-high", type=float, default=DAPO_CLIP_HIGH)
     parser.add_argument(
@@ -102,18 +137,34 @@ def load_dapo_reward() -> object:
 def main() -> int:
     args = parse_args()
     root, run_dir, run_id, config = trainer.prepare_run(7, args)
+    steps = args.steps or config["steps"]
+    group_size = args.group_size or config["group_size"]
+    max_new_tokens = args.max_new_tokens or config["max_new_tokens"]
+    max_attempts = args.max_attempts or (
+        steps * 4 if args.dynamic_sampling else steps
+    )
+    if steps < 1 or group_size < 2 or max_new_tokens < 1 or max_attempts < steps:
+        raise ValueError(
+            "steps >= 1, group-size >= 2, max-new-tokens >= 1 and "
+            "max-attempts >= steps are required"
+        )
     reward_module = load_dapo_reward()
     summary: dict[str, object] = {
         "chapter": 7,
         "model": MODEL_ID,
         "dataset": DATASET_ID,
+        **config,
         "profile": args.profile,
         "clip_low": args.clip_low,
         "clip_high": args.clip_high,
         "dynamic_sampling": args.dynamic_sampling,
         "token_level_loss": args.token_level_loss,
         "overlong_cache": args.overlong_cache,
-        **config,
+        "steps": steps,
+        "group_size": group_size,
+        "max_new_tokens": max_new_tokens,
+        "max_attempts": max_attempts,
+        "start_index": args.start_index,
         "external_api_calls": 0,
         "study_order": [
             "experiments/dapo/readme.md",
@@ -148,16 +199,18 @@ def main() -> int:
             lr=4e-5,
         )
         enable_overlong = args.overlong_cache > 0
-        if enable_overlong and args.overlong_cache > config["max_new_tokens"]:
+        if enable_overlong and args.overlong_cache > max_new_tokens:
             raise ValueError(
                 f"--overlong-cache {args.overlong_cache} exceeds "
-                f"max_new_tokens {config['max_new_tokens']}"
+                f"max_new_tokens {max_new_tokens}"
             )
 
         history: list[dict[str, float]] = []
         skipped_groups = 0
-        for step in range(config["steps"]):
-            row = rows[step % len(rows)]
+        effective_updates = 0
+        attempts = 0
+        while effective_updates < steps and attempts < max_attempts:
+            row = rows[(args.start_index + attempts) % len(rows)]
             question = str(row["question"])
             ground_truth = str(row["answer"]).split("####")[-1].strip()
             inputs = trainer.apply_chat_template(
@@ -168,11 +221,11 @@ def main() -> int:
                 model,
                 tokenizer,
                 inputs,
-                config["group_size"],
-                config["max_new_tokens"],
+                group_size,
+                max_new_tokens,
                 temperature=1.0,
                 top_p=1.0,
-                seed=42 + step,
+                seed=42 + attempts,
                 torch_module=torch,
                 device=device,
             )
@@ -183,7 +236,7 @@ def main() -> int:
                     text,
                     ground_truth,
                     completion_tokens=len(tokens),
-                    max_tokens=config["max_new_tokens"],
+                    max_tokens=max_new_tokens,
                     overlong_cache=max(args.overlong_cache, 1),
                     enable_overlong=enable_overlong,
                 )
@@ -195,12 +248,13 @@ def main() -> int:
             # therefore zero advantage, so training on it only wastes compute.
             effective = common.is_effective_group(
                 [1.0 if result.correct else 0.0 for result in results],
-                config["group_size"],
+                group_size,
             )
             if args.dynamic_sampling and not effective:
                 skipped_groups += 1
                 metric = {
-                    "step": step,
+                    "step": attempts,
+                    "effective_step": effective_updates,
                     "reward": sum(rewards) / len(rewards),
                     "degenerate": 1.0,
                     "train_samples": 0,
@@ -210,6 +264,26 @@ def main() -> int:
                 history.append(metric)
                 lib.append_metrics(root, 7, run_id, metric)
                 print(json.dumps(metric, ensure_ascii=False), flush=True)
+                with (run_dir / "samples.jsonl").open("a", encoding="utf-8") as handle:
+                    handle.write(
+                        json.dumps(
+                            {
+                                "step": attempts,
+                                "effective_step": effective_updates,
+                                "question": question,
+                                "ground_truth": ground_truth,
+                                "answers": texts,
+                                "rewards": rewards,
+                                "advantages": None,
+                                "correct": [r.correct for r in results],
+                                "length_penalties": [r.length_penalty for r in results],
+                                "skipped_by_dynamic_sampling": True,
+                            },
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
+                attempts += 1
                 continue
 
             # DAPO standardises by the group's sample standard deviation; GRPO only
@@ -262,7 +336,8 @@ def main() -> int:
                 loss_value = float(torch.stack(train_losses).mean().item())
 
             metric = {
-                "step": step,
+                "step": attempts,
+                "effective_step": effective_updates,
                 "reward": sum(rewards) / len(rewards),
                 "correct_rate": sum(1.0 for r in results if r.correct) / len(results),
                 "degenerate": 0.0 if samples else 1.0,
@@ -279,7 +354,8 @@ def main() -> int:
                 handle.write(
                     json.dumps(
                         {
-                            "step": step,
+                            "step": attempts,
+                            "effective_step": effective_updates,
                             "question": question,
                             "ground_truth": ground_truth,
                             "answers": texts,
@@ -292,6 +368,8 @@ def main() -> int:
                     )
                     + "\n"
                 )
+            effective_updates += 1
+            attempts += 1
             del samples, completions, old_logprobs, inputs
             torch.cuda.empty_cache()
 
@@ -304,6 +382,8 @@ def main() -> int:
                 "history": history,
                 "adapter": str(adapter),
                 "skipped_groups": skipped_groups,
+                "attempts": attempts,
+                "effective_updates": effective_updates,
                 "torch": torch.__version__,
                 "gpu": torch.cuda.get_device_name(0),
             }
@@ -318,7 +398,8 @@ def main() -> int:
             "completed",
             {
                 "adapter": str(adapter),
-                "steps": len(history),
+                "steps": effective_updates,
+                "attempts": attempts,
                 "skipped_groups": skipped_groups,
                 "summary": str(run_dir / "summary.json"),
             },

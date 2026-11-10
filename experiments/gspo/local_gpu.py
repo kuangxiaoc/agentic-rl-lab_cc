@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -45,7 +46,46 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="本地 GPU 版 GSPO / GSM8K")
     parser.add_argument("--workspace-root", default=None)
     parser.add_argument("--run-id", default=None)
-    parser.add_argument("--profile", default="smoke", choices=("smoke", "full"))
+    parser.add_argument(
+        "--profile",
+        default=os.environ.get("RUN_PROFILE", "smoke"),
+        choices=("smoke", "full"),
+    )
+    parser.add_argument(
+        "--steps",
+        type=int,
+        default=0,
+        help="有效更新次数；0 表示使用 profile 默认值",
+    )
+    parser.add_argument(
+        "--group-size",
+        type=int,
+        default=0,
+        help="每题采样数；0 表示使用 profile 默认值",
+    )
+    parser.add_argument(
+        "--max-new-tokens",
+        type=int,
+        default=0,
+        help="每条 completion 的最大 token 数；0 表示使用 profile 默认值",
+    )
+    parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=0,
+        help="最多采样尝试次数；0 表示 steps 的四倍",
+    )
+    parser.add_argument(
+        "--start-index",
+        type=int,
+        default=0,
+        help="从 GSM8K 的第几条开始，避免总在同样几道简单题上退化",
+    )
+    parser.add_argument(
+        "--effective-only",
+        action="store_true",
+        help="只把组内既有答对又有答错的样本计入有效更新",
+    )
     parser.add_argument("--clip-low", type=float, default=GSPO_CLIP_LOW)
     parser.add_argument("--clip-high", type=float, default=GSPO_CLIP_HIGH)
     parser.add_argument(
@@ -64,15 +104,30 @@ def build_messages(question: str) -> list[dict[str, str]]:
 def main() -> int:
     args = parse_args()
     root, run_dir, run_id, config = trainer.prepare_run(8, args)
+    steps = args.steps or config["steps"]
+    group_size = args.group_size or config["group_size"]
+    max_new_tokens = args.max_new_tokens or config["max_new_tokens"]
+    max_attempts = args.max_attempts or (steps * 4 if args.effective_only else steps)
+    if steps < 1 or group_size < 2 or max_new_tokens < 1 or max_attempts < steps:
+        raise ValueError(
+            "steps >= 1, group-size >= 2, max-new-tokens >= 1 and "
+            "max-attempts >= steps are required"
+        )
     summary: dict[str, object] = {
         "chapter": 8,
         "model": MODEL_ID,
         "dataset": DATASET_ID,
+        **config,
         "profile": args.profile,
         "clip_low": args.clip_low,
         "clip_high": args.clip_high,
         "sequence_level": not args.token_level_clip,
-        **config,
+        "steps": steps,
+        "group_size": group_size,
+        "max_new_tokens": max_new_tokens,
+        "max_attempts": max_attempts,
+        "start_index": args.start_index,
+        "effective_only": args.effective_only,
         "external_api_calls": 0,
         "study_order": [
             "experiments/gspo/readme.md",
@@ -106,8 +161,11 @@ def main() -> int:
             lr=4e-5,
         )
         history: list[dict[str, float]] = []
-        for step in range(config["steps"]):
-            row = rows[step % len(rows)]
+        effective_updates = 0
+        attempts = 0
+        skipped_groups = 0
+        while effective_updates < steps and attempts < max_attempts:
+            row = rows[(args.start_index + attempts) % len(rows)]
             question = str(row["question"])
             ground_truth = str(row["answer"]).split("####")[-1].strip()
             inputs = trainer.apply_chat_template(
@@ -118,11 +176,11 @@ def main() -> int:
                 model,
                 tokenizer,
                 inputs,
-                config["group_size"],
-                config["max_new_tokens"],
+                group_size,
+                max_new_tokens,
                 temperature=1.0,
                 top_p=1.0,
-                seed=42 + step,
+                seed=42 + attempts,
                 torch_module=torch,
                 device=device,
             )
@@ -130,6 +188,43 @@ def main() -> int:
             rewards = [
                 1.0 if _boxed_matches(text, ground_truth) else 0.0 for text in texts
             ]
+            effective = common.is_effective_group(rewards, group_size)
+            if args.effective_only and not effective:
+                skipped_groups += 1
+                metric = {
+                    "step": attempts,
+                    "effective_step": effective_updates,
+                    "reward": sum(rewards) / len(rewards),
+                    "correct_rate": sum(rewards) / len(rewards),
+                    "degenerate": 1.0,
+                    "train_samples": 0,
+                    "skipped_degenerate_group": 1.0,
+                    "avg_completion_tokens": sum(len(c) for c in completions) / len(completions),
+                    "loss": 0.0,
+                }
+                history.append(metric)
+                lib.append_metrics(root, 8, run_id, metric)
+                print(json.dumps(metric, ensure_ascii=False), flush=True)
+                with (run_dir / "samples.jsonl").open("a", encoding="utf-8") as handle:
+                    handle.write(
+                        json.dumps(
+                            {
+                                "step": attempts,
+                                "effective_step": effective_updates,
+                                "question": question,
+                                "ground_truth": ground_truth,
+                                "answers": texts,
+                                "rewards": rewards,
+                                "advantages": None,
+                                "completion_tokens": [len(c) for c in completions],
+                                "skipped_degenerate_group": True,
+                            },
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
+                attempts += 1
+                continue
             advantages = common.group_advantages(rewards)
             samples: list[trainer.Sample] = []
             prompt_tokens = inputs["input_ids"][0].tolist()
@@ -188,7 +283,8 @@ def main() -> int:
                 loss_value = float(torch.stack(train_losses).mean().item())
 
             metric = {
-                "step": step,
+                "step": attempts,
+                "effective_step": effective_updates,
                 "reward": sum(rewards) / len(rewards),
                 "correct_rate": sum(1.0 for r in rewards if r > 0) / len(rewards),
                 "degenerate": 0.0 if samples else 1.0,
@@ -203,7 +299,8 @@ def main() -> int:
                 handle.write(
                     json.dumps(
                         {
-                            "step": step,
+                            "step": attempts,
+                            "effective_step": effective_updates,
                             "question": question,
                             "ground_truth": ground_truth,
                             "answers": texts,
@@ -215,6 +312,8 @@ def main() -> int:
                     )
                     + "\n"
                 )
+            effective_updates += 1
+            attempts += 1
             del samples, completions, old_logprobs, inputs
             torch.cuda.empty_cache()
 
@@ -226,6 +325,9 @@ def main() -> int:
             {
                 "history": history,
                 "adapter": str(adapter),
+                "attempts": attempts,
+                "effective_updates": effective_updates,
+                "skipped_groups": skipped_groups,
                 "torch": torch.__version__,
                 "gpu": torch.cuda.get_device_name(0),
             }
@@ -238,7 +340,13 @@ def main() -> int:
             8,
             run_id,
             "completed",
-            {"adapter": str(adapter), "steps": len(history), "summary": str(run_dir / "summary.json")},
+            {
+                "adapter": str(adapter),
+                "steps": effective_updates,
+                "attempts": attempts,
+                "skipped_groups": skipped_groups,
+                "summary": str(run_dir / "summary.json"),
+            },
         )
         print(f"chapter 08 completed: {run_dir}", flush=True)
         return 0

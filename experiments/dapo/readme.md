@@ -577,8 +577,14 @@ bash scripts/run_modelscope.sh chapter 07 --force \
 bash scripts/run_modelscope.sh chapter 07 --profile full --force \
   --chapter-arg=--dynamic-sampling \
   --chapter-arg=--token-level-loss \
-  --chapter-arg=--overlong-cache=128
+  --chapter-arg=--overlong-cache=128 \
+  --chapter-arg=--steps=10 \
+  --chapter-arg=--group-size=8
 ```
+
+`--steps` 在 Dynamic Sampling 开启时表示**有效更新次数**：全对或全错的组会写入
+`history.json` 和 `samples.jsonl`，但不计作一次更新。`--max-attempts` 控制最多采样
+多少次，默认是 `steps * 4`；`--start-index` 可以跳过 GSM8K 开头太简单的题。
 
 ## 本地训练循环
 
@@ -613,4 +619,4 @@ LoRA 参数更新
 
 - 本脚本只替换训练循环，**不包含**原版的 AIME25 评测（`eval.py`）与数据去重准备（`prepare_data.py`）；训练数据直接用 GSM8K，便于和 02 章对比。
 - `--token-level-loss` 在每条样本上单独 `backward()`，梯度累积结果与一次性 pooled loss 等价，但显存峰值更低、速度略慢。
-- reward、advantage、clip 与两种 reduction 的数学已有 43 项本地单元测试覆盖，但**尚未在真实 GPU 上完整跑通**。首次在服务器运行时请先看 `logs/chapter-07.log`。
+- reward、advantage、clip 与两种 reduction 的数学已有本地单元测试覆盖；真实 GPU 上的退化组会保留在记录里，不再被误写成有效训练。

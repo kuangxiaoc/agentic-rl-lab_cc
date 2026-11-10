@@ -333,6 +333,18 @@ bash scripts/run_modelscope.sh chapter 08
 
 默认 `RUN_PROFILE=smoke`，与第 02 章共用 `Qwen/Qwen3-4B-Instruct-2507` 和 `AI-ModelScope/gsm8k` 缓存，02 跑过就不会再下载模型。
 
+如果模型把一组题全部答对，GSPO 的组内 advantage 全为 0。要跑出真正发生参数更新的
+实验，显式加 `--effective-only`，并把 `--steps` 解释为有效更新次数：
+
+```bash
+RUN_PROFILE=full bash scripts/run_modelscope.sh chapter 08 --force \
+  --chapter-arg=--effective-only \
+  --chapter-arg=--steps=10 \
+  --chapter-arg=--group-size=8
+```
+
+退化组仍会写入 `history.json` 和 `samples.jsonl`，但不会计入有效更新。
+
 > 数据取舍：正文用 DAPO-Math-17K（需先跑 `prepare_data.py` 清洗去重）。本地版直接用 GSM8K，是为了和 02 / 07 章在**同一批题**上对比 loss 的差异。想换成 DAPO-Math，只需替换 `DATASET_ID` 和 `DATASET_PATTERN` 两个常量。
 
 产物：
