@@ -38,7 +38,7 @@
 
 ## 项目介绍
 
-&emsp;&emsp;这是 fork 后的**单卡本地 GPU 教程仓库**。01–09 章已把原版借助 [PyTRIO](https://pytrio.com) 远端算力完成的训练循环，改写为在魔搭 NVIDIA GPU 实例上直接运行的 PyTorch / Transformers / PEFT 代码；原版章节仍保留作对照。10–16 章暂未移植，会如实标记 `not_ported`。这个 fork 主要做三件事：
+&emsp;&emsp;这是 fork 后的**单卡本地 GPU 教程仓库**。01–09、11–12 章已把原版借助 [PyTRIO](https://pytrio.com) 远端算力完成的训练循环，改写为在魔搭 NVIDIA GPU 实例上直接运行的 PyTorch / Transformers / PEFT 代码；原版章节仍保留作对照。10、13–16 章暂未移植，会如实标记 `not_ported`。这个 fork 主要做三件事：
 
 1. 先把算法讲明白：它从哪篇论文来，解决什么问题，核心变量是什么。
 2. 再用本地 GPU 代码复现：数据、reward、采样 logprob、loss、`backward()`、checkpoint 都放在仓库里。
@@ -66,8 +66,8 @@
 | [GSPO](./experiments/gspo/readme.md) | 将重要性比率与裁剪从 token 级提升到 sequence 级；附本地 GPU 版 | [代码](./experiments/gspo/local_gpu.py) |
 | [OPSD](./experiments/opsd/readme.md) | 用固定的 step-0 Teacher 蒸馏 Student 自采样轨迹；附本地 GPU 版 | [代码](./experiments/opsd/local_gpu.py) · [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/opsd/) |
 | [AgentOPSD](./experiments/agentopsd/readme.md) | 用带 Skill 的 Self-Teacher 分配 turn-level credit | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/agentopsd/) |
-| [Search-R1](./experiments/search-r1/readme.md) | 用 Qwen3.5-4B、PyTRIO 和可切换的在线搜索后端复现多轮搜索 RL | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/search-r1/) |
-| [ReTool](./experiments/retool/readme.md) | 用 Qwen3.5-4B、PyTRIO 和本地代码沙箱复现代码交织的 Agentic RL | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/retool/) |
+| [Search-R1](./experiments/search-r1/readme.md) | Qwen3-4B + 多轮搜索状态机 + 组内 advantage；附本地 GPU 离线证据后端与在线后端说明 | [代码](./experiments/search-r1/local_gpu.py) |
+| [ReTool](./experiments/retool/readme.md) | Qwen3-4B + 真实 Python 沙箱 + 多轮 code observation；附本地 GPU 机制训练 | [代码](./experiments/retool/local_gpu.py) |
 | [ALFWorld](./experiments/alfworld/readme.md) | 用 12K 长轨迹、真实 TextWorld 环境和 group-relative advantage 训练家务 Agent | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/alfworld/) |
 | [TEMPO](./experiments/tempo/readme.md) | 算法级复现 macro-step 优化与生成式 critic | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/tempo/) |
 | [Spec-o3](https://github.com/datawhalechina/agentic-rl-lab/blob/main/experiments/spec-o3/readme.md) | 用强化学习找星星：通过 SFT + GRPO，让模型边看光谱、边思考、边调用工具 | [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/spec-o3/) |
@@ -75,7 +75,7 @@
 
 ## 快速启动
 
-> 当前主线是**单卡魔搭 GPU 本地实现**。01–09 章已有 `local_gpu.py`，04–06 与 09 的运行说明附在各自 `readme.md` 末尾；10–16 章仍保留原版 PyTRIO 内容并标记 `not_ported`。运行、归档和 Git 回传说明见 [魔搭 GPU 改造说明](./MODELSCOPE_LOCAL_GPU.md)。
+> 当前主线是**单卡魔搭 GPU 本地实现**。01–09、11–12 章已有 `local_gpu.py`，运行说明附在各自 `readme.md` 末尾；10、13–16 章仍保留原版 PyTRIO 内容并标记 `not_ported`。运行、归档和 Git 回传说明见 [魔搭 GPU 改造说明](./MODELSCOPE_LOCAL_GPU.md)。
 
 &emsp;&emsp;如果是直接 clone 这个仓库：
 

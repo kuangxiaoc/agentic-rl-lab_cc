@@ -412,6 +412,49 @@ uv run python experiments/retool/analysis.py
 
 训练中的行为变化比分数更值得继续观察：模型先学会规范调用工具，再写出能运行的代码，最后才逐渐提高代码对解题的帮助。8K 轨迹预算和单次训练仍是当前结果的主要限制。
 
+## 本地单卡 GPU 运行附录
+
+本 fork 新增 [`local_gpu.py`](./local_gpu.py)，复用原版 [`rollout.py`](./rollout.py)、[`protocol.py`](./protocol.py) 和 [`sandbox.py`](./sandbox.py)，只把远端 PyTRIO 采样/训练边界换成本地 Qwen3-4B-Instruct-2507 + 4-bit QLoRA。工具调用会进入真实本地 Python 沙箱；沙箱 observation 只作为后续上下文，不参与 policy loss。
+
+Qwen3-Instruct 与 Qwen3.5 的 tool-call 文本格式不同。`protocol.py` 同时接受 Qwen3 JSON 和 Qwen3.5 XML；JSON 解析使用完整 `json.loads`，因此生成代码里的嵌套花括号不会被截断。教学 smoke 还会预填：
+
+```text
+<tool_call>
+{"name": "code_interpreter", "arguments": {"code": "
+```
+
+模型只生成 Python 正文，缺失的结尾会自动补齐。预填前缀 token 的 advantage 被置为 0，不参与 policy loss；这是为了让 4B 模型在 A10 上用短轨迹稳定走通“code call → sandbox → observation → backward”的机制，不等同于论文的完整 ReTool 设置。
+
+服务器命令：
+
+```bash
+bash scripts/run_modelscope.sh chapter 12 --force \
+  --chapter-arg=--run-id=retool-mechanism \
+  --chapter-arg=--steps=2 \
+  --chapter-arg=--max-question-attempts=4
+```
+
+产物：
+
+```text
+/mnt/workspace/agentic-rl-lab/runs/12-retool/<run-id>/
+├── config.json
+├── history.json
+├── samples.jsonl       # 每个 attempt、是否保留、code calls、advantage、turns
+├── summary.json
+└── adapter/            # .safetensors 留在服务器，不进 Git
+```
+
+验证机制时至少检查：
+
+1. `samples.jsonl` 中有合法 `<tool_call>`；
+2. 至少一次 `LocalPythonSandbox` observation；
+3. 至少一个 group 的 advantage 非零；
+4. `train/updated_trajectories > 0` 且 `train/loss_mean != 0`；
+5. 动态采样丢弃率与 `dynamic_sampling/groups_*` 一致。
+
+整组 reward 相同会得到全 0 advantage；动态采样会换下一题，最多 `--max-question-attempts` 次。若整步仍无混合组，`train/updated_trajectories=0`，不会伪造 optimizer step。
+
 ## 参考资料
 
 ### 论文与官方实现

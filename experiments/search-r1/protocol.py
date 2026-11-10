@@ -1,5 +1,6 @@
 """定义 Qwen3.5 使用的搜索工具协议。"""
 
+import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -43,7 +44,6 @@ TOOL_CALL_PATTERN = re.compile(
     re.DOTALL,
 )
 
-
 @dataclass(frozen=True)
 class ParsedAssistant:
     """保存一次 assistant 输出的协议解析结果。"""
@@ -51,6 +51,46 @@ class ParsedAssistant:
     kind: str  # 解析类型："tool"、"answer" 或 "invalid"
     content: str  # 普通文本：工具调用前的规划，或完整答案/非法输出
     query: str | None = None
+
+
+def tool_call_prefix(tokenizer: Any) -> list[int]:
+    """Prefill the native search-call envelope for the teaching run."""
+    text = '<tool_call>\n{"name": "search", "arguments": {"query": "'
+    tokens = tokenizer.encode(text, add_special_tokens=False)
+    if hasattr(tokens, "tolist"):
+        tokens = tokens.tolist()
+    if tokens and isinstance(tokens[0], list):
+        tokens = tokens[0]
+    return [int(token) for token in tokens]
+
+
+def tool_call_suffix() -> str:
+    """Close the JSON string and object opened by :func:`tool_call_prefix`."""
+    return '"}}\n</tool_call>'
+
+
+def complete_tool_call_text(tokenizer: Any, tokens: list[int]) -> str:
+    """Decode a scaffolded generation and close it exactly once."""
+    text = tokenizer.decode(tokens, skip_special_tokens=True)
+    if "</tool_call>" in text:
+        return text
+    return text + tool_call_suffix()
+
+
+def _json_tool_payload(text: str) -> dict[str, Any] | None:
+    """Extract one complete JSON tool payload, including nested JSON values."""
+    starts = list(re.finditer(r"<tool_call>", text))
+    if len(starts) != 1:
+        return None
+    start = starts[0].end()
+    end = text.find("</tool_call>", start)
+    if end < 0 or text[end + len("</tool_call>") :].strip():
+        return None
+    try:
+        payload = json.loads(text[start:end].strip())
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 def initial_messages(question: str) -> list[dict[str, Any]]:
@@ -148,6 +188,20 @@ def parse_assistant(text: str) -> ParsedAssistant:
     """把 assistant 文本识别成搜索调用、最终回答或非法调用。"""
     matches = list(TOOL_CALL_PATTERN.finditer(text))
     if not matches:
+        payload = _json_tool_payload(text)
+        if (
+            payload is not None
+            and payload.get("name") == "search"
+            and isinstance(payload.get("arguments"), dict)
+        ):
+            query = str(payload["arguments"].get("query") or "").strip()
+            if query and "<" not in query and ">" not in query:
+                start = text.find("<tool_call>")
+                return ParsedAssistant(
+                    kind="tool",
+                    content=text[:start].strip(),
+                    query=query,
+                )
         kind = "invalid" if "<tool_call>" in text else "answer"
         return ParsedAssistant(kind=kind, content=text.strip())
     if len(matches) != 1 or text[matches[0].end() :].strip():

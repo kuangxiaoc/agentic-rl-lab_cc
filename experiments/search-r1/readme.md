@@ -786,6 +786,46 @@ Search-R1 用最终答案计算 reward，在同题的多条搜索轨迹之间计
 
 下一篇复现什么，我再想想。可能是 GSPO or OPSD，也可能又会突然冒出一个更好玩的 Agentic RL 想法哈哈哈。
 
+## 本地单卡 GPU 运行附录
+
+本 fork 在保留原版多轮 `rollout.py`、tool protocol、reward 和 group advantage 的前提下，新增 [`local_gpu.py`](./local_gpu.py)，把采样与训练放回一张魔搭 A10：
+
+- `scripts/local_gpu_trainer.py` 提供最小 PyTRIO 兼容采样接口；
+- `scripts/local_rollout_trainer.py` 把多轮 assistant token 拼成训练样本，tool observation 只保留为上下文，不计算 policy loss；
+- `experiments/search-r1/local_search.py` 提供**离线 oracle 词法证据后端**，用于服务器暂时无法访问在线搜索时验证机制。
+
+离线后端不是在线检索：它会从已下载的 NQ/HotpotQA 行里做词法 top-k，并且证据片段明确包含参考答案。因此本附录的 correctness 数字只能说明训练链路是否跑通，不能当作 Search-R1 论文指标或检索质量。
+
+服务器命令：
+
+```bash
+bash scripts/run_modelscope.sh chapter 11 --force \
+  --chapter-arg=--run-id=search-mechanism \
+  --chapter-arg=--steps=2 \
+  --chapter-arg=--max-question-attempts=4
+```
+
+产物：
+
+```text
+/mnt/workspace/agentic-rl-lab/runs/11-search-r1/<run-id>/
+├── config.json
+├── history.json
+├── samples.jsonl       # 每个 attempt、是否保留、search calls、advantage、turns
+├── summary.json
+└── adapter/            # .safetensors 留在服务器，不进 Git
+```
+
+验证机制时至少检查：
+
+1. `samples.jsonl` 中有 `<tool_call>` search call；
+2. 至少一条轨迹拿到 search observation 后继续生成；
+3. 至少一个 group 的 advantage 非零；
+4. `train/updated_trajectories > 0` 且 `train/loss_mean != 0`；
+5. `search_backend_is_online=false` 时，不要引用 accuracy 作为在线效果。
+
+动态采样会记录 `dynamic_sampling/groups_sampled`、`groups_kept`、`groups_dropped` 和 `drop_rate`。整步没有混合组时不会执行 optimizer step。以后接 Tavily / Wikipedia / DeepSeek Search 时，只把密钥写到服务器 `/mnt/workspace/agentic-rl-lab/.env` 或 `experiments/search-r1/.env`，不要提交 Git。
+
 
 ## 参考资料
 

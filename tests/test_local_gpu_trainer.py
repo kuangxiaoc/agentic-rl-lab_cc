@@ -224,6 +224,45 @@ class SupportedKwargsTests(unittest.TestCase):
         self.assertEqual(trainer.supported_kwargs(catch_all, anything=1), {"anything": 1})
 
 
+class ParquetRowLimitTests(unittest.TestCase):
+    def test_parquet_loader_limits_before_materializing_rows(self):
+        """Large DAPO parquet must not be copied into Python as 1.7M dicts."""
+        import sys
+        import tempfile
+        import types
+        from unittest.mock import patch
+
+        calls = {}
+
+        class Dataset:
+            def __init__(self, rows):
+                self.rows = rows
+
+            def select(self, indices):
+                calls["selected"] = list(indices)
+                return Dataset([self.rows[index] for index in indices])
+
+            def shuffle(self, seed):
+                calls["seed"] = seed
+                return self
+
+            def __iter__(self):
+                return iter(self.rows)
+
+            def __len__(self):
+                return len(self.rows)
+
+        fake = Dataset([{"id": index} for index in range(10)])
+        datasets = types.ModuleType("datasets")
+        datasets.load_dataset = lambda *args, **kwargs: fake
+        with tempfile.NamedTemporaryFile(suffix=".parquet") as handle, patch.dict(
+            sys.modules, {"datasets": datasets}
+        ):
+            rows = trainer.load_parquet_rows(Path(handle.name), limit=3, seed=7)
+        self.assertEqual(calls, {"selected": [0, 1, 2], "seed": 7})
+        self.assertEqual(rows, [{"id": 0}, {"id": 1}, {"id": 2}])
+
+
 class GenerateGroupTests(unittest.TestCase):
     def run_group(self, group_size, tokenizer=None):
         torch_module = FakeTorch()

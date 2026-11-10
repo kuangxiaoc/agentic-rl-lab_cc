@@ -5,6 +5,7 @@ code_interpreter（参数就一个 code 字符串），沙箱执行结果以 rol
 最终答案用 \boxed{} 给出，且不允许同一轮里既调工具又给答案。
 """
 
+import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -59,6 +60,73 @@ TOOL_CALL_PATTERN = re.compile(
     r"</parameter>\s*</function>\s*</tool_call>",
     re.DOTALL,
 )
+
+# Qwen3-4B-Instruct-2507 renders tools with the JSON call format below, while
+# Qwen3.5 uses the XML-like format above.  Accept both so the same rollout
+# protocol works on either model family.
+MARKDOWN_FENCE_PATTERN = re.compile(
+    r"^\s*```(?:python|py)?\s*\n(.*?)\n```\s*$",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def strip_markdown_fence(code: str) -> str:
+    """Qwen3-Instruct sometimes wraps tool code in a Markdown fence.
+
+    The sandbox expects Python source, not presentation markup.  Only strip a
+    fence that wraps the entire payload, so valid Python string literals that
+    merely contain backticks remain untouched.
+    """
+    match = MARKDOWN_FENCE_PATTERN.match(code)
+    return match.group(1).strip() if match else code.strip()
+
+
+def tool_call_prefix(tokenizer: Any) -> list[int]:
+    """Prefill the native tool envelope, leaving only Python for the model."""
+    text = (
+        '<tool_call>\n'
+        '{"name": "code_interpreter", "arguments": {"code": "'
+    )
+    tokens = tokenizer.encode(text, add_special_tokens=False)
+    if hasattr(tokens, "tolist"):
+        tokens = tokens.tolist()
+    if tokens and isinstance(tokens[0], list):
+        tokens = tokens[0]
+    return [int(token) for token in tokens]
+
+
+def tool_call_suffix() -> str:
+    """Close the JSON string and object opened by :func:`tool_call_prefix`."""
+    return '"}}\n</tool_call>'
+
+
+def complete_tool_call_text(tokenizer: Any, tokens: list[int]) -> str:
+    """Decode a scaffolded generation and close it exactly once."""
+    text = tokenizer.decode(tokens, skip_special_tokens=True)
+    if "</tool_call>" in text:
+        return text
+    return text + tool_call_suffix()
+
+
+def _json_tool_payload(text: str) -> dict[str, Any] | None:
+    """Extract one complete JSON tool payload without truncating nested braces.
+
+    The previous non-greedy regex stopped at the first ``}`` inside generated
+    Python code.  A tool call is a single block here, so locate its delimiters
+    first and let ``json.loads`` parse the complete nested object.
+    """
+    starts = list(re.finditer(r"<tool_call>", text))
+    if len(starts) != 1:
+        return None
+    start = starts[0].end()
+    end = text.find("</tool_call>", start)
+    if end < 0 or text[end + len("</tool_call>") :].strip():
+        return None
+    try:
+        payload = json.loads(text[start:end].strip())
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 @dataclass(frozen=True)
@@ -182,11 +250,25 @@ def parse_assistant(text: str) -> ParsedAssistant:
     """
     matches = list(TOOL_CALL_PATTERN.finditer(text))
     if not matches:
+        payload = _json_tool_payload(text)
+        if (
+            payload is not None
+            and payload.get("name") == "code_interpreter"
+            and isinstance(payload.get("arguments"), dict)
+        ):
+            code = str(payload["arguments"].get("code") or "").strip()
+            if code:
+                start = text.find("<tool_call>")
+                return ParsedAssistant(
+                    kind="tool",
+                    content=text[:start].strip(),
+                    code=strip_markdown_fence(code),
+                )
         kind = "invalid" if "<tool_call>" in text else "answer"
         return ParsedAssistant(kind=kind, content=text.strip())
     if len(matches) != 1 or text[matches[0].end() :].strip():
         return ParsedAssistant(kind="invalid", content=text.strip())
-    code = matches[0].group(1).strip()
+    code = strip_markdown_fence(matches[0].group(1))
     if not code:
         return ParsedAssistant(kind="invalid", content=text.strip())
     content = text[: matches[0].start()].strip()

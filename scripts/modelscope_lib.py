@@ -31,6 +31,8 @@ CHAPTER_NAMES = {
     7: "07-dapo",
     8: "08-gspo",
     9: "09-opsd",
+    11: "11-search-r1",
+    12: "12-retool",
 }
 CHAPTER_RESULT_DIRS = {
     1: "experiments/loss-functions/results",
@@ -42,6 +44,8 @@ CHAPTER_RESULT_DIRS = {
     7: "experiments/dapo/results",
     8: "experiments/gspo/results",
     9: "experiments/opsd/results",
+    11: "experiments/search-r1/results",
+    12: "experiments/retool/results",
 }
 VALID_STATUSES = {
     "not_ported",
@@ -158,6 +162,8 @@ def update_chapter_state(
     status: str,
     run_id: str | None = None,
     details: dict[str, Any] | None = None,
+    *,
+    replace_details: bool = False,
 ) -> dict[str, Any]:
     """Atomically record one chapter's status and merge its details."""
     if status not in VALID_STATUSES:
@@ -166,12 +172,14 @@ def update_chapter_state(
         raise ValueError(f"Invalid chapter: {chapter}")
     state = initialize_state(root)
     entry = state["chapters"][str(chapter)]
+    merged_details = {} if replace_details else dict(entry.get("details", {}))
+    merged_details.update(details or {})
     entry.update(
         {
             "status": status,
             "run_id": run_id,
             "updated_at": _now(),
-            "details": {**entry.get("details", {}), **(details or {})},
+            "details": merged_details,
         }
     )
     state["updated_at"] = _now()
@@ -430,7 +438,14 @@ def write_study_notes(root: Path) -> Path:
 9. `experiments/opsd/readme.md` → `01-opsd-sync.py` → `local_gpu.py`：Student 只
    看题，固定 Teacher 看题和参考解；两者对同一条 completion 的 logprob 差就是
    sampled-token reverse KL。
-10. 10-16 暂时标记 `not_ported`，不会伪造成功结果；外部搜索/裁判/教师 API 先只记录预算。
+10. `experiments/search-r1/readme.md` → `rollout.py` → `local_gpu.py`：多轮搜索
+    state machine、tool observation mask 和组内 advantage；服务器无外网时使用
+    明确标注的离线证据后端，不能把它当成在线搜索指标。
+11. `experiments/retool/readme.md` → `protocol.py` → `sandbox.py` → `rollout.py`
+    → `local_gpu.py`：代码交织轨迹、真实 Python 沙箱、observation mask 和本地
+    PPO-style 更新。
+12. 10、13-16 暂时标记 `not_ported`，不会伪造成功结果；外部裁判/教师 API
+    先只记录预算。
 
 每次运行的配置、stdout/stderr、metrics、LoRA adapter、`state.json` 和环境快照都在本目录。
 服务器释放前执行 `bash scripts/export_results.sh`，下载 `exports/*.tar.gz` 即可离线学习。
@@ -459,7 +474,7 @@ def write_report(root: Path, state: dict[str, Any] | None = None) -> Path:
         )
     lines += [
         "",
-        "10-16 的 `not_ported` 是如实记录，不代表运行成功。",
+        "10、13-16 的 `not_ported` 是如实记录，不代表运行成功。",
         "外部 API 预算与密钥状态见 `api_budget.json` 和 `environment.json`。",
         "",
     ]

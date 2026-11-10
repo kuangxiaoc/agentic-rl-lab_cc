@@ -25,6 +25,8 @@ CHAPTER_SCRIPTS = {
     7: REPO_ROOT / "experiments" / "dapo" / "local_gpu.py",
     8: REPO_ROOT / "experiments" / "gspo" / "local_gpu.py",
     9: REPO_ROOT / "experiments" / "opsd" / "local_gpu.py",
+    11: REPO_ROOT / "experiments" / "search-r1" / "local_gpu.py",
+    12: REPO_ROOT / "experiments" / "retool" / "local_gpu.py",
 }
 
 

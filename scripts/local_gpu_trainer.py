@@ -6,6 +6,7 @@ import inspect
 import json
 import os
 import sys
+import types
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -121,12 +122,21 @@ def download_modelscope_dataset(dataset_id: str, root: Path, pattern: str) -> Pa
     )
 
 
-def load_parquet_rows(path: Path) -> list[dict[str, Any]]:
+def load_parquet_rows(
+    path: Path,
+    *,
+    limit: int | None = None,
+    seed: int | None = None,
+) -> list[dict[str, Any]]:
     if not path.exists():
         raise DataUnavailable(f"Parquet file does not exist: {path}")
     from datasets import load_dataset
 
     dataset = load_dataset("parquet", data_files=str(path), split="train")
+    if limit is not None and limit > 0:
+        dataset = dataset.select(range(min(limit, len(dataset))))
+    if seed is not None:
+        dataset = dataset.shuffle(seed=seed)
     return [dict(row) for row in dataset]
 
 
@@ -353,6 +363,177 @@ class Sample:
     extra_inputs: dict[str, Any] | None = None
 
 
+@dataclass
+class GeneratedSequence:
+    """One completion returned by a local sampling client."""
+
+    tokens: list[int]
+    logprobs: list[float]
+    text: str
+
+
+@dataclass
+class SampleResponse:
+    """Minimal response shape shared by the original PyTRIO rollout code."""
+
+    sequences: list[GeneratedSequence]
+
+
+def _sampling_scores_to_logprobs(
+    scores: Any,
+    sequence_index: int,
+    tokens: list[int],
+    torch_module: Any,
+) -> list[float]:
+    """Read the sampling policy's logprob for each generated token."""
+    logprobs: list[float] = []
+    for position, token in enumerate(tokens):
+        if position >= len(scores):
+            break
+        logits = scores[position][sequence_index].float()
+        logprobs.append(
+            torch_module.log_softmax(logits, dim=-1)[token].item()
+        )
+    return logprobs
+
+
+class LocalSamplingClient:
+    """Single-GPU adapter for the subset of the PyTRIO sampling API we reuse.
+
+    The original chapters call ``sample_async`` with token prompts, stop
+    strings, and per-call sampling parameters. Implementing that small surface
+    lets the Search-R1 and ReTool rollout state machines stay unchanged while
+    sampling happens on the local model.
+    """
+
+    def __init__(
+        self,
+        model: Any,
+        tokenizer: Any,
+        torch_module: Any,
+        device: Any,
+        *,
+        task_id: str = "local-gpu",
+    ) -> None:
+        self.model = model
+        self.tokenizer = text_tokenizer(tokenizer)
+        self.torch = torch_module
+        self.device = device
+        self.task_id = task_id
+
+    def sample(
+        self,
+        *,
+        prompt_tokens: list[int],
+        num_samples: int,
+        max_tokens: int,
+        temperature: float,
+        top_p: float,
+        seed: int,
+    ) -> SampleResponse:
+        """Sample one prompt without gradients and retain sampling logprobs."""
+        if num_samples < 1 or max_tokens < 1:
+            raise ValueError("num_samples and max_tokens must be >= 1")
+        self.torch.manual_seed(seed)
+        input_ids = self.torch.tensor(
+            [prompt_tokens], device=self.device, dtype=self.torch.long
+        )
+        attention_mask = self.torch.ones_like(input_ids)
+        was_training = self.model.training
+        self.model.eval()
+        try:
+            with self.torch.no_grad():
+                output = self.model.generate(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    do_sample=True,
+                    num_return_sequences=num_samples,
+                    max_new_tokens=max_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    pad_token_id=pad_token_id(self.tokenizer),
+                    return_dict_in_generate=True,
+                    output_scores=True,
+                )
+                sequences: list[GeneratedSequence] = []
+                eos_ids = (
+                    {self.tokenizer.eos_token_id}
+                    if self.tokenizer.eos_token_id is not None
+                    else set()
+                )
+                for index, sequence in enumerate(output.sequences):
+                    tokens = sequence[len(prompt_tokens) :].tolist()
+                    valid = common.completion_valid_length(tokens, eos_ids)
+                    tokens = tokens[:valid]
+                    sequences.append(
+                        GeneratedSequence(
+                            tokens=tokens,
+                            logprobs=_sampling_scores_to_logprobs(
+                                output.scores, index, tokens, self.torch
+                            ),
+                            text=self.tokenizer.decode(
+                                tokens, skip_special_tokens=True
+                            ),
+                        )
+                    )
+                del output
+        finally:
+            if was_training:
+                self.model.train()
+            self.torch.cuda.empty_cache()
+        return SampleResponse(sequences)
+
+    async def sample_async(
+        self,
+        *,
+        prompt: Any,
+        num_samples: int,
+        sampling_params: Any,
+        return_text: bool = True,
+    ) -> SampleResponse:
+        """Accept the PyTRIO request shape and run one synchronous GPU sample."""
+        del return_text
+        prompt_tokens = [int(token) for token in prompt.tokens]
+        return self.sample(
+            prompt_tokens=prompt_tokens,
+            num_samples=num_samples,
+            max_tokens=int(sampling_params.max_tokens),
+            temperature=float(getattr(sampling_params, "temperature", 1.0)),
+            top_p=float(getattr(sampling_params, "top_p", 1.0)),
+            seed=int(getattr(sampling_params, "seed", 0)),
+        )
+
+
+class LocalTokenPrompt:
+    """Token-only prompt matching ``trio.ModelInput.from_ints``."""
+
+    def __init__(self, tokens: list[int]) -> None:
+        self.tokens = list(tokens)
+
+    @classmethod
+    def from_ints(cls, tokens: list[int]) -> "LocalTokenPrompt":
+        return cls(tokens)
+
+
+@dataclass(frozen=True)
+class LocalSamplingParams:
+    """The sampling fields the reused rollout code reads."""
+
+    max_tokens: int
+    seed: int = 0
+    stop: list[str] | tuple[str, ...] = ()
+    temperature: float = 1.0
+    top_p: float = 1.0
+
+
+def local_trio_compat() -> types.SimpleNamespace:
+    """Return the tiny PyTRIO surface used by multi-turn rollout modules."""
+    return types.SimpleNamespace(
+        ModelInput=LocalTokenPrompt,
+        SamplingParams=LocalSamplingParams,
+    )
+
+
 def generate_group(
     model: Any,
     tokenizer: Any,
@@ -534,8 +715,17 @@ def update_training_state(
     run_id: str,
     status: str,
     details: dict[str, Any],
+    *,
+    replace_details: bool = False,
 ) -> None:
-    lib.update_chapter_state(root, chapter, status, run_id, details=details)
+    lib.update_chapter_state(
+        root,
+        chapter,
+        status,
+        run_id,
+        details=details,
+        replace_details=replace_details,
+    )
     lib.write_report(root)
 
 

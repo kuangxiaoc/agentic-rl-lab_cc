@@ -46,6 +46,24 @@ class WorkspaceAndStateTests(unittest.TestCase):
             self.assertTrue(lib.should_skip_chapter(state, 2, force=False))
             self.assertFalse(lib.should_skip_chapter(state, 2, force=True))
 
+    def test_replace_details_clears_stale_errors(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lib.initialize_state(root)
+            lib.update_chapter_state(
+                root, 12, "failed", "old-run", details={"error": "old"}
+            )
+            lib.update_chapter_state(
+                root,
+                12,
+                "completed",
+                "new-run",
+                details={"steps": 2},
+                replace_details=True,
+            )
+            details = lib.load_state(root)["chapters"]["12"]["details"]
+            self.assertEqual(details, {"steps": 2})
+
     def test_workspace_root_and_output_path_boundary(self):
         with self.assertRaises(ValueError):
             lib.resolve_workspace_root("/")

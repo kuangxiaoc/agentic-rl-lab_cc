@@ -14,8 +14,8 @@
 | 08 | [GSPO](./gspo/readme.md) |
 | 09 | [OPSD](./opsd/readme.md) |
 | 10 | [AgentOPSD](./agentopsd/readme.md) |
-| 11 | [Search-R1](./search-r1/readme.md) |
-| 12 | [ReTool](./retool/readme.md) |
+| 11 | [Search-R1](./search-r1/readme.md) · [本地 GPU](./search-r1/local_gpu.py) |
+| 12 | [ReTool](./retool/readme.md) · [本地 GPU](./retool/local_gpu.py) |
 | 13 | [ALFWorld](./alfworld/readme.md) |
 | 14 | [TEMPO](./tempo/readme.md) |
 | 15 | [Spec-o3](./spec-o3/readme.md) |

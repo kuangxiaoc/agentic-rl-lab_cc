@@ -22,6 +22,8 @@ from protocol import (
     initial_messages,
     parse_assistant,
     stop_sequences,
+    complete_tool_call_text,
+    tool_call_prefix,
     tool_message,
 )
 from reward import score_answer
@@ -41,6 +43,7 @@ class RolloutConfig:
     temperature: float = 1.0  # 控制采样随机性。
     top_p: float = 1.0  # 核采样的累积概率上限。
     seed: int = 42  # 采样使用的随机种子。
+    force_first_tool_call: bool = False  # 教学/机制验证：首轮预填工具调用骨架。
 
 
 @dataclass
@@ -51,6 +54,7 @@ class AssistantTurn:
     completion_tokens: list[int]  # 本轮 assistant 生成的 token。
     logprobs: list[float]  # 采样时每个生成 token 的旧策略 logprob。
     text: str  # 本轮生成 token 解码后的文本。
+    forced_prefix_tokens: int = 0  # 仅用于教学前缀；这些 token 不参与 policy loss。
 
 
 @dataclass
@@ -71,6 +75,7 @@ class Trajectory:
     valid_format: bool = False  # 最终答案是否含合法 \boxed{}。
     correct: bool = False  # 最终答案是否通过数学等价判定。
     done: bool = False  # 当前轨迹是否已经结束。
+    forced_tool_prefix_tokens: int = 0  # 首轮教学前缀长度，需要并回 assistant action。
 
 
 @dataclass(frozen=True)
@@ -176,6 +181,12 @@ def make_request(
         if trajectory.next_prompt_tokens is not None
         else build_prompt(tokenizer, trajectory.messages)
     )
+    if config.force_first_tool_call and not trajectory.turns:
+        prefix = tool_call_prefix(tokenizer)
+        if hasattr(prefix, "tolist"):
+            prefix = prefix.tolist()
+        prompt_tokens = [*prompt_tokens, *[int(token) for token in prefix]]
+        trajectory.forced_tool_prefix_tokens = len(prefix)
     max_tokens = min(
         config.max_assistant_tokens,
         config.max_trajectory_tokens - len(prompt_tokens),
@@ -207,9 +218,31 @@ def begin_advance(
 ) -> PendingExecution | None:
     """消费一次 assistant 输出；需要执行代码时返回待执行请求，否则结束轨迹。"""
     tokens, logprobs, text = read_sequence(sequence, tokenizer)
+    forced_prefix_tokens = 0
+    if trajectory.forced_tool_prefix_tokens:
+        prefix = tool_call_prefix(tokenizer)
+        if hasattr(prefix, "tolist"):
+            prefix = prefix.tolist()
+        prefix = [int(token) for token in prefix]
+        if prompt_tokens[-len(prefix) :] != prefix:
+            raise ValueError("forced tool prefix is not the prompt suffix")
+        prompt_tokens = prompt_tokens[: -len(prefix)]
+        forced_prefix_tokens = len(prefix)
+        tokens = [*prefix, *tokens]
+        logprobs = [0.0] * len(prefix) + logprobs
+        text = complete_tool_call_text(tokenizer, tokens)
+        trajectory.forced_tool_prefix_tokens = 0
     # chat template 会 strip assistant 内容；消息历史、解析与结束边界计算与之保持一致。
     text = text.strip()
-    trajectory.turns.append(AssistantTurn(prompt_tokens, tokens, logprobs, text))
+    trajectory.turns.append(
+        AssistantTurn(
+            prompt_tokens,
+            tokens,
+            logprobs,
+            text,
+            forced_prefix_tokens=forced_prefix_tokens,
+        )
+    )
     parsed = parse_assistant(text)
 
     can_code = (
