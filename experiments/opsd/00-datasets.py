@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -141,6 +142,9 @@ def download_one(
         shutil.rmtree(output_path)
 
     print(f"[download] {spec.repo_id}@{spec.revision} [{spec.split}]")
+    endpoint = os.environ.get("HF_ENDPOINT")
+    if endpoint:
+        print(f"[endpoint] HF_ENDPOINT={endpoint}")
     dataset = load_dataset(
         spec.repo_id,
         revision=spec.revision,

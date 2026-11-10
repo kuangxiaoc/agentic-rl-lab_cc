@@ -158,12 +158,58 @@ def run_opd_update(
     seed: int,
 ) -> tuple[dict[str, float | int], list[dict[str, Any]]]:
     """Run one local on-policy OPD update over a list of prompts."""
+    return run_opd_update_with_prompts(
+        student_model=student_model,
+        teacher_model=teacher_model,
+        tokenizer=tokenizer,
+        optimizer=optimizer,
+        student_prompt_ids_list=prompt_ids_list,
+        teacher_prompt_ids_list=prompt_ids_list,
+        group_size=group_size,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        kl_penalty_coef=kl_penalty_coef,
+        loss_fn=loss_fn,
+        torch_module=torch_module,
+        device=device,
+        seed=seed,
+    )
+
+
+def run_opd_update_with_prompts(
+    *,
+    student_model: Any,
+    teacher_model: Any,
+    tokenizer: Any,
+    optimizer: Any,
+    student_prompt_ids_list: list[list[int]],
+    teacher_prompt_ids_list: list[list[int]],
+    group_size: int,
+    max_new_tokens: int,
+    temperature: float,
+    top_p: float,
+    kl_penalty_coef: float,
+    loss_fn: str,
+    torch_module: Any,
+    device: Any,
+    seed: int,
+) -> tuple[dict[str, float | int], list[dict[str, Any]]]:
+    """Run one OPD update when teacher and student use different prompts."""
+    if len(student_prompt_ids_list) != len(teacher_prompt_ids_list):
+        raise ValueError(
+            "Student and teacher prompt counts differ: "
+            f"student={len(student_prompt_ids_list)} "
+            f"teacher={len(teacher_prompt_ids_list)}"
+        )
     samples: list[trainer.Sample] = []
     records: list[dict[str, Any]] = []
     reverse_kl_values: list[float] = []
     completion_lengths: list[int] = []
 
-    for prompt_index, prompt_ids in enumerate(prompt_ids_list):
+    for prompt_index, (prompt_ids, teacher_prompt_ids) in enumerate(
+        zip(student_prompt_ids_list, teacher_prompt_ids_list, strict=True)
+    ):
         inputs = {
             "input_ids": torch_module.tensor(
                 [prompt_ids], device=device, dtype=torch_module.long
@@ -188,7 +234,7 @@ def run_opd_update(
                 continue
             teacher_logprobs = completion_teacher_logprobs(
                 teacher_model,
-                prompt_ids,
+                teacher_prompt_ids,
                 completion,
                 torch_module=torch_module,
                 device=device,
@@ -259,7 +305,7 @@ def run_opd_update(
 
     reverse_kl_mean, reverse_kl_std = _mean_std(reverse_kl_values)
     metrics: dict[str, float | int] = {
-        "prompts": len(prompt_ids_list),
+        "prompts": len(student_prompt_ids_list),
         "train_samples": len(samples),
         "completion_tokens_mean": (
             sum(completion_lengths) / len(completion_lengths)

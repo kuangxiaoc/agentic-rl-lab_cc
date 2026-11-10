@@ -692,6 +692,54 @@ Student 先闭卷写出自己真正会写的东西；Teacher 再拿着参考答�
 
 这次我们用 Qwen3.5-4B、29,434 条 OpenThoughts 数学数据和 PyTRIO 跑了 100 step。正式训练花了 `41.81` 元，Base + 4 个 checkpoint 的完整 AIME25 评测另外花了 `83.61` 元；累计 step 时间约 `2 小时 6 分钟`。Step 100 的 AIME25 Average@12 从 `51.67%` 提升到 `52.78%`，Pass@12 从 `80.00%` 提升到 `86.67%`。
 
+---
+
+# 附：本地 GPU 版 OPSD（不用 PyTRIO）
+
+正文是 PyTRIO 远端训练版。这个 fork 在 [`local_gpu.py`](./local_gpu.py) 里把同一套
+OPSD 链路改成单卡 QLoRA：Student 只看题，固定 Teacher 看题和参考解，两者对 Student
+实际生成的同一条 completion 计算 token logprob，`teacher_logprob - student_logprob`
+就是 advantage。Teacher 和 Student 共用同一个基座，只多加载一份冻结的 4-bit 权重。
+
+## 运行
+
+```bash
+RUN_PROFILE=full bash scripts/run_modelscope.sh chapter 09 --force \
+  --chapter-arg=--steps=4 \
+  --chapter-arg=--batch-size=1 \
+  --chapter-arg=--group-size=1 \
+  --chapter-arg=--max-new-tokens=256
+```
+
+默认 `smoke` 是 `steps=2, batch_size=1, group_size=1, max_new_tokens=128`。数据是
+固定 revision 的 `siyanzhao/Openthoughts_math_30k_opsd`，通过 `HF_ENDPOINT`
+下载；服务器直连 `huggingface.co` 超时，所以脚本沿用仓库默认的
+`https://hf-mirror.com`。这个数据集不在 ModelScope，下载失败会记录
+`data_unavailable`，不会拿 GSM8K 冒充 OPSD 数据。
+
+产物：
+
+```text
+/mnt/workspace/agentic-rl-lab/runs/09-opsd/<run_id>/
+├── config.json
+├── samples.jsonl       # completion、student/teacher logprob sum、reverse KL
+├── history.json
+└── summary.json
+
+experiments/opsd/results/ # 自动同步到 Git 范围
+├── 09-opsd/<run_id>/*.json
+├── chapter-09.log
+└── chapter-09.jsonl
+```
+
+## 与正文的边界
+
+- 本地版训练的是 sampled-token reverse KL，不实现正文提到的 full-vocabulary JSD。
+- 不包含 AIME25 的 Pass@12 评测；原版评测使用 `max_tokens=38912`，在 30 小时
+  单卡窗口里不适合作为每章闭环的默认步骤。
+- `steps` 是真实 optimizer update 次数；这一章没有 group-relative advantage，
+  不需要 Dynamic Sampling。
+
 结果不算巨大，中间也有明显波动。但对我来说，这篇复现最重要的成果并不是多了几个百分点，而是我确实可以在两天内把一篇新算法从论文公式变成：
 
 ```text

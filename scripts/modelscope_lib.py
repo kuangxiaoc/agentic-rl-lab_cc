@@ -30,6 +30,7 @@ CHAPTER_NAMES = {
     6: "06-medical-opd",
     7: "07-dapo",
     8: "08-gspo",
+    9: "09-opsd",
 }
 CHAPTER_RESULT_DIRS = {
     1: "experiments/loss-functions/results",
@@ -40,6 +41,7 @@ CHAPTER_RESULT_DIRS = {
     6: "experiments/medical-opd/results",
     7: "experiments/dapo/results",
     8: "experiments/gspo/results",
+    9: "experiments/opsd/results",
 }
 VALID_STATUSES = {
     "not_ported",
@@ -425,7 +427,10 @@ def write_study_notes(root: Path) -> Path:
    和 token-level loss 在本地如何落到 `model.generate` 与 `backward()`。
 8. `experiments/gspo/readme.md` → `train.py` → `local_gpu.py`：对照 sequence-level
    importance ratio 与本地整条 completion 的 log-ratio。
-9. 09-16 暂时标记 `not_ported`，不会伪造成功结果；外部搜索/裁判/教师 API 先只记录预算。
+9. `experiments/opsd/readme.md` → `01-opsd-sync.py` → `local_gpu.py`：Student 只
+   看题，固定 Teacher 看题和参考解；两者对同一条 completion 的 logprob 差就是
+   sampled-token reverse KL。
+10. 10-16 暂时标记 `not_ported`，不会伪造成功结果；外部搜索/裁判/教师 API 先只记录预算。
 
 每次运行的配置、stdout/stderr、metrics、LoRA adapter、`state.json` 和环境快照都在本目录。
 服务器释放前执行 `bash scripts/export_results.sh`，下载 `exports/*.tar.gz` 即可离线学习。
@@ -454,7 +459,7 @@ def write_report(root: Path, state: dict[str, Any] | None = None) -> Path:
         )
     lines += [
         "",
-        "09-16 的 `not_ported` 是如实记录，不代表运行成功。",
+        "10-16 的 `not_ported` 是如实记录，不代表运行成功。",
         "外部 API 预算与密钥状态见 `api_budget.json` 和 `environment.json`。",
         "",
     ]

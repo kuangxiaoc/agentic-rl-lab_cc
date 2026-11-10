@@ -4,6 +4,7 @@ import sys
 import unittest
 import importlib.util
 from pathlib import Path
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -78,6 +79,49 @@ class TokenizerCompatibilityTests(unittest.TestCase):
                 FakeTokenizer(mapping={probe: [1]}),
                 FakeTokenizer(mapping={probe: [2]}),
             )
+
+    def test_opd_update_uses_distinct_teacher_prompt(self):
+        """OPSD needs the teacher to score the same completion under another prompt."""
+        seen_prompts = []
+
+        def fake_teacher(model, prompt_ids, completion_ids, **kwargs):
+            seen_prompts.append(list(prompt_ids))
+            return [-0.5] * len(completion_ids)
+
+        fake_torch = mock.Mock()
+        fake_torch.tensor.return_value = object()
+        fake_torch.stack.return_value.mean.return_value.item.return_value = 0.0
+        fake_student = mock.Mock()
+        fake_student.parameters.return_value = []
+        fake_loss = mock.Mock()
+        fake_loss.detach.return_value = fake_loss
+        with (
+            mock.patch.object(local_opd, "completion_teacher_logprobs", fake_teacher),
+            mock.patch.object(
+                local_opd.trainer,
+                "generate_group",
+                return_value=([[5, 6]], [[-1.0, -1.0]], ["ok"], 2),
+            ),
+            mock.patch.object(local_opd.trainer, "sequence_policy_loss", return_value=fake_loss),
+        ):
+            local_opd.run_opd_update_with_prompts(
+                student_model=fake_student,
+                teacher_model=None,
+                tokenizer=None,
+                optimizer=mock.Mock(),
+                student_prompt_ids_list=[[1, 2]],
+                teacher_prompt_ids_list=[[9, 8, 7]],
+                group_size=1,
+                max_new_tokens=1,
+                temperature=1.0,
+                top_p=1.0,
+                kl_penalty_coef=1.0,
+                loss_fn="importance_sampling",
+                torch_module=fake_torch,
+                device=None,
+                seed=0,
+            )
+        self.assertEqual(seen_prompts, [[9, 8, 7]])
 
 
 class JevDataTests(unittest.TestCase):
