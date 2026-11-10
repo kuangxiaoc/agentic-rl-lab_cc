@@ -1,0 +1,22 @@
+{
+  "batch_size": 1,
+  "chapter": 7,
+  "clip_high": 1.28,
+  "clip_low": 0.8,
+  "dataset": "AI-ModelScope/gsm8k",
+  "dynamic_sampling": true,
+  "external_api_calls": 0,
+  "group_size": 2,
+  "max_new_tokens": 128,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "overlong_cache": 0,
+  "profile": "smoke",
+  "steps": 2,
+  "study_order": [
+    "experiments/dapo/readme.md",
+    "experiments/dapo/reward.py",
+    "experiments/dapo/rollout.py",
+    "experiments/dapo/local_gpu.py"
+  ],
+  "token_level_loss": true
+}

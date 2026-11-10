@@ -121,16 +121,25 @@
       "updated_at": "2026-11-10T06:21:08+00:00"
     },
     "7": {
-      "details": {},
-      "run_id": null,
-      "status": "not_ported",
-      "updated_at": "2026-11-08T08:05:06+00:00"
+      "details": {
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-142349/adapter",
+        "skipped_groups": 2,
+        "steps": 2,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-142349/summary.json"
+      },
+      "run_id": "run-20261110-142349",
+      "status": "completed",
+      "updated_at": "2026-11-10T06:24:30+00:00"
     },
     "8": {
-      "details": {},
-      "run_id": null,
-      "status": "not_ported",
-      "updated_at": "2026-11-08T08:05:06+00:00"
+      "details": {
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261110-142435/adapter",
+        "steps": 2,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261110-142435/summary.json"
+      },
+      "run_id": "run-20261110-142435",
+      "status": "completed",
+      "updated_at": "2026-11-10T06:25:16+00:00"
     },
     "9": {
       "details": {},
@@ -141,5 +150,5 @@
   },
   "created_at": "2026-11-08T08:05:06+00:00",
   "schema_version": 1,
-  "updated_at": "2026-11-10T06:21:08+00:00"
+  "updated_at": "2026-11-10T06:25:16+00:00"
 }
