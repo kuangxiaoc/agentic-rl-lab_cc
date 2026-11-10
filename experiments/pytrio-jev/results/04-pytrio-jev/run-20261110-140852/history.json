@@ -1,0 +1,242 @@
+[
+  {
+    "step": 0,
+    "loss": 18.04122543334961,
+    "marker_accuracy": 0.0,
+    "records": 1
+  },
+  {
+    "step": 1,
+    "loss": 13.626233100891113,
+    "marker_accuracy": 0.20000000298023224,
+    "records": 1
+  },
+  {
+    "step": 2,
+    "loss": 2.7960638999938965,
+    "marker_accuracy": 0.4000000059604645,
+    "records": 1
+  },
+  {
+    "step": 3,
+    "loss": 5.16854190826416,
+    "marker_accuracy": 0.20000000298023224,
+    "records": 1
+  },
+  {
+    "step": 4,
+    "loss": 1.8018007278442383,
+    "marker_accuracy": 0.4000000059604645,
+    "records": 1
+  },
+  {
+    "step": 5,
+    "loss": 3.5613369941711426,
+    "marker_accuracy": 0.20000000298023224,
+    "records": 1
+  },
+  {
+    "step": 6,
+    "loss": 1.6358925104141235,
+    "marker_accuracy": 0.4000000059604645,
+    "records": 1
+  },
+  {
+    "step": 7,
+    "loss": 1.2052841186523438,
+    "marker_accuracy": 0.20000000298023224,
+    "records": 1
+  },
+  {
+    "step": 8,
+    "loss": 0.6252782940864563,
+    "marker_accuracy": 0.800000011920929,
+    "records": 1
+  },
+  {
+    "step": 9,
+    "loss": 1.4361240863800049,
+    "marker_accuracy": 0.0,
+    "records": 1
+  },
+  {
+    "step": 10,
+    "loss": 1.0226088762283325,
+    "marker_accuracy": 0.6000000238418579,
+    "records": 1
+  },
+  {
+    "step": 11,
+    "loss": 1.1964994668960571,
+    "marker_accuracy": 0.4000000059604645,
+    "records": 1
+  },
+  {
+    "step": 12,
+    "loss": 1.3212497234344482,
+    "marker_accuracy": 0.20000000298023224,
+    "records": 1
+  },
+  {
+    "step": 13,
+    "loss": 1.340038537979126,
+    "marker_accuracy": 0.4000000059604645,
+    "records": 1
+  },
+  {
+    "step": 14,
+    "loss": 1.0175247192382812,
+    "marker_accuracy": 0.6000000238418579,
+    "records": 1
+  },
+  {
+    "step": 15,
+    "loss": 1.219916582107544,
+    "marker_accuracy": 0.6000000238418579,
+    "records": 1
+  },
+  {
+    "step": 16,
+    "loss": 1.2667410373687744,
+    "marker_accuracy": 0.4000000059604645,
+    "records": 1
+  },
+  {
+    "step": 17,
+    "loss": 1.3571763038635254,
+    "marker_accuracy": 0.4000000059604645,
+    "records": 1
+  },
+  {
+    "step": 18,
+    "loss": 1.281193733215332,
+    "marker_accuracy": 0.20000000298023224,
+    "records": 1
+  },
+  {
+    "step": 19,
+    "loss": 1.4118657112121582,
+    "marker_accuracy": 0.20000000298023224,
+    "records": 1
+  },
+  {
+    "step": 20,
+    "loss": 0.8201857805252075,
+    "marker_accuracy": 0.800000011920929,
+    "records": 1
+  },
+  {
+    "step": 21,
+    "loss": 1.2396410703659058,
+    "marker_accuracy": 0.6000000238418579,
+    "records": 1
+  },
+  {
+    "step": 22,
+    "loss": 1.5358259677886963,
+    "marker_accuracy": 0.4000000059604645,
+    "records": 1
+  },
+  {
+    "step": 23,
+    "loss": 1.0996649265289307,
+    "marker_accuracy": 0.6000000238418579,
+    "records": 1
+  },
+  {
+    "step": 24,
+    "loss": 1.4220027923583984,
+    "marker_accuracy": 0.20000000298023224,
+    "records": 1
+  },
+  {
+    "step": 25,
+    "loss": 0.9986952543258667,
+    "marker_accuracy": 0.6000000238418579,
+    "records": 1
+  },
+  {
+    "step": 26,
+    "loss": 0.9602237939834595,
+    "marker_accuracy": 0.6000000238418579,
+    "records": 1
+  },
+  {
+    "step": 27,
+    "loss": 1.0016485452651978,
+    "marker_accuracy": 0.6000000238418579,
+    "records": 1
+  },
+  {
+    "step": 28,
+    "loss": 1.100968599319458,
+    "marker_accuracy": 0.20000000298023224,
+    "records": 1
+  },
+  {
+    "step": 29,
+    "loss": 0.9943702816963196,
+    "marker_accuracy": 0.4000000059604645,
+    "records": 1
+  },
+  {
+    "step": 30,
+    "loss": 1.7470020055770874,
+    "marker_accuracy": 0.20000000298023224,
+    "records": 1
+  },
+  {
+    "step": 31,
+    "loss": 1.9323116540908813,
+    "marker_accuracy": 0.20000000298023224,
+    "records": 1
+  },
+  {
+    "step": 32,
+    "loss": 0.8588176965713501,
+    "marker_accuracy": 0.6000000238418579,
+    "records": 1
+  },
+  {
+    "step": 33,
+    "loss": 0.9327276349067688,
+    "marker_accuracy": 0.4000000059604645,
+    "records": 1
+  },
+  {
+    "step": 34,
+    "loss": 0.48044243454933167,
+    "marker_accuracy": 1.0,
+    "records": 1
+  },
+  {
+    "step": 35,
+    "loss": 2.145360231399536,
+    "marker_accuracy": 0.6000000238418579,
+    "records": 1
+  },
+  {
+    "step": 36,
+    "loss": 0.46075573563575745,
+    "marker_accuracy": 0.800000011920929,
+    "records": 1
+  },
+  {
+    "step": 37,
+    "loss": 0.8692411184310913,
+    "marker_accuracy": 0.6000000238418579,
+    "records": 1
+  },
+  {
+    "step": 38,
+    "loss": 0.947650134563446,
+    "marker_accuracy": 0.800000011920929,
+    "records": 1
+  },
+  {
+    "step": 39,
+    "loss": 0.7188335657119751,
+    "marker_accuracy": 0.6000000238418579,
+    "records": 1
+  }
+]

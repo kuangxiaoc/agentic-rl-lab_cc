@@ -1,0 +1,82 @@
+[
+  {
+    "stage": "anchor_opd",
+    "step": 0,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 2.0,
+    "reverse_kl_mean": 8.282286216854118e-06,
+    "reverse_kl_std": 8.759112461120822e-06,
+    "loss": 8.281565897050314e-06
+  },
+  {
+    "stage": "anchor_opd",
+    "step": 1,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 11.0,
+    "reverse_kl_mean": -0.0065249403117749434,
+    "reverse_kl_std": 0.025760562449036597,
+    "loss": -0.006303158588707447
+  },
+  {
+    "stage": "anchor_opd",
+    "step": 2,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 24.0,
+    "reverse_kl_mean": 0.043056008637267475,
+    "reverse_kl_std": 0.38388563471203035,
+    "loss": 0.5359958410263062
+  },
+  {
+    "stage": "anchor_opd",
+    "step": 3,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 2.0,
+    "reverse_kl_mean": 0.033785580191761255,
+    "reverse_kl_std": 0.03141103079542518,
+    "loss": 0.0326995775103569
+  },
+  {
+    "stage": "anchor_opd",
+    "step": 4,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 2.0,
+    "reverse_kl_mean": 0.0618884435034488,
+    "reverse_kl_std": 0.1246216698132345,
+    "loss": 0.050191957503557205
+  },
+  {
+    "stage": "anchor_opd",
+    "step": 5,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 2.0,
+    "reverse_kl_mean": 0.0007518711499869823,
+    "reverse_kl_std": 0.0037340049166232347,
+    "loss": 0.0007475069141946733
+  },
+  {
+    "stage": "anchor_opd",
+    "step": 6,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 2.0,
+    "reverse_kl_mean": 1.6130353231965273,
+    "reverse_kl_std": 1.6130933741987974,
+    "loss": 1.5691673755645752
+  },
+  {
+    "stage": "anchor_opd",
+    "step": 7,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 2.0,
+    "reverse_kl_mean": 0.17553536970808636,
+    "reverse_kl_std": 0.17116923043795396,
+    "loss": 0.1753123700618744
+  }
+]

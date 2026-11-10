@@ -1,0 +1,82 @@
+[
+  {
+    "stage": "medical_opd",
+    "step": 0,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 128.0,
+    "reverse_kl_mean": 11.638738096419397,
+    "reverse_kl_std": 5.755380755150685,
+    "loss": 11.665212631225586
+  },
+  {
+    "stage": "medical_opd",
+    "step": 1,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 128.0,
+    "reverse_kl_mean": 12.963606102050425,
+    "reverse_kl_std": 5.461955127055575,
+    "loss": 12.903839111328125
+  },
+  {
+    "stage": "medical_opd",
+    "step": 2,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 128.0,
+    "reverse_kl_mean": 10.163109348457152,
+    "reverse_kl_std": 5.213015101917577,
+    "loss": 10.144624710083008
+  },
+  {
+    "stage": "medical_opd",
+    "step": 3,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 128.0,
+    "reverse_kl_mean": 13.037358525548672,
+    "reverse_kl_std": 5.608661768572761,
+    "loss": 13.064271926879883
+  },
+  {
+    "stage": "medical_opd",
+    "step": 4,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 128.0,
+    "reverse_kl_mean": 12.162875667477257,
+    "reverse_kl_std": 5.302005522958983,
+    "loss": 12.143350601196289
+  },
+  {
+    "stage": "medical_opd",
+    "step": 5,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 128.0,
+    "reverse_kl_mean": 12.092691575156874,
+    "reverse_kl_std": 5.922197014215535,
+    "loss": 12.056280136108398
+  },
+  {
+    "stage": "medical_opd",
+    "step": 6,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 128.0,
+    "reverse_kl_mean": 13.52021732872605,
+    "reverse_kl_std": 5.385821702779408,
+    "loss": 13.520685195922852
+  },
+  {
+    "stage": "medical_opd",
+    "step": 7,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 128.0,
+    "reverse_kl_mean": 13.134921211240199,
+    "reverse_kl_std": 5.581956025496255,
+    "loss": 13.082572937011719
+  }
+]

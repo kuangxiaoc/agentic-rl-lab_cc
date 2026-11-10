@@ -1,0 +1,22 @@
+{
+  "medqa_base": {
+    "samples": 50,
+    "correct": 9,
+    "accuracy": 0.18
+  },
+  "medqa_final": {
+    "samples": 50,
+    "correct": 8,
+    "accuracy": 0.16
+  },
+  "ceval_base": {
+    "samples": 40,
+    "correct": 10,
+    "accuracy": 0.25
+  },
+  "ceval_final": {
+    "samples": 40,
+    "correct": 9,
+    "accuracy": 0.225
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "anchor_opd_steps": 8,
+  "chapter": 6,
+  "external_api_calls": 0,
+  "idt_steps": 4,
+  "medical_opd_steps": 8,
+  "medical_teacher_model": "Qwen/Qwen3-4B-Instruct-2507",
+  "mode": "sar",
+  "profile": "smoke",
+  "sft_steps": 30,
+  "student_model": "Qwen/Qwen3-1.7B",
+  "study_order": [
+    "experiments/medical-opd/readme.md",
+    "experiments/medical-opd/02-medical-sft.py",
+    "experiments/medical-opd/03-medical-opd-async.py",
+    "experiments/medical-opd/04-ceval-opd-async.py",
+    "experiments/medical-opd/local_gpu.py"
+  ]
+}

@@ -84,41 +84,41 @@
     },
     "4": {
       "details": {
-        "adapter": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-140523/adapter",
-        "eval_accuracy": 0.336,
-        "steps": 10,
-        "summary": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-140523/summary.json"
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-140852/adapter",
+        "eval_accuracy": 0.344,
+        "steps": 40,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-140852/summary.json"
       },
-      "run_id": "run-20261110-140523",
+      "run_id": "run-20261110-140852",
       "status": "completed",
-      "updated_at": "2026-11-10T06:06:16+00:00"
+      "updated_at": "2026-11-10T06:10:31+00:00"
     },
     "5": {
       "details": {
-        "adapter": "/mnt/workspace/agentic-rl-lab/runs/05-general-opd/run-20261110-134245/adapter",
-        "steps": 2,
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/05-general-opd/run-20261110-141035/adapter",
+        "steps": 15,
         "student_model": "Qwen/Qwen3-1.7B",
-        "summary": "/mnt/workspace/agentic-rl-lab/runs/05-general-opd/run-20261110-134245/summary.json",
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/05-general-opd/run-20261110-141035/summary.json",
         "teacher_model": "Qwen/Qwen3-4B-Instruct-2507"
       },
-      "run_id": "run-20261110-134245",
+      "run_id": "run-20261110-141035",
       "status": "completed",
-      "updated_at": "2026-11-10T05:59:12+00:00"
+      "updated_at": "2026-11-10T06:17:01+00:00"
     },
     "6": {
       "details": {
         "ceval_base_accuracy": 0.25,
-        "ceval_final_accuracy": 0.25,
-        "final_adapter": "/mnt/workspace/agentic-rl-lab/runs/06-medical-opd/run-20261110-135926/student_anchor_adapter/adapter",
-        "medqa_base_accuracy": 0.15,
-        "medqa_final_accuracy": 0.2,
+        "ceval_final_accuracy": 0.225,
+        "final_adapter": "/mnt/workspace/agentic-rl-lab/runs/06-medical-opd/run-20261110-141706/student_anchor_adapter/adapter",
+        "medqa_base_accuracy": 0.18,
+        "medqa_final_accuracy": 0.16,
         "mode": "sar",
-        "sft_steps": 10,
-        "teacher_adapter": "/mnt/workspace/agentic-rl-lab/runs/06-medical-opd/run-20261110-135926/medical_teacher_adapter/adapter"
+        "sft_steps": 30,
+        "teacher_adapter": "/mnt/workspace/agentic-rl-lab/runs/06-medical-opd/run-20261110-141706/medical_teacher_adapter/adapter"
       },
-      "run_id": "run-20261110-135926",
+      "run_id": "run-20261110-141706",
       "status": "completed",
-      "updated_at": "2026-11-10T06:02:48+00:00"
+      "updated_at": "2026-11-10T06:21:08+00:00"
     },
     "7": {
       "details": {},
@@ -141,5 +141,5 @@
   },
   "created_at": "2026-11-08T08:05:06+00:00",
   "schema_version": 1,
-  "updated_at": "2026-11-10T06:06:16+00:00"
+  "updated_at": "2026-11-10T06:21:08+00:00"
 }

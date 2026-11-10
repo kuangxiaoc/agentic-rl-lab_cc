@@ -1,0 +1,15 @@
+{
+  "batch_size": 1,
+  "chapter": 4,
+  "dataset": "LocalLLaMA/typed-decisions",
+  "epochs": 1,
+  "external_api_calls": 0,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "profile": "smoke",
+  "steps": 40,
+  "study_order": [
+    "experiments/pytrio-jev/readme.md",
+    "experiments/pytrio-jev/train.py",
+    "experiments/pytrio-jev/local_gpu.py"
+  ]
+}
