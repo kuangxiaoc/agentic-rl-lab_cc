@@ -1,0 +1,18 @@
+{
+  "batch_size": 1,
+  "chapter": 9,
+  "dataset": "siyanzhao/Openthoughts_math_30k_opsd",
+  "dataset_revision": "1f33e9dc2e8a1c639ca74f8024ad4a9f1f5eae62",
+  "external_api_calls": 0,
+  "group_size": 1,
+  "max_new_tokens": 128,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "profile": "smoke",
+  "steps": 2,
+  "study_order": [
+    "experiments/opsd/readme.md",
+    "experiments/opsd/01-opsd-sync.py",
+    "experiments/opsd/local_gpu.py"
+  ],
+  "teacher": "frozen step-0 base model with privileged reference solution"
+}

@@ -1,0 +1,41 @@
+{
+  "chapter": 9,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "dataset": "siyanzhao/Openthoughts_math_30k_opsd",
+  "dataset_revision": "1f33e9dc2e8a1c639ca74f8024ad4a9f1f5eae62",
+  "steps": 2,
+  "batch_size": 1,
+  "group_size": 1,
+  "max_new_tokens": 128,
+  "profile": "smoke",
+  "teacher": "frozen step-0 base model with privileged reference solution",
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/opsd/readme.md",
+    "experiments/opsd/01-opsd-sync.py",
+    "experiments/opsd/local_gpu.py"
+  ],
+  "history": [
+    {
+      "step": 0,
+      "prompts": 1,
+      "train_samples": 1,
+      "completion_tokens_mean": 128.0,
+      "reverse_kl_mean": 0.26801825944231794,
+      "reverse_kl_std": 1.5122641068226819,
+      "loss": 0.2688645124435425
+    },
+    {
+      "step": 1,
+      "prompts": 1,
+      "train_samples": 1,
+      "completion_tokens_mean": 128.0,
+      "reverse_kl_mean": 0.41493083913171924,
+      "reverse_kl_std": 1.4929265752698646,
+      "loss": 0.4127071499824524
+    }
+  ],
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-145924/adapter",
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10"
+}

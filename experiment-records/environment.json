@@ -12,8 +12,8 @@
   },
   "platform": "Linux-5.10.134-17.3.al8.x86_64-x86_64-with-glibc2.35",
   "python": "3.12.13 (main, Aug 20 2026, 17:28:00) [GCC 11.4.0]",
-  "recorded_at": "2026-11-10T06:43:42+00:00",
+  "recorded_at": "2026-11-10T06:59:24+00:00",
   "repo": "/mnt/workspace/agentic-rl-lab_cc",
-  "run_profile": "full",
+  "run_profile": "smoke",
   "workspace_root": "/mnt/workspace/agentic-rl-lab"
 }

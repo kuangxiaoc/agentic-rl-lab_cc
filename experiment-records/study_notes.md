@@ -19,7 +19,10 @@
    和 token-level loss 在本地如何落到 `model.generate` 与 `backward()`。
 8. `experiments/gspo/readme.md` → `train.py` → `local_gpu.py`：对照 sequence-level
    importance ratio 与本地整条 completion 的 log-ratio。
-9. 09-16 暂时标记 `not_ported`，不会伪造成功结果；外部搜索/裁判/教师 API 先只记录预算。
+9. `experiments/opsd/readme.md` → `01-opsd-sync.py` → `local_gpu.py`：Student 只
+   看题，固定 Teacher 看题和参考解；两者对同一条 completion 的 logprob 差就是
+   sampled-token reverse KL。
+10. 10-16 暂时标记 `not_ported`，不会伪造成功结果；外部搜索/裁判/教师 API 先只记录预算。
 
 每次运行的配置、stdout/stderr、metrics、LoRA adapter、`state.json` 和环境快照都在本目录。
 服务器释放前执行 `bash scripts/export_results.sh`，下载 `exports/*.tar.gz` 即可离线学习。
