@@ -1,0 +1,17 @@
+{
+  "batch_size": 1,
+  "chapter": 5,
+  "dataset": "AI-ModelScope/DeepMath-103K",
+  "external_api_calls": 0,
+  "group_size": 2,
+  "max_new_tokens": 128,
+  "profile": "smoke",
+  "steps": 2,
+  "student_model": "Qwen/Qwen3-1.7B",
+  "study_order": [
+    "experiments/general-opd/readme.md",
+    "experiments/general-opd/01-demo-sync.py",
+    "experiments/general-opd/local_gpu.py"
+  ],
+  "teacher_model": "Qwen/Qwen3-4B-Instruct-2507"
+}

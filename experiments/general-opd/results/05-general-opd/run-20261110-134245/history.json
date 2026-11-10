@@ -1,0 +1,20 @@
+[
+  {
+    "step": 0,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 128.0,
+    "reverse_kl_mean": 0.4211055868603897,
+    "reverse_kl_std": 1.736534419871944,
+    "loss": 0.43287307024002075
+  },
+  {
+    "step": 1,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 128.0,
+    "reverse_kl_mean": 0.2090152419137311,
+    "reverse_kl_std": 0.941643697008802,
+    "loss": 0.21394987404346466
+  }
+]

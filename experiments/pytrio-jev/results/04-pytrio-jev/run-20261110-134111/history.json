@@ -1,0 +1,14 @@
+[
+  {
+    "step": 0,
+    "loss": 18.04122543334961,
+    "marker_accuracy": 0.0,
+    "records": 1
+  },
+  {
+    "step": 1,
+    "loss": 13.684781074523926,
+    "marker_accuracy": 0.20000000298023224,
+    "records": 1
+  }
+]

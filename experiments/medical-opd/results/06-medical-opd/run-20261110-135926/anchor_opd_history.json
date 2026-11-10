@@ -1,0 +1,22 @@
+[
+  {
+    "stage": "anchor_opd",
+    "step": 0,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 2.0,
+    "reverse_kl_mean": 4.91007467644522e-05,
+    "reverse_kl_std": 4.433247340784874e-05,
+    "loss": 4.909659764962271e-05
+  },
+  {
+    "stage": "anchor_opd",
+    "step": 1,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 11.0,
+    "reverse_kl_mean": -0.009440506901414252,
+    "reverse_kl_std": 0.03126818756383244,
+    "loss": -0.009554598480463028
+  }
+]

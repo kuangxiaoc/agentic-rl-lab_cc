@@ -83,22 +83,42 @@
       "updated_at": "2026-11-08T10:52:37+00:00"
     },
     "4": {
-      "details": {},
-      "run_id": null,
-      "status": "not_ported",
-      "updated_at": "2026-11-08T08:05:06+00:00"
+      "details": {
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-134111/adapter",
+        "eval_accuracy": 0.508,
+        "steps": 2,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-134111/summary.json"
+      },
+      "run_id": "run-20261110-134111",
+      "status": "completed",
+      "updated_at": "2026-11-10T05:42:33+00:00"
     },
     "5": {
-      "details": {},
-      "run_id": null,
-      "status": "not_ported",
-      "updated_at": "2026-11-08T08:05:06+00:00"
+      "details": {
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/05-general-opd/run-20261110-134245/adapter",
+        "steps": 2,
+        "student_model": "Qwen/Qwen3-1.7B",
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/05-general-opd/run-20261110-134245/summary.json",
+        "teacher_model": "Qwen/Qwen3-4B-Instruct-2507"
+      },
+      "run_id": "run-20261110-134245",
+      "status": "completed",
+      "updated_at": "2026-11-10T05:59:12+00:00"
     },
     "6": {
-      "details": {},
-      "run_id": null,
-      "status": "not_ported",
-      "updated_at": "2026-11-08T08:05:06+00:00"
+      "details": {
+        "ceval_base_accuracy": 0.25,
+        "ceval_final_accuracy": 0.25,
+        "final_adapter": "/mnt/workspace/agentic-rl-lab/runs/06-medical-opd/run-20261110-135926/student_anchor_adapter/adapter",
+        "medqa_base_accuracy": 0.15,
+        "medqa_final_accuracy": 0.2,
+        "mode": "sar",
+        "sft_steps": 10,
+        "teacher_adapter": "/mnt/workspace/agentic-rl-lab/runs/06-medical-opd/run-20261110-135926/medical_teacher_adapter/adapter"
+      },
+      "run_id": "run-20261110-135926",
+      "status": "completed",
+      "updated_at": "2026-11-10T06:02:48+00:00"
     },
     "7": {
       "details": {},
@@ -121,5 +141,5 @@
   },
   "created_at": "2026-11-08T08:05:06+00:00",
   "schema_version": 1,
-  "updated_at": "2026-11-08T10:52:37+00:00"
+  "updated_at": "2026-11-10T06:02:48+00:00"
 }

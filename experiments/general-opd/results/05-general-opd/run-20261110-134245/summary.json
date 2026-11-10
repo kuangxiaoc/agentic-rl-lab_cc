@@ -1,0 +1,40 @@
+{
+  "chapter": 5,
+  "student_model": "Qwen/Qwen3-1.7B",
+  "teacher_model": "Qwen/Qwen3-4B-Instruct-2507",
+  "dataset": "AI-ModelScope/DeepMath-103K",
+  "profile": "smoke",
+  "steps": 2,
+  "batch_size": 1,
+  "group_size": 2,
+  "max_new_tokens": 128,
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/general-opd/readme.md",
+    "experiments/general-opd/01-demo-sync.py",
+    "experiments/general-opd/local_gpu.py"
+  ],
+  "history": [
+    {
+      "step": 0,
+      "prompts": 1,
+      "train_samples": 2,
+      "completion_tokens_mean": 128.0,
+      "reverse_kl_mean": 0.4211055868603897,
+      "reverse_kl_std": 1.736534419871944,
+      "loss": 0.43287307024002075
+    },
+    {
+      "step": 1,
+      "prompts": 1,
+      "train_samples": 2,
+      "completion_tokens_mean": 128.0,
+      "reverse_kl_mean": 0.2090152419137311,
+      "reverse_kl_std": 0.941643697008802,
+      "loss": 0.21394987404346466
+    }
+  ],
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/05-general-opd/run-20261110-134245/adapter",
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10"
+}

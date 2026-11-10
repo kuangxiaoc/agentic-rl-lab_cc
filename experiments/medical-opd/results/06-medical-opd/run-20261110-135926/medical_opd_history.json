@@ -1,0 +1,22 @@
+[
+  {
+    "stage": "medical_opd",
+    "step": 0,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 128.0,
+    "reverse_kl_mean": 1.5086003410862165,
+    "reverse_kl_std": 2.445152394063519,
+    "loss": 1.5086607933044434
+  },
+  {
+    "stage": "medical_opd",
+    "step": 1,
+    "prompts": 1,
+    "train_samples": 2,
+    "completion_tokens_mean": 128.0,
+    "reverse_kl_mean": 1.9887388000910757,
+    "reverse_kl_std": 2.409796804719495,
+    "loss": 1.9833612442016602
+  }
+]

@@ -10,10 +10,10 @@
     "FREE_TOKEN_LIMIT": "1000000",
     "MAX_EXTERNAL_COST_CNY": "50"
   },
-  "platform": "Linux-5.10.134-18.0.13.lifsea8.x86_64-x86_64-with-glibc2.35",
+  "platform": "Linux-5.10.134-17.3.al8.x86_64-x86_64-with-glibc2.35",
   "python": "3.12.13 (main, Aug 20 2026, 17:28:00) [GCC 11.4.0]",
-  "recorded_at": "2026-11-08T10:45:36+00:00",
+  "recorded_at": "2026-11-10T05:59:26+00:00",
   "repo": "/mnt/workspace/agentic-rl-lab_cc",
-  "run_profile": "full",
+  "run_profile": "smoke",
   "workspace_root": "/mnt/workspace/agentic-rl-lab"
 }

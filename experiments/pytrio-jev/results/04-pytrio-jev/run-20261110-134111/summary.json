@@ -1,0 +1,38 @@
+{
+  "chapter": 4,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "dataset": "LocalLLaMA/typed-decisions",
+  "profile": "smoke",
+  "epochs": 1,
+  "batch_size": 1,
+  "steps": 2,
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/pytrio-jev/readme.md",
+    "experiments/pytrio-jev/train.py",
+    "experiments/pytrio-jev/local_gpu.py"
+  ],
+  "history": [
+    {
+      "step": 0,
+      "loss": 18.04122543334961,
+      "marker_accuracy": 0.0,
+      "records": 1
+    },
+    {
+      "step": 1,
+      "loss": 13.684781074523926,
+      "marker_accuracy": 0.20000000298023224,
+      "records": 1
+    }
+  ],
+  "eval": {
+    "records": 50,
+    "decisions": 250,
+    "correct": 127,
+    "accuracy": 0.508
+  },
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-134111/adapter",
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10"
+}

@@ -1,0 +1,72 @@
+[
+  {
+    "stage": "medical_sft",
+    "step": 0,
+    "loss": 16.875764846801758,
+    "token_accuracy": 0.002087682718411088,
+    "samples": 1
+  },
+  {
+    "stage": "medical_sft",
+    "step": 1,
+    "loss": 14.164681434631348,
+    "token_accuracy": 0.0,
+    "samples": 1
+  },
+  {
+    "stage": "medical_sft",
+    "step": 2,
+    "loss": 14.49965763092041,
+    "token_accuracy": 0.018099548295140266,
+    "samples": 1
+  },
+  {
+    "stage": "medical_sft",
+    "step": 3,
+    "loss": 13.500295639038086,
+    "token_accuracy": 0.0,
+    "samples": 1
+  },
+  {
+    "stage": "medical_sft",
+    "step": 4,
+    "loss": 12.012384414672852,
+    "token_accuracy": 0.0016501650679856539,
+    "samples": 1
+  },
+  {
+    "stage": "medical_sft",
+    "step": 5,
+    "loss": 10.12260627746582,
+    "token_accuracy": 0.0,
+    "samples": 1
+  },
+  {
+    "stage": "medical_sft",
+    "step": 6,
+    "loss": 9.244104385375977,
+    "token_accuracy": 0.0,
+    "samples": 1
+  },
+  {
+    "stage": "medical_sft",
+    "step": 7,
+    "loss": 8.773378372192383,
+    "token_accuracy": 0.006535947322845459,
+    "samples": 1
+  },
+  {
+    "stage": "medical_sft",
+    "step": 8,
+    "loss": 8.40258502960205,
+    "token_accuracy": 0.00200803205370903,
+    "samples": 1
+  },
+  {
+    "stage": "medical_sft",
+    "step": 9,
+    "loss": 6.999024868011475,
+    "token_accuracy": 0.0029850746504962444,
+    "samples": 1
+  }
+]

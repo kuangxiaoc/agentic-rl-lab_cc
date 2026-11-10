@@ -1,0 +1,43 @@
+{
+  "chapter": 6,
+  "mode": "sar",
+  "student_model": "Qwen/Qwen3-1.7B",
+  "medical_teacher_model": "Qwen/Qwen3-4B-Instruct-2507",
+  "profile": "smoke",
+  "sft_steps": 10,
+  "medical_opd_steps": 2,
+  "anchor_opd_steps": 2,
+  "idt_steps": 4,
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/medical-opd/readme.md",
+    "experiments/medical-opd/02-medical-sft.py",
+    "experiments/medical-opd/03-medical-opd-async.py",
+    "experiments/medical-opd/04-ceval-opd-async.py",
+    "experiments/medical-opd/local_gpu.py"
+  ],
+  "teacher_adapter": "/mnt/workspace/agentic-rl-lab/runs/06-medical-opd/run-20261110-135926/medical_teacher_adapter/adapter",
+  "final_adapter": "/mnt/workspace/agentic-rl-lab/runs/06-medical-opd/run-20261110-135926/student_anchor_adapter/adapter",
+  "eval": {
+    "medqa_base": {
+      "samples": 20,
+      "correct": 3,
+      "accuracy": 0.15
+    },
+    "medqa_final": {
+      "samples": 20,
+      "correct": 4,
+      "accuracy": 0.2
+    },
+    "ceval_base": {
+      "samples": 20,
+      "correct": 5,
+      "accuracy": 0.25
+    },
+    "ceval_final": {
+      "samples": 20,
+      "correct": 5,
+      "accuracy": 0.25
+    }
+  }
+}
