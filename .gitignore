@@ -5,6 +5,7 @@ __pycache__/
 
 # Local experiment archives pulled from the GPU box (large, not source)
 .local-exports/
+/mise.toml
 
 # C extensions
 *.so
@@ -275,6 +276,12 @@ experiments/tempo/datasets/
 !experiments/general-opd/results/
 !experiments/medical-opd/results/
 !experiments/agentopsd/results/
+!experiments/search-r1/results/
+!experiments/retool/results/
+!experiments/alfworld/results/
+!experiments/tempo/results/
+!experiments/spec-o3/results/
+!experiments/tournament-grpo/results/
 !experiment-records/
 experiments/*/results/**/*.safetensors
 experiments/*/results/**/*.bin

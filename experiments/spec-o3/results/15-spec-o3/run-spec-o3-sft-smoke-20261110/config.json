@@ -1,0 +1,22 @@
+{
+  "chapter": 15,
+  "data_root": "/mnt/workspace/agentic-rl-lab/datasets/spec-o3",
+  "dataset": "Spec-o3-ColdStartSFT + SpecVI-Bench",
+  "external_api_calls": 0,
+  "group_size": 2,
+  "max_new_tokens": 96,
+  "max_seq_len": 4096,
+  "max_turns": 2,
+  "model": "Qwen/Qwen3.5-4B",
+  "profile": "smoke",
+  "rl_steps": 1,
+  "sft_steps": 1,
+  "stage": "sft",
+  "study_order": [
+    "experiments/spec-o3/readme.md",
+    "experiments/spec-o3/protocol.py",
+    "experiments/spec-o3/tools.py",
+    "experiments/spec-o3/rollout.py",
+    "experiments/spec-o3/local_gpu.py"
+  ]
+}

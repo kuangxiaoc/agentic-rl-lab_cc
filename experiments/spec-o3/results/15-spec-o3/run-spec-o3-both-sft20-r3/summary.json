@@ -1,0 +1,158 @@
+{
+  "chapter": 15,
+  "model": "Qwen/Qwen3.5-4B",
+  "dataset": "Spec-o3-ColdStartSFT + SpecVI-Bench",
+  "data_root": "/mnt/workspace/agentic-rl-lab/datasets/spec-o3",
+  "profile": "smoke",
+  "stage": "both",
+  "sft_steps": 20,
+  "rl_steps": 1,
+  "group_size": 2,
+  "max_turns": 2,
+  "max_new_tokens": 768,
+  "max_seq_len": 4096,
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/spec-o3/readme.md",
+    "experiments/spec-o3/protocol.py",
+    "experiments/spec-o3/tools.py",
+    "experiments/spec-o3/rollout.py",
+    "experiments/spec-o3/local_gpu.py"
+  ],
+  "history": [
+    {
+      "stage": "sft",
+      "step": 0,
+      "loss": 1.0386223793029785,
+      "assistant_tokens": 746
+    },
+    {
+      "stage": "sft",
+      "step": 1,
+      "loss": 1.0226974487304688,
+      "assistant_tokens": 1296
+    },
+    {
+      "stage": "sft",
+      "step": 2,
+      "loss": 1.1639127731323242,
+      "assistant_tokens": 1278
+    },
+    {
+      "stage": "sft",
+      "step": 3,
+      "loss": 0.9180957674980164,
+      "assistant_tokens": 856
+    },
+    {
+      "stage": "sft",
+      "step": 4,
+      "loss": 0.941091775894165,
+      "assistant_tokens": 902
+    },
+    {
+      "stage": "sft",
+      "step": 5,
+      "loss": 1.000017523765564,
+      "assistant_tokens": 1042
+    },
+    {
+      "stage": "sft",
+      "step": 6,
+      "loss": 0.9131340384483337,
+      "assistant_tokens": 1406
+    },
+    {
+      "stage": "sft",
+      "step": 7,
+      "loss": 0.9667000770568848,
+      "assistant_tokens": 1343
+    },
+    {
+      "stage": "sft",
+      "step": 8,
+      "loss": 1.026559829711914,
+      "assistant_tokens": 1436
+    },
+    {
+      "stage": "sft",
+      "step": 9,
+      "loss": 0.9059861898422241,
+      "assistant_tokens": 1335
+    },
+    {
+      "stage": "sft",
+      "step": 10,
+      "loss": 0.9842109680175781,
+      "assistant_tokens": 1048
+    },
+    {
+      "stage": "sft",
+      "step": 11,
+      "loss": 0.9129193425178528,
+      "assistant_tokens": 1322
+    },
+    {
+      "stage": "sft",
+      "step": 12,
+      "loss": 1.1040359735488892,
+      "assistant_tokens": 1657
+    },
+    {
+      "stage": "sft",
+      "step": 13,
+      "loss": 0.9320923089981079,
+      "assistant_tokens": 1394
+    },
+    {
+      "stage": "sft",
+      "step": 14,
+      "loss": 1.1188669204711914,
+      "assistant_tokens": 1876
+    },
+    {
+      "stage": "sft",
+      "step": 15,
+      "loss": 0.9264005422592163,
+      "assistant_tokens": 989
+    },
+    {
+      "stage": "sft",
+      "step": 16,
+      "loss": 1.0500849485397339,
+      "assistant_tokens": 1332
+    },
+    {
+      "stage": "sft",
+      "step": 17,
+      "loss": 0.857352614402771,
+      "assistant_tokens": 1054
+    },
+    {
+      "stage": "sft",
+      "step": 18,
+      "loss": 0.9093081951141357,
+      "assistant_tokens": 818
+    },
+    {
+      "stage": "sft",
+      "step": 19,
+      "loss": 0.959703266620636,
+      "assistant_tokens": 849
+    },
+    {
+      "stage": "grpo",
+      "step": 0,
+      "reward_mean": -0.2,
+      "success_rate": 0.0,
+      "format_rate": 0.0,
+      "tool_calls": 2,
+      "trajectories": 2,
+      "train_samples": 0,
+      "loss_mean": 0.0
+    }
+  ],
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/15-spec-o3/run-spec-o3-both-sft20-r3/adapter",
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10"
+}

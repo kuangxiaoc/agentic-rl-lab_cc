@@ -10,46 +10,85 @@
       "updated_at": "2026-11-08T10:34:13+00:00"
     },
     "10": {
-      "details": {},
-      "run_id": null,
-      "status": "not_ported",
-      "updated_at": "2026-11-08T08:05:06+00:00"
+      "details": {
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/run-agentopsd-smoke-20261110d/adapter",
+        "mechanism_only": true,
+        "steps": 1,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/run-agentopsd-smoke-20261110d/summary.json",
+        "teacher": "same local policy snapshot with skill prompt"
+      },
+      "run_id": "run-agentopsd-smoke-20261110d",
+      "status": "completed",
+      "updated_at": "2026-11-10T12:08:42+00:00"
     },
     "11": {
-      "details": {},
-      "run_id": null,
-      "status": "not_ported",
-      "updated_at": "2026-11-08T08:05:06+00:00"
+      "details": {
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/11-search-r1/run-search-offline-short-2step-20261110/adapter",
+        "mechanism_only": true,
+        "search_backend": "offline-evidence-oracle",
+        "steps": 2,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/11-search-r1/run-search-offline-short-2step-20261110/summary.json"
+      },
+      "run_id": "run-search-offline-short-2step-20261110",
+      "status": "completed",
+      "updated_at": "2026-11-10T09:19:53+00:00"
     },
     "12": {
-      "details": {},
-      "run_id": null,
-      "status": "not_ported",
-      "updated_at": "2026-11-08T08:05:06+00:00"
+      "details": {
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/12-retool/run-retool-short-2step-20261110/adapter",
+        "mechanism_only": true,
+        "steps": 2,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/12-retool/run-retool-short-2step-20261110/summary.json"
+      },
+      "run_id": "run-retool-short-2step-20261110",
+      "status": "completed",
+      "updated_at": "2026-11-10T09:15:02+00:00"
     },
     "13": {
-      "details": {},
-      "run_id": null,
-      "status": "not_ported",
-      "updated_at": "2026-11-08T08:05:06+00:00"
+      "details": {
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/13-alfworld/run-alfworld-grpo-smoke-20261110/adapter",
+        "mechanism_only": true,
+        "reward": "task success - 0.1 * invalid_action_count",
+        "steps": 1,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/13-alfworld/run-alfworld-grpo-smoke-20261110/summary.json"
+      },
+      "run_id": "run-alfworld-grpo-smoke-20261110",
+      "status": "completed",
+      "updated_at": "2026-11-10T14:15:24+00:00"
     },
     "14": {
-      "details": {},
-      "run_id": null,
-      "status": "not_ported",
-      "updated_at": "2026-11-08T08:05:06+00:00"
+      "details": {
+        "actor_critic": "same adapter, different prompts",
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/14-tempo/run-tempo-smoke-20261110/adapter",
+        "mechanism_only": true,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/14-tempo/run-tempo-smoke-20261110/summary.json",
+        "updates": 2
+      },
+      "run_id": "run-tempo-smoke-20261110",
+      "status": "completed",
+      "updated_at": "2026-11-10T12:22:58+00:00"
     },
     "15": {
-      "details": {},
-      "run_id": null,
-      "status": "not_ported",
-      "updated_at": "2026-11-08T08:05:06+00:00"
+      "details": {
+        "mechanism_only": true,
+        "rl_steps": 2,
+        "sft_steps": 20,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/15-spec-o3/run-spec-o3-both-sft20-r5/summary.json"
+      },
+      "run_id": "run-spec-o3-both-sft20-r5",
+      "status": "completed",
+      "updated_at": "2026-11-10T14:15:24+00:00"
     },
     "16": {
-      "details": {},
-      "run_id": null,
-      "status": "not_ported",
-      "updated_at": "2026-11-08T08:05:06+00:00"
+      "details": {
+        "mechanism_only": true,
+        "steps": 1,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/16-tournament-grpo/run-tournament-smoke-r6/summary.json",
+        "tavily_calls": 2
+      },
+      "run_id": "run-tournament-smoke-r6",
+      "status": "completed",
+      "updated_at": "2026-11-10T14:15:24+00:00"
     },
     "2": {
       "details": {
@@ -157,5 +196,5 @@
   },
   "created_at": "2026-11-08T08:05:06+00:00",
   "schema_version": 1,
-  "updated_at": "2026-11-10T07:06:50+00:00"
+  "updated_at": "2026-11-10T14:15:24+00:00"
 }

@@ -1,0 +1,36 @@
+[
+  {
+    "update": 0,
+    "phase": "warmup",
+    "warmup/success_rate": 0.0,
+    "warmup/steps_mean": 8.0,
+    "warmup/boundary_states": 2.0,
+    "target/mc_return_mean": 0.0,
+    "critic/samples": 4.0,
+    "critic/abs_error_mean": 0.105,
+    "critic/parse_failure_rate": 0.0,
+    "rollout/valid_action_rate": 0.125,
+    "train/samples": 2.0,
+    "train/updated_samples": 2.0,
+    "train/loss_mean": -0.00010236166417598724
+  },
+  {
+    "update": 1,
+    "phase": "td",
+    "td/store_size": 2.0,
+    "td/new_endpoints": 2.0,
+    "td/fresh_states": 1.0,
+    "actor/segment_reward_mean": 0.0,
+    "actor/terminal_won_rate": 0.0,
+    "actor/macro_boundary_rate": 1.0,
+    "actor/degenerate_group_rate": 0.0,
+    "actor/value_target_mean": 0.19999999999999998,
+    "critic/abs_error_mean": 0.15,
+    "critic/parse_failure_rate": 0.0,
+    "critic/endpoint_value_mean": 0.19999999999999998,
+    "rollout/valid_action_rate": 1.0,
+    "train/samples": 2.0,
+    "train/updated_samples": 2.0,
+    "train/loss_mean": 0.0035044383257627487
+  }
+]

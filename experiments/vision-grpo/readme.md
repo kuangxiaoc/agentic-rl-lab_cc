@@ -189,7 +189,7 @@ ratio = exp(current_logprobs - old_logprobs)
 - `history.json` / `chapter-03.jsonl`：reward、`format_rate`、`degenerate`、训练样本数、平均生成长度、loss。
 - `summary.json`：最终摘要、adapter 路径、torch/GPU 信息。
 - `data_unavailable.txt`：数据不可用的具体原因。
-- `experiment-records/latest.md`：16 个章节状态；09–16 暂未移植，04–08 已有本地代码但需要实际运行后才变成 `completed`。
+- `experiment-records/latest.md`：16 个章节状态；01–16 都已有本地 GPU 实现，状态以真实运行记录为准。
 
 smoke 的目标不是刷准确率，而是确认：图片能进 processor、生成 scores 能转 old logprob、boxed 选项能打分、图文 forward 能 backward、状态和记录能同步到 Git。
 

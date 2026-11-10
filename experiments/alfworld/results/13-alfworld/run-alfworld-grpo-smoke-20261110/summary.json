@@ -1,0 +1,53 @@
+{
+  "chapter": 13,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "dataset": "alfworld/json_2.1.1",
+  "data_root": "/tmp/alfworld-data",
+  "profile": "smoke",
+  "steps": 1,
+  "games_per_update": 1,
+  "group_size": 4,
+  "max_turns": 6,
+  "max_trajectory_tokens": 4096,
+  "max_action_tokens": 192,
+  "reward": "task success (0/1), standard GRPO without custom invalid-action penalty",
+  "dynamic_sampling": true,
+  "max_attempts": 3,
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/alfworld/readme.md",
+    "experiments/alfworld/data.py",
+    "experiments/alfworld/protocol.py",
+    "experiments/alfworld/environment.py",
+    "experiments/alfworld/rollout.py",
+    "experiments/alfworld/advantages.py",
+    "experiments/alfworld/local_gpu.py"
+  ],
+  "history": [
+    {
+      "step": 0,
+      "reward/mean": -0.25,
+      "reward/success_rate": 0.0,
+      "reward/all_success_group_rate": 0.0,
+      "reward/all_failure_group_rate": 0.0,
+      "advantage/degenerate_group_rate": 0.0,
+      "trajectory/turns_mean": 6.0,
+      "trajectory/action_tokens_mean": 553.75,
+      "trajectory/valid_tool_call_rate": 0.5833333333333334,
+      "trajectory/admissible_action_rate": 0.5833333333333334,
+      "trajectory/valid_action_rate": 0.5833333333333334,
+      "trajectory/invalid_actions_mean": 2.5,
+      "train/trajectories": 4.0,
+      "train/updated_trajectories": 4.0,
+      "train/loss_mean": 0.010866026394069195,
+      "dynamic_sampling/groups_sampled": 1.0,
+      "dynamic_sampling/groups_kept": 1.0,
+      "dynamic_sampling/groups_dropped": 0.0,
+      "train/kept_trajectories": 4.0
+    }
+  ],
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/13-alfworld/run-alfworld-grpo-smoke-20261110/adapter",
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10",
+  "games_available": 64
+}

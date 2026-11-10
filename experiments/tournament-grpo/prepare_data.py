@@ -7,6 +7,7 @@ uv run python experiments/tournament-grpo/prepare_data.py
 import argparse
 import json
 import urllib.request
+import urllib.error
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,11 @@ from protocol import MAX_PROMPT_LENGTH, TOOL_SCHEMAS, render_chat
 # 固定作者仓库 commit，保证数据与论文代码一致。
 SOURCE_REVISION = "eea826cf66705cac9ec81823f746d0ccd6074228"
 SOURCE_URL = f"https://raw.githubusercontent.com/PuffYang/Tournament_GRPO/{SOURCE_REVISION}"
+SOURCE_MIRRORS = (
+    SOURCE_URL,
+    f"https://ghfast.top/{SOURCE_URL}",
+    f"https://gh-proxy.com/{SOURCE_URL}",
+)
 SPLIT_FILES = {
     "train": "data/train_new_train_95.parquet",
     "val": "data/train_new_val_05.parquet",
@@ -33,11 +39,19 @@ BENCH_FILES = {
 
 
 def download(remote: str, target: Path) -> Path:
-    """下载固定 commit 的文件；已存在时直接复用。"""
+    """下载固定 commit 的文件；直连失败时依次尝试公开镜像。"""
     if not target.exists():
         target.parent.mkdir(parents=True, exist_ok=True)
-        with urllib.request.urlopen(f"{SOURCE_URL}/{remote}", timeout=60) as response:
-            target.write_bytes(response.read())
+        errors = []
+        for base in SOURCE_MIRRORS:
+            try:
+                with urllib.request.urlopen(f"{base}/{remote}", timeout=60) as response:
+                    target.write_bytes(response.read())
+                break
+            except Exception as exc:
+                errors.append(f"{base}: {type(exc).__name__}: {exc}")
+        else:
+            raise RuntimeError("all data mirrors failed: " + " | ".join(errors))
     return target
 
 

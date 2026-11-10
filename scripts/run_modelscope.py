@@ -28,6 +28,10 @@ CHAPTER_SCRIPTS = {
     10: REPO_ROOT / "experiments" / "agentopsd" / "local_gpu.py",
     11: REPO_ROOT / "experiments" / "search-r1" / "local_gpu.py",
     12: REPO_ROOT / "experiments" / "retool" / "local_gpu.py",
+    13: REPO_ROOT / "experiments" / "alfworld" / "local_gpu.py",
+    14: REPO_ROOT / "experiments" / "tempo" / "local_gpu.py",
+    15: REPO_ROOT / "experiments" / "spec-o3" / "local_gpu.py",
+    16: REPO_ROOT / "experiments" / "tournament-grpo" / "local_gpu.py",
 }
 
 

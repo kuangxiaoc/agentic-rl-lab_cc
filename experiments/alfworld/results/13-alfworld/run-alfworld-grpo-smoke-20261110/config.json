@@ -1,0 +1,26 @@
+{
+  "chapter": 13,
+  "data_root": "/tmp/alfworld-data",
+  "dataset": "alfworld/json_2.1.1",
+  "dynamic_sampling": true,
+  "external_api_calls": 0,
+  "games_per_update": 1,
+  "group_size": 4,
+  "max_action_tokens": 192,
+  "max_attempts": 3,
+  "max_trajectory_tokens": 4096,
+  "max_turns": 6,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "profile": "smoke",
+  "reward": "task success (0/1), standard GRPO without custom invalid-action penalty",
+  "steps": 1,
+  "study_order": [
+    "experiments/alfworld/readme.md",
+    "experiments/alfworld/data.py",
+    "experiments/alfworld/protocol.py",
+    "experiments/alfworld/environment.py",
+    "experiments/alfworld/rollout.py",
+    "experiments/alfworld/advantages.py",
+    "experiments/alfworld/local_gpu.py"
+  ]
+}

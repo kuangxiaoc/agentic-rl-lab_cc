@@ -244,3 +244,42 @@ critic 侧曲线用于检查估值训练是否正常：
 这次复现实现了 macro-step 优化、生成式 critic 和 actor/critic 共享参数。新增机制主要落在本地的状态存取和训练信号拼装，服务端只需要标准的 sample / logprob / forward_backward。
 
 本次冒烟运行花费 **15.02 元**。下一步是补充前缀重要性采样修正，并在论文正式发布、超参公开后检查 ARC-AGI-3 上的表现。
+
+## 9. 本地单卡 GPU 运行附录（本 fork）
+
+本 fork 新增 [`local_gpu.py`](./local_gpu.py)，复用原版的 macro-step 边界、[`states.py`](./states.py) 存档读档、[`critic.py`](./critic.py) 特权估值和 [`tempo.py`](./tempo.py) 信号拼装，只替换 PyTRIO 采样、旧 logprob、backward 和 optimizer。同一个 Qwen3-4B-Instruct-2507 adapter 通过不同 prompt 同时扮演 actor 与 critic。
+
+### 9.1 最小机制 smoke
+
+```bash
+bash scripts/run_modelscope.sh chapter 14 --force \
+  --chapter-arg=--run-id=tempo-smoke \
+  --chapter-arg=--warmup-updates=1 \
+  --chapter-arg=--td-updates=1 \
+  --chapter-arg=--branches=2 \
+  --chapter-arg=--critic-samples=2 \
+  --chapter-arg=--endpoint-samples=1 \
+  --chapter-arg=--macro-rounds=4 \
+  --chapter-arg=--max-episode-steps=8
+```
+
+本次记录先做 1 次 warm-up，再做 1 次 TD。warm-up 生成 2 个边界状态、4 个 critic 样本；TD 阶段从 StateStore 恢复状态、走 2 条分支，actor 和 critic 共 2 个样本进入更新，`train/loss_mean=0.003504`。
+
+### 9.2 产物
+
+```text
+/mnt/workspace/agentic-rl-lab/runs/14-tempo/<run-id>/
+├── config.json
+├── history.json
+├── samples.jsonl       # actor 轨迹、critic 估值、reward 与 advantage
+├── summary.json
+└── adapter/
+```
+
+轻量副本在 [`results/`](./results/)。读记录时重点对照 `critic/abs_error_mean`、`actor/value_target_mean`、`td/fresh_states` 和 `actor/degenerate_group_rate`，确认 critic 误差奖励与 TD return 都进入了训练。
+
+### 9.3 与原版的边界
+
+- 原版是 ARC-AGI-3 上的长程算法验证；本 fork 用 ALFWorld 验证同一套 macro-step、生成式 critic 和 actor/critic 共享参数。
+- 本次是 1 次 warm-up + 1 次 TD、2 条分支 × 4 轮 macro-step，不是论文规模的 40 次 TD 更新。
+- 前缀重要性采样修正仍未实现；当前结论只覆盖单卡、短 horizon 的机制链路。

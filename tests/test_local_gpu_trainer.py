@@ -113,6 +113,7 @@ class FakeTorch:
     def __init__(self):
         self.seeds = []
         self.long = "long"
+        self.bool = "bool"
         self.cuda = type("Cuda", (), {"empty_cache": lambda self: None})()
 
     def manual_seed(self, value):
@@ -404,6 +405,40 @@ class GenerateGroupTests(unittest.TestCase):
         self.assertEqual(call["pad_token_id"], EOS)
         self.assertEqual(completions[0], [7, 8, EOS])
         self.assertEqual(len(texts), 2)
+
+
+class StopSequenceTests(unittest.TestCase):
+    def test_stop_sequence_is_kept_and_trims_the_tail(self):
+        tokenizer = FakeTokenizer()
+        tokens = [1, 2, 3, 4]
+        tokenizer.encode = lambda text, add_special_tokens=False: [3]
+        trimmed, changed = trainer.trim_at_stop(tokens, ["</call_tool>"], tokenizer)
+        self.assertTrue(changed)
+        self.assertEqual(trimmed, [1, 2, 3])
+
+    def test_missing_stop_leaves_completion_unchanged(self):
+        tokenizer = FakeTokenizer()
+        tokenizer.encode = lambda text, add_special_tokens=False: [9]
+        self.assertEqual(
+            trainer.trim_at_stop([1, 2], ["stop"], tokenizer),
+            ([1, 2], False),
+        )
+
+    def test_sampling_client_passes_stop_to_trimming(self):
+        model = FakeModel()
+        tokenizer = FakeTokenizer()
+        tokenizer.encode = lambda text, add_special_tokens=False: [8]
+        client = trainer.LocalSamplingClient(model, tokenizer, FakeTorch(), "cuda:0")
+        response = client.sample(
+            prompt_tokens=PROMPT,
+            num_samples=2,
+            max_tokens=8,
+            temperature=1.0,
+            top_p=1.0,
+            seed=1,
+            stop=["stop"],
+        )
+        self.assertEqual(response.sequences[0].tokens, [7, 8])
 
 
 class LocalSamplingClientLogprobTests(unittest.TestCase):

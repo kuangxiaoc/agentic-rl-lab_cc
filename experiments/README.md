@@ -16,9 +16,9 @@
 | 10 | [AgentOPSD](./agentopsd/readme.md) · [本地 GPU](./agentopsd/local_gpu.py) |
 | 11 | [Search-R1](./search-r1/readme.md) · [本地 GPU](./search-r1/local_gpu.py) |
 | 12 | [ReTool](./retool/readme.md) · [本地 GPU](./retool/local_gpu.py) |
-| 13 | [ALFWorld](./alfworld/readme.md) |
-| 14 | [TEMPO](./tempo/readme.md) |
-| 15 | [Spec-o3](./spec-o3/readme.md) |
-| 16 | [Tournament-GRPO](./tournament-grpo/readme.md) |
+| 13 | [ALFWorld](./alfworld/readme.md) · [本地 GPU](./alfworld/local_gpu.py) |
+| 14 | [TEMPO](./tempo/readme.md) · [本地 GPU](./tempo/local_gpu.py) |
+| 15 | [Spec-o3](./spec-o3/readme.md) · [本地 GPU](./spec-o3/local_gpu.py) |
+| 16 | [Tournament-GRPO](./tournament-grpo/readme.md) · [本地 GPU](./tournament-grpo/local_gpu.py) |
 
 [返回仓库首页](../README.md) · [English README](../README_EN.md)

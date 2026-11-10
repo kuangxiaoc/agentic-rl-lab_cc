@@ -524,3 +524,53 @@ uv run python analysis.py
 | [train_rl.py](https://github.com/datawhalechina/agentic-rl-lab/blob/main/experiments/spec-o3/train_rl.py) | 组采样、奖励、advantage、PPO 更新与 checkpoint |
 | [eval.py](https://github.com/datawhalechina/agentic-rl-lab/blob/main/experiments/spec-o3/eval.py) | 独立评测，保存分类指标、轨迹和工具图片 |
 | [analysis.py](https://github.com/datawhalechina/agentic-rl-lab/blob/main/experiments/spec-o3/analysis.py) | 绘制本文的固定结果 |
+
+## 9. 本地单卡 GPU 运行附录（本 fork）
+
+本 fork 新增 [`local_gpu.py`](./local_gpu.py)，复用原版 [`protocol.py`](./protocol.py) 的动作协议、[`tools.py`](./tools.py) 的光谱工具和图文 chat template，在本地 Qwen3.5-4B + 4-bit QLoRA 上执行 assistant-only SFT 与多轮 GRPO。图片经过 `AutoProcessor` 进入模型，工具生成的新图片继续留在后续上下文。
+
+### 9.1 已验证命令
+
+```bash
+bash scripts/run_modelscope.sh chapter 15 --force \
+  --chapter-arg=--run-id=spec-o3-both-sft20-r5 \
+  --chapter-arg=--stage=both \
+  --chapter-arg=--sft-steps=20 \
+  --chapter-arg=--rl-steps=2 \
+  --chapter-arg=--group-size=2 \
+  --chapter-arg=--max-turns=3 \
+  --chapter-arg=--max-new-tokens=768 \
+  --chapter-arg=--max-seq-len=4096
+```
+
+### 9.2 实际跑到了什么
+
+`run-spec-o3-both-sft20-r5` 完成 20 步 SFT 和 2 步 GRPO：
+
+| 阶段 | 结果 |
+| --- | --- |
+| SFT | 20 步真实 assistant-only loss / backward / optimizer，单步 loss 约 0.86–1.16 |
+| GRPO step 0 | `train_samples=1`，有真实 PPO backward |
+| GRPO step 1 | `format_rate=1.0`、`success_rate=0.5`、`train_samples=4`、`tool_calls=2` |
+
+这说明图文输入、光谱工具、多轮上下文、SFT 和 GRPO 更新都真实跑通。它不是论文的 2 epoch SFT + 1 epoch GRPO，也不能用这两步的结果评价开发集准确率。
+
+### 9.3 产物
+
+```text
+/mnt/workspace/agentic-rl-lab/runs/15-spec-o3/<run-id>/
+├── config.json
+├── samples.jsonl       # 每条轨迹的图片、工具调用、答案、reward 与 advantage
+├── summary.json
+└── adapter/
+```
+
+轻量副本在 [`results/`](./results/)。成功记录以 `run-spec-o3-both-sft20-r5` 为准；`r3`、`r4` 的 `train_samples=0` 只能说明当时没有可训练信号，不能当作成功更新。
+
+### 9.4 与本地实现的差异
+
+- 工具轮耗尽时会追加最终答案提醒；模型首次输出非法时允许一次修复轮。
+- 非法 assistant 轮不进入 policy gradient，`assistant_mask` 也只用于监督 token。
+- SFT 指标记录真实 assistant token 数，而不是整段序列长度。
+
+这些改动是为了让 4B 模型在 A10 上稳定完成“看图 → 调工具 → 再看图 → 作答”的闭环，属于本 fork 的实现选择，不是原版逐行等价。

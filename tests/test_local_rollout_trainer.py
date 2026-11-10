@@ -124,6 +124,66 @@ class MultiturnSampleTests(unittest.TestCase):
 
         self.assertIsNone(rollout_trainer.build_turn_advantage_sample(Trajectory()))
 
+    def test_step_sample_masks_tool_observations(self):
+        class Step:
+            def __init__(self, prompt_tokens, completion_tokens, logprobs):
+                self.prompt_tokens = prompt_tokens
+                self.completion_tokens = completion_tokens
+                self.logprobs = logprobs
+
+        class Trajectory:
+            steps = [
+                Step([1, 2], [3, 4], [-0.1, -0.2]),
+                Step([1, 2, 3, 4, 5], [6], [-0.3]),
+            ]
+            advantage = 0.5
+            reward = 1.0
+
+        sample = rollout_trainer.build_step_sample(Trajectory())
+        assert sample is not None
+        self.assertEqual(sample.input_ids, [1, 2, 3, 4, 5, 6])
+        self.assertEqual(sample.completion_ids, [3, 4, 5, 6])
+        self.assertEqual(sample.old_logprobs, [-0.1, -0.2, 0.0, -0.3])
+        self.assertEqual(sample.advantages, [0.5, 0.5, 0.0, 0.5])
+
+    def test_tempo_segment_sample_preserves_saved_prefix(self):
+        class StartState:
+            token_prefix = [1, 2]
+
+        class Step:
+            prompt_tokens = [1, 2, 10]
+            completion_tokens = [11, 12]
+            logprobs = [-0.1, -0.2]
+
+        class Trajectory:
+            steps = [Step()]
+            next_prompt_tokens = [1, 2, 10, 11, 12, 20]
+            advantage = 0.5
+            segment_reward = 0.0
+
+        sample = rollout_trainer.build_segment_sample(StartState(), Trajectory())
+        assert sample is not None
+        self.assertEqual(sample.input_ids, [1, 2, 10, 11, 12, 20])
+        self.assertEqual(sample.completion_ids, [10, 11, 12, 20])
+        self.assertEqual(sample.old_logprobs, [0.0, -0.1, -0.2, 0.0])
+        self.assertEqual(sample.advantages, [0.0, 0.5, 0.5, 0.0])
+
+    def test_tempo_critic_sample_masks_prompt(self):
+        class CriticSample:
+            prompt_tokens = [1, 2]
+            completion_tokens = [3, 4]
+            logprobs = [-0.1, -0.2]
+            text = "<value>0.5</value>"
+
+        sample = rollout_trainer.build_critic_sample(
+            CriticSample(), advantage=-0.25, reward=-0.25
+        )
+        assert sample is not None
+        self.assertEqual(sample.input_ids, [1, 2, 3, 4])
+        self.assertEqual(sample.completion_ids, [3, 4])
+        self.assertEqual(sample.old_logprobs, [-0.1, -0.2])
+        self.assertEqual(sample.advantages, [-0.25, -0.25])
+
 
 class LocalTrioCompatibilityTests(unittest.TestCase):
     def test_token_prompt_and_sampling_params_shapes(self):

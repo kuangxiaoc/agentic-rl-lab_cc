@@ -160,25 +160,26 @@ def load_games(
     download: bool,
 ) -> list[Any]:
     """Discover text-only games, downloading once only when explicitly allowed."""
-    try:
-        games = agent_data.shuffled_games(
+    def discover() -> list[Any]:
+        directory = agent_data.split_directory(data_root, "train")
+        if not directory.is_dir():
+            raise FileNotFoundError(f"ALFWorld train split not found: {directory}")
+        return agent_data.shuffled_games(
             data_root,
             "train",
             seed,
             max_games=max_games,
         )
+
+    try:
+        games = discover()
     except (FileNotFoundError, ValueError) as first_error:
         if not download:
             raise trainer.DataUnavailable(str(first_error)) from first_error
         print(f"ALFWorld data not found at {data_root}; downloading...", flush=True)
         download_alfworld(data_root)
         try:
-            games = agent_data.shuffled_games(
-                data_root,
-                "train",
-                seed,
-                max_games=max_games,
-            )
+            games = discover()
         except (FileNotFoundError, ValueError) as exc:
             raise trainer.DataUnavailable(str(exc)) from exc
     if not games:
@@ -415,10 +416,15 @@ def main() -> int:
                 torch_module=torch,
                 device=device,
             )
+            recorded_trajectories = [
+                trajectory
+                for _, trajectories, _ in attempt_records
+                for trajectory in trajectories
+            ]
             metric = {
                 "step": step,
                 **rollout_metrics(
-                    kept_trajectories,
+                    recorded_trajectories,
                     losses,
                     updated,
                     groups_sampled=len(attempt_records),
@@ -426,6 +432,7 @@ def main() -> int:
                     teacher_requests=teacher_requests,
                     teacher_tokens=teacher_tokens,
                 ),
+                "train/kept_trajectories": float(len(kept_trajectories)),
             }
             history.append(metric)
             lib.append_metrics(root, 10, run_id, metric)

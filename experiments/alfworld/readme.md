@@ -592,3 +592,61 @@ admissible action rate
 我们让 Qwen3.5-4B 在同一个 ALFWorld 游戏中采样 8 条独立轨迹，用终局成功与非法动作次数计算 episode reward，再通过同游戏组内的 relative advantage 和 PPO 更新 LoRA。模型需要在最多 50 次环境交互、12K 完整上下文中持续记住自己做过什么，并让最终 PDDL 状态真正满足任务条件。
 
 这次算是把长轨迹 Agentic RL 的路跑通了。轨迹还能更长、工具还能更多，你们更想看哪个方向？
+
+## 9. 本地单卡 GPU 运行附录（本 fork）
+
+本 fork 新增 [`local_gpu.py`](./local_gpu.py)，复用原版 [`data.py`](./data.py)、[`protocol.py`](./protocol.py)、[`environment.py`](./environment.py)、[`rollout.py`](./rollout.py) 和 [`advantages.py`](./advantages.py)，只把远端 PyTRIO 采样与训练边界换成本地 Qwen3-4B-Instruct-2507 + 4-bit QLoRA。环境动作仍然真实改变 TextWorld 状态，工具 observation 只作为上下文，PPO 只训练 assistant action token。
+
+### 9.1 环境与数据
+
+```bash
+cd /mnt/workspace/agentic-rl-lab_cc
+bash scripts/bootstrap_modelscope.sh
+```
+
+不要执行 `uv sync --locked`。首次运行可显式加 `--download-data`，把数据下载到持久目录：
+
+```text
+/mnt/workspace/agentic-rl-lab/datasets/alfworld/
+```
+
+数据本身不进入 Git。服务器上如果已有快速解压副本，可以用 `--data-root` 指向它；运行配置、样本和指标仍会写入 `/mnt/workspace/agentic-rl-lab/`。
+
+### 9.2 最小机制 smoke
+
+```bash
+bash scripts/run_modelscope.sh chapter 13 --force \
+  --chapter-arg=--run-id=alfworld-grpo-smoke \
+  --chapter-arg=--steps=1 \
+  --chapter-arg=--games-per-update=1 \
+  --chapter-arg=--group-size=4 \
+  --chapter-arg=--max-turns=6 \
+  --chapter-arg=--max-action-tokens=192 \
+  --chapter-arg=--download-data
+```
+
+本次实际记录是 `1 step × 1 个游戏 × 4 条轨迹`，每条最多 6 轮，group=4。运行完成后有 4 条轨迹进入 PPO、`train/loss_mean=0.010866`，说明真实 `backward()` 和 optimizer step 都发生了。
+
+### 9.3 产物
+
+```text
+/mnt/workspace/agentic-rl-lab/runs/13-alfworld/<run-id>/
+├── config.json
+├── history.json
+├── samples.jsonl       # 每步 attempt、keep、完整动作、observation 与 logprob
+├── summary.json
+└── adapter/            # .safetensors 留在服务器，不进 Git
+```
+
+轻量副本在 [`results/`](./results/)。服务器执行 `bash scripts/export_results.sh` 后，可 `git add experiments/alfworld/results experiment-records && git commit && git push`，本地 `git pull` 就能阅读。
+
+### 9.4 与原版的边界
+
+| 项目 | 原版 | 本 fork 已验证记录 |
+| --- | --- | --- |
+| 采样 / 训练 | PyTRIO 远端 | 本地 Qwen3-4B + 4-bit QLoRA |
+| 训练规模 | 80 step，8 游戏 × 8 轨迹 | 1 step，1 游戏 × 4 轨迹 |
+| 单轨迹 | 最多 50 轮、12K token | 最多 6 轮、4K token |
+| 评测 | 274 个固定游戏 | 只验证机制，不宣称论文级提升 |
+
+这一节的价值是让读者在 A10 上看清“真实环境 → 长轨迹 → 组内 advantage → PPO 更新”如何落地，不是用 1 step 去复刻原版 80 step 的分数。

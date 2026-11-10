@@ -202,9 +202,21 @@ def build_qlora_model(model_dir: Path, rank: int = 16, vision: bool = False) -> 
     )
     # Source: https://huggingface.co/docs/bitsandbytes/main/quickstart
     if vision:
-        from transformers import Qwen3VLForConditionalGeneration
+        import json
+        from transformers import (
+            Qwen3VLForConditionalGeneration,
+            Qwen3_5ForConditionalGeneration,
+        )
 
-        model_class = Qwen3VLForConditionalGeneration
+        config_path = Path(model_dir) / "config.json"
+        config = json.loads(config_path.read_text()) if config_path.exists() else {}
+        architectures = config.get("architectures") or []
+        model_class = (
+            Qwen3_5ForConditionalGeneration
+            if any("Qwen3_5" in str(name) for name in architectures)
+            or "qwen3_5" in str(config.get("model_type", "")).lower()
+            else Qwen3VLForConditionalGeneration
+        )
         task_type = TaskType.CAUSAL_LM
     else:
         model_class = AutoModelForCausalLM
@@ -229,11 +241,15 @@ def build_qlora_model(model_dir: Path, rank: int = 16, vision: bool = False) -> 
         task_type=task_type,
     )
     model = get_peft_model(model, peft_config)
-    tokenizer = AutoProcessor.from_pretrained(str(model_dir)) if vision else None
+    processor = AutoProcessor.from_pretrained(str(model_dir)) if vision else None
     from transformers import AutoTokenizer
 
-    text_tokenizer = tokenizer if vision else AutoTokenizer.from_pretrained(str(model_dir))
-    return model, text_tokenizer, tokenizer
+    text_tokenizer = (
+        getattr(processor, "tokenizer", processor)
+        if vision
+        else AutoTokenizer.from_pretrained(str(model_dir))
+    )
+    return model, text_tokenizer, processor
 
 
 def build_quantized_model(model_dir: Path) -> Any:
@@ -361,6 +377,7 @@ class Sample:
     reward: float
     text: str
     extra_inputs: dict[str, Any] | None = None
+    loss_mask: list[int] | None = None
 
 
 @dataclass
@@ -397,6 +414,42 @@ def _sampling_scores_to_logprobs(
     return logprobs
 
 
+def trim_at_stop(
+    tokens: list[int],
+    stops: list[str] | tuple[str, ...],
+    tokenizer: Any,
+) -> tuple[list[int], bool]:
+    """Trim a completion after the first requested stop sequence.
+
+    Transformers' ``generate`` has no portable string-stop argument for all
+    model families. The original PyTRIO rollout relies on stops such as
+    ``</call_tool>``; keeping the stop in the returned token list preserves the
+    same transcript shape while ensuring generation does not run to the token cap.
+    """
+    if not stops or not tokens:
+        return tokens, False
+    earliest = len(tokens)
+    for stop in stops:
+        if isinstance(stop, int):
+            try:
+                end = tokens.index(stop) + 1
+            except ValueError:
+                continue
+        else:
+            stop_ids = tokenizer.encode(stop, add_special_tokens=False)
+            if not stop_ids:
+                continue
+            end = None
+            for index in range(len(tokens) - len(stop_ids) + 1):
+                if tokens[index : index + len(stop_ids)] == stop_ids:
+                    end = index + len(stop_ids)
+                    break
+            if end is None:
+                continue
+        earliest = min(earliest, end)
+    return (tokens[:earliest], earliest < len(tokens))
+
+
 class LocalSamplingClient:
     """Single-GPU adapter for the subset of the PyTRIO sampling API we reuse.
 
@@ -430,6 +483,7 @@ class LocalSamplingClient:
         temperature: float,
         top_p: float,
         seed: int,
+        stop: list[str] | tuple[str, ...] = (),
     ) -> SampleResponse:
         """Sample one prompt without gradients and retain sampling logprobs."""
         if num_samples < 1 or max_tokens < 1:
@@ -465,6 +519,11 @@ class LocalSamplingClient:
                     tokens = sequence[len(prompt_tokens) :].tolist()
                     valid = common.completion_valid_length(tokens, eos_ids)
                     tokens = tokens[:valid]
+                    tokens, stop_trimmed = trim_at_stop(
+                        tokens,
+                        stop,
+                        self.tokenizer,
+                    )
                     sequences.append(
                         GeneratedSequence(
                             tokens=tokens,
@@ -501,6 +560,7 @@ class LocalSamplingClient:
             temperature=float(getattr(sampling_params, "temperature", 1.0)),
             top_p=float(getattr(sampling_params, "top_p", 1.0)),
             seed=int(getattr(sampling_params, "seed", 0)),
+            stop=list(getattr(sampling_params, "stop", ())),
         )
 
     def compute_logprobs(self, tokens: list[int]) -> list[float]:
@@ -676,15 +736,33 @@ def sequence_policy_loss(
     current = torch_module.log_softmax(logits, dim=-1).gather(
         1, targets.unsqueeze(1)
     ).squeeze(1)[completion_positions]
-    valid_length = min(len(current), len(sample.old_logprobs), len(sample.advantages))
+    if sample.loss_mask is not None:
+        if len(sample.loss_mask) != len(sample.completion_ids):
+            raise ValueError("loss_mask must match completion_ids")
+        mask = torch_module.tensor(
+            sample.loss_mask, device=device, dtype=torch_module.bool
+        )
+        current = current[mask]
+        old_values = [
+            value for value, keep in zip(sample.old_logprobs, sample.loss_mask)
+            if keep
+        ]
+        advantage_values = [
+            value for value, keep in zip(sample.advantages, sample.loss_mask)
+            if keep
+        ]
+    else:
+        old_values = sample.old_logprobs
+        advantage_values = sample.advantages
+    valid_length = min(len(current), len(old_values), len(advantage_values))
     if valid_length == 0:
         raise ValueError("A training sample has no valid completion logprobs")
     current = current[:valid_length]
     old = torch_module.tensor(
-        sample.old_logprobs[:valid_length], device=device, dtype=torch_module.float32
+        old_values[:valid_length], device=device, dtype=torch_module.float32
     )
     advantage = torch_module.tensor(
-        sample.advantages[:valid_length], device=device, dtype=torch_module.float32
+        advantage_values[:valid_length], device=device, dtype=torch_module.float32
     )
     ratio = torch_module.exp(current - old)
     if loss_fn == "importance_sampling":

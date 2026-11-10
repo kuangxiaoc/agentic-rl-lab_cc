@@ -1,0 +1,46 @@
+{
+  "chapter": 16,
+  "model": "Qwen/Qwen3.5-4B",
+  "dataset": "/mnt/workspace/agentic-rl-lab_cc/experiments/tournament-grpo/datasets/train.jsonl",
+  "profile": "smoke",
+  "steps": 1,
+  "questions_per_batch": 1,
+  "group_size": 2,
+  "max_assistant_turns": 2,
+  "max_tool_calls": 1,
+  "max_response_tokens": 4096,
+  "search_backend": "tavily",
+  "judge_backend": "local Qwen base with adapter disabled",
+  "force_first_tool_call": true,
+  "external_api_calls": "tavily only; budget ledger enabled",
+  "study_order": [
+    "experiments/tournament-grpo/readme.md",
+    "experiments/tournament-grpo/protocol.py",
+    "experiments/tournament-grpo/rollout.py",
+    "experiments/tournament-grpo/reward.py",
+    "experiments/tournament-grpo/judge.py",
+    "experiments/tournament-grpo/local_gpu.py"
+  ],
+  "history": [
+    {
+      "step": 0,
+      "reward/mean": 1.0,
+      "reward/has_answer": 1.0,
+      "reward/format": 0.5,
+      "reward/tournament": 0.5,
+      "rollout/assistant_turns": 2.0,
+      "rollout/response_tokens": 885.5,
+      "rollout/tool_calls": 1.0,
+      "tools/error_rate": 0.0,
+      "tavily/search_calls": 2.0,
+      "judge/comparisons": 4.0,
+      "train/samples": 0.0,
+      "train/loss_mean": 0.0
+    }
+  ],
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/16-tournament-grpo/run-tournament-smoke-r3/adapter",
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10",
+  "tavily_calls": 2,
+  "examples_available": 8378
+}

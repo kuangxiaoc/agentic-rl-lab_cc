@@ -350,3 +350,77 @@ Tournament-GRPO 只改变了奖励的计算方式：裁判比较同组回答，�
 7. [Tournament-GRPO PyTRIO 完整代码](https://github.com/datawhalechina/agentic-rl-lab/tree/main/experiments/tournament-grpo)
 8. [PyTRIO 文档](https://docs.pytrio.com/docs) / [自定义 loss](https://docs.pytrio.com/docs/guide/custom_loss)
 9. [SwanLab 文档](https://docs.swanlab.cn/)
+
+## 11. 本地单卡 GPU 运行附录（本 fork）
+
+本 fork 新增 [`local_gpu.py`](./local_gpu.py)，复用原版 [`protocol.py`](./protocol.py)、[`rollout.py`](./rollout.py)、[`reward.py`](./reward.py) 和 [`judge.py`](./judge.py) 的 XML 工具协议、格式奖励、淘汰赛奖励与 PPO，只替换三个外部边界：
+
+```text
+PyTRIO policy training -> 本地 Qwen3.5-4B + 4-bit QLoRA
+DeepSeek Search        -> Tavily Search
+Jev 72B judge          -> 同一 Qwen base 关闭 adapter 的本地裁判
+```
+
+### 11.1 已验证命令
+
+先准备训练数据：
+
+```bash
+python experiments/tournament-grpo/prepare_data.py
+```
+
+再把 Tavily 密钥写入服务器 `.env`，不要把真实值提交到 Git：
+
+```bash
+TAVILY_API_KEY=...
+```
+
+然后运行最小机制 smoke：
+
+```bash
+bash scripts/run_modelscope.sh chapter 16 --force \
+  --chapter-arg=--run-id=tournament-smoke-r6 \
+  --chapter-arg=--steps=1 \
+  --chapter-arg=--group-size=2 \
+  --chapter-arg=--max-assistant-turns=2 \
+  --chapter-arg=--max-tool-calls=1 \
+  --chapter-arg=--max-response-tokens=3072 \
+  --chapter-arg=--max-model-tokens=6144 \
+  --chapter-arg=--judge-max-tokens=256
+```
+
+### 11.2 实际跑到了什么
+
+`run-tournament-smoke-r6` 完成 1 step、2 条轨迹：
+
+| 指标 | 结果 |
+| --- | ---: |
+| Tavily 搜索 | 2 次真实请求 |
+| 本地裁判比较 | 4 场 |
+| `reward/has_answer` | 1.0 |
+| `reward/format` | 0.5 |
+| `reward/tournament` | 0.5 |
+| `train/samples` | 2 |
+| `train/loss_mean` | 0.000288 |
+
+`train/samples=2` 且 loss 非零，说明淘汰赛 reward 已经接到真实 PPO backward 和 optimizer step。`r5` 的 `train/samples=0` 只能说明当时组内 reward 没有形成可训练差异，不能写成成功更新。
+
+### 11.3 产物
+
+```text
+/mnt/workspace/agentic-rl-lab/runs/16-tournament-grpo/<run-id>/
+├── config.json
+├── judge.jsonl         # 每场比较的候选、胜者、裁判原始输出
+├── samples.jsonl       # 完整 response、reward、advantage 与 reward detail
+├── summary.json
+└── adapter/
+```
+
+轻量副本在 [`results/`](./results/)。Tavily 调用次数同时写入 `/mnt/workspace/agentic-rl-lab/api_budget.json`。
+
+### 11.4 与原版的边界
+
+- 裁判是同一 Qwen3.5-4B base 关闭 adapter，不是论文的 Qwen2.5-72B / Jev；裁判偏好和长文评分稳定性都不同。
+- 搜索是 Tavily 摘要，不是 DeepSeek Search 加完整网页阅读；证据覆盖范围不同。
+- 当前默认 `force_first_tool_call` 会预填首轮 think + search 开始标签，让 4B 模型只生成 query；预填 token 不参与 policy loss。
+- `group_size=2` 时，如果直接用 `tournament + format`，一个“赢了比赛但格式失败”的样本和一个“输了比赛但格式成功”的样本可能正好抵消。本地实现改为 `2 * tournament + format`，保住淘汰赛排序并保留格式信号。这是本 fork 的显式改动，不是原论文配置；更严格的做法是 group>2 或 dynamic sampling，但 `group_size=4` 在当前 A10 上 backward 会 OOM。

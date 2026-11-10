@@ -1,0 +1,29 @@
+{
+  "actor_critic": "same local Qwen3 adapter, different prompts",
+  "branches": 2,
+  "chapter": 14,
+  "critic_max_tokens": 256,
+  "critic_samples": 2,
+  "data_root": "/tmp/alfworld-data",
+  "dataset": "alfworld/json_2.1.1",
+  "endpoint_samples": 1,
+  "external_api_calls": 0,
+  "macro_rounds": 4,
+  "max_assistant_tokens": 256,
+  "max_episode_steps": 8,
+  "max_trajectory_tokens": 4096,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "privileged_critic": "game.tw-pddl walkthrough",
+  "profile": "smoke",
+  "study_order": [
+    "experiments/tempo/readme.md",
+    "experiments/tempo/environment.py",
+    "experiments/tempo/states.py",
+    "experiments/tempo/rollout.py",
+    "experiments/tempo/critic.py",
+    "experiments/tempo/tempo.py",
+    "experiments/tempo/local_gpu.py"
+  ],
+  "td_updates": 1,
+  "warmup_updates": 1
+}

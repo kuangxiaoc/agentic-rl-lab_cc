@@ -1,6 +1,6 @@
 # ModelScope 本地 GPU 实验报告
 
-更新时间：2026-11-10T07:06:50+00:00
+更新时间：2026-11-10T14:15:24+00:00
 
 | 章节 | 状态 | run_id | 说明 |
 | --- | --- | --- | --- |
@@ -13,13 +13,14 @@
 | 07 | completed | run-20261110-143037 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-143037/adapter", "attempts": 32, "skipped_groups": 26, "steps": 6, "summary": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-143037/summary.json"} |
 | 08 | completed | run-20261110-144342 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261110-144342/adapter", "attempts": 24, "skipped_groups": 20, "steps": 4, "summary": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261110-144342/summary.json"} |
 | 09 | completed | run-20261110-150419 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-150419/adapter", "steps": 4, "summary": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-150419/summary.json"} |
-| 10 | not_ported | - | {} |
-| 11 | not_ported | - | {} |
-| 12 | not_ported | - | {} |
-| 13 | not_ported | - | {} |
-| 14 | not_ported | - | {} |
-| 15 | not_ported | - | {} |
-| 16 | not_ported | - | {} |
+| 10 | completed | run-agentopsd-smoke-20261110d | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/run-agentopsd-smoke-20261110d/adapter", "mechanism_only": true, "steps": 1, "summary": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/run-agentopsd-smoke-20261110d/summary.json", "teacher": "same local policy snapshot with skill prompt"} |
+| 11 | completed | run-search-offline-short-2step-20261110 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/11-search-r1/run-search-offline-short-2step-20261110/adapter", "mechanism_only": true, "search_backend": "offline-evidence-oracle", "steps": 2, "summary": "/mnt/workspace/agentic-rl-lab/runs/11-search-r1/run-search-offline-short-2step-20261110/summary.json"} |
+| 12 | completed | run-retool-short-2step-20261110 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/12-retool/run-retool-short-2step-20261110/adapter", "mechanism_only": true, "steps": 2, "summary": "/mnt/workspace/agentic-rl-lab/runs/12-retool/run-retool-short-2step-20261110/summary.json"} |
+| 13 | completed | run-alfworld-grpo-smoke-20261110 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/13-alfworld/run-alfworld-grpo-smoke-20261110/adapter", "mechanism_only": true, "reward": "task success - 0.1 * invalid_action_count", "steps": 1, "summary": "/mnt/workspace/agentic-rl-lab/runs/13-alfworld/run-alfworld-grpo-smoke-20261110/summary.json"} |
+| 14 | completed | run-tempo-smoke-20261110 | {"actor_critic": "same adapter, different prompts", "adapter": "/mnt/workspace/agentic-rl-lab/runs/14-tempo/run-tempo-smoke-20261110/adapter", "mechanism_only": true, "summary": "/mnt/workspace/agentic-rl-lab/runs/14-tempo/run-tempo-smoke-20261110/summary.json", "updates": 2} |
+| 15 | completed | run-spec-o3-both-sft20-r5 | {"mechanism_only": true, "rl_steps": 2, "sft_steps": 20, "summary": "/mnt/workspace/agentic-rl-lab/runs/15-spec-o3/run-spec-o3-both-sft20-r5/summary.json"} |
+| 16 | completed | run-tournament-smoke-r6 | {"mechanism_only": true, "steps": 1, "summary": "/mnt/workspace/agentic-rl-lab/runs/16-tournament-grpo/run-tournament-smoke-r6/summary.json", "tavily_calls": 2} |
 
-10-16 的 `not_ported` 是如实记录，不代表运行成功。
+每章状态来自实际运行；没有真实运行证据时保持 `not_ported` 或 `data_unavailable`。
+`completed` 只表示该 run 正常结束，不表示已经达到论文规模；13–16 当前是 smoke / 机制运行。
 外部 API 预算与密钥状态见 `api_budget.json` 和 `environment.json`。

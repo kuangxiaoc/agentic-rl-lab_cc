@@ -1,0 +1,33 @@
+{
+  "chapter": 15,
+  "model": "Qwen/Qwen3.5-4B",
+  "dataset": "Spec-o3-ColdStartSFT + SpecVI-Bench",
+  "data_root": "/mnt/workspace/agentic-rl-lab/datasets/spec-o3",
+  "profile": "smoke",
+  "stage": "sft",
+  "sft_steps": 1,
+  "rl_steps": 1,
+  "group_size": 2,
+  "max_turns": 2,
+  "max_new_tokens": 96,
+  "max_seq_len": 4096,
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/spec-o3/readme.md",
+    "experiments/spec-o3/protocol.py",
+    "experiments/spec-o3/tools.py",
+    "experiments/spec-o3/rollout.py",
+    "experiments/spec-o3/local_gpu.py"
+  ],
+  "history": [
+    {
+      "stage": "sft",
+      "step": 0,
+      "loss": 1.0386223793029785,
+      "assistant_tokens": 746
+    }
+  ],
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/15-spec-o3/run-spec-o3-sft-smoke-20261110/adapter",
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10"
+}

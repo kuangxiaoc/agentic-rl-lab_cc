@@ -1,0 +1,24 @@
+{
+  "chapter": 16,
+  "dataset": "/mnt/workspace/agentic-rl-lab_cc/experiments/tournament-grpo/datasets/train.jsonl",
+  "external_api_calls": "tavily only; budget ledger enabled",
+  "force_first_tool_call": true,
+  "group_size": 2,
+  "judge_backend": "local Qwen base with adapter disabled",
+  "max_assistant_turns": 2,
+  "max_response_tokens": 3072,
+  "max_tool_calls": 1,
+  "model": "Qwen/Qwen3.5-4B",
+  "profile": "smoke",
+  "questions_per_batch": 1,
+  "search_backend": "tavily",
+  "steps": 1,
+  "study_order": [
+    "experiments/tournament-grpo/readme.md",
+    "experiments/tournament-grpo/protocol.py",
+    "experiments/tournament-grpo/rollout.py",
+    "experiments/tournament-grpo/reward.py",
+    "experiments/tournament-grpo/judge.py",
+    "experiments/tournament-grpo/local_gpu.py"
+  ]
+}

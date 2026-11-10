@@ -34,6 +34,10 @@ CHAPTER_NAMES = {
     10: "10-agentopsd",
     11: "11-search-r1",
     12: "12-retool",
+    13: "13-alfworld",
+    14: "14-tempo",
+    15: "15-spec-o3",
+    16: "16-tournament-grpo",
 }
 CHAPTER_RESULT_DIRS = {
     1: "experiments/loss-functions/results",
@@ -48,6 +52,10 @@ CHAPTER_RESULT_DIRS = {
     10: "experiments/agentopsd/results",
     11: "experiments/search-r1/results",
     12: "experiments/retool/results",
+    13: "experiments/alfworld/results",
+    14: "experiments/tempo/results",
+    15: "experiments/spec-o3/results",
+    16: "experiments/tournament-grpo/results",
 }
 VALID_STATUSES = {
     "not_ported",
@@ -446,8 +454,17 @@ def write_study_notes(root: Path) -> Path:
 11. `experiments/retool/readme.md` → `protocol.py` → `sandbox.py` → `rollout.py`
     → `local_gpu.py`：代码交织轨迹、真实 Python 沙箱、observation mask 和本地
     PPO-style 更新。
-12. 10、13-16 暂时标记 `not_ported`，不会伪造成功结果；外部裁判/教师 API
-    先只记录预算。
+12. `experiments/agentopsd/readme.md` → `rollout.py` → `teacher.py` →
+    `local_gpu.py`：真实 ALFWorld 多轮 rollout、同快照 Self-Teacher
+    与 turn-level credit。
+13. `experiments/alfworld/readme.md` → `rollout.py` → `advantages.py` →
+    `local_gpu.py`：真实 TextWorld 组内 GRPO。
+14. `experiments/tempo/readme.md` → `states.py` → `critic.py` → `tempo.py` →
+    `local_gpu.py`：macro-step actor/critic 与生成式 critic。
+15. `experiments/spec-o3/readme.md` → `protocol.py` → `tools.py` → `local_gpu.py`：
+    图文 SFT 与多轮光谱工具 GRPO。
+16. `experiments/tournament-grpo/readme.md` → `reward.py` → `judge.py` →
+    `local_gpu.py`：Tavily 搜索、淘汰赛奖励和本地裁判。
 
 每次运行的配置、stdout/stderr、metrics、LoRA adapter、`state.json` 和环境快照都在本目录。
 服务器释放前执行 `bash scripts/export_results.sh`，下载 `exports/*.tar.gz` 即可离线学习。
@@ -476,7 +493,8 @@ def write_report(root: Path, state: dict[str, Any] | None = None) -> Path:
         )
     lines += [
         "",
-        "13-16 的 `not_ported` 是如实记录，不代表运行成功。",
+        "每章状态来自实际运行；没有真实运行证据时保持 `not_ported` 或 `data_unavailable`。",
+        "`completed` 只表示该 run 正常结束，不表示已经达到论文规模；13–16 当前是 smoke / 机制运行。",
         "外部 API 预算与密钥状态见 `api_budget.json` 和 `environment.json`。",
         "",
     ]
