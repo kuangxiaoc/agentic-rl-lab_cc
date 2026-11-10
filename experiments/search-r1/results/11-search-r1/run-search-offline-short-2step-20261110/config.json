@@ -1,0 +1,30 @@
+{
+  "batch_size": 1,
+  "chapter": 11,
+  "dataset": "zhuangzhuang2023/nq_hotpotqa_train",
+  "dynamic_sampling": true,
+  "external_api_calls": 0,
+  "force_first_tool_call": true,
+  "group_size": 4,
+  "max_assistant_tokens": 384,
+  "max_assistant_turns": 3,
+  "max_new_tokens": 128,
+  "max_question_attempts": 4,
+  "max_search_calls": 2,
+  "max_tool_response_tokens": 512,
+  "max_trajectory_tokens": 4096,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "prefer_short_questions": true,
+  "profile": "smoke",
+  "questions_per_batch": 1,
+  "search_backend": "offline-evidence-oracle",
+  "search_backend_is_online": false,
+  "steps": 2,
+  "study_order": [
+    "experiments/search-r1/readme.md",
+    "experiments/search-r1/protocol.py",
+    "experiments/search-r1/search.py",
+    "experiments/search-r1/rollout.py",
+    "experiments/search-r1/local_gpu.py"
+  ]
+}

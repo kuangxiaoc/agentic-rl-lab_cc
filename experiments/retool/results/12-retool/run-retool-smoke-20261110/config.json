@@ -1,0 +1,24 @@
+{
+  "batch_size": 1,
+  "chapter": 12,
+  "dataset": "BytedTsinghua-SIA/DAPO-Math-17k",
+  "external_api_calls": 0,
+  "group_size": 2,
+  "max_assistant_tokens": 192,
+  "max_assistant_turns": 3,
+  "max_code_calls": 2,
+  "max_new_tokens": 128,
+  "max_tool_response_tokens": 256,
+  "max_trajectory_tokens": 3072,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "profile": "smoke",
+  "questions_per_batch": 1,
+  "steps": 2,
+  "study_order": [
+    "experiments/retool/readme.md",
+    "experiments/retool/protocol.py",
+    "experiments/retool/sandbox.py",
+    "experiments/retool/rollout.py",
+    "experiments/retool/local_gpu.py"
+  ]
+}

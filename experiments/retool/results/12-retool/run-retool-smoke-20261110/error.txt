@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/mnt/workspace/agentic-rl-lab_cc/experiments/retool/local_gpu.py", line 331, in main
+    losses, updated = trainer.train_trajectories(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'local_gpu_trainer' has no attribute 'train_trajectories'
