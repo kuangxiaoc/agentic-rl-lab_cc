@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import tarfile
@@ -150,8 +151,40 @@ class BudgetAndArchiveTests(unittest.TestCase):
             state = lib.initialize_state(root)
             lib.write_study_notes(root)
             lib.write_report(root, state)
-            self.assertIn("PyTRIO", (root / "study_notes.md").read_text(encoding="utf-8"))
+            notes = (root / "study_notes.md").read_text(encoding="utf-8")
+            self.assertIn("PyTRIO", notes)
+            self.assertLess(
+                notes.index("experiments/agentopsd/readme.md"),
+                notes.index("experiments/search-r1/readme.md"),
+            )
+            self.assertLess(
+                notes.index("experiments/search-r1/readme.md"),
+                notes.index("experiments/retool/readme.md"),
+            )
             self.assertIn("not_ported", (root / "reports" / "latest.md").read_text(encoding="utf-8"))
+
+    def test_environment_snapshot_only_rewrites_on_real_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            repo = Path(tmp) / "repo"
+            root.mkdir()
+            repo.mkdir()
+            with patch.object(lib, "_now", side_effect=["time-1", "time-2", "time-3"]):
+                lib.write_environment(root, repo, "smoke")
+                lib.write_environment(root, repo, "smoke")
+                self.assertEqual(
+                    json.loads((root / "environment.json").read_text(encoding="utf-8"))[
+                        "recorded_at"
+                    ],
+                    "time-1",
+                )
+                lib.write_environment(root, repo, "export")
+            self.assertEqual(
+                json.loads((root / "environment.json").read_text(encoding="utf-8"))[
+                    "recorded_at"
+                ],
+                "time-3",
+            )
 
     def test_sync_results_to_repo_is_git_friendly_and_redacted(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -175,6 +208,7 @@ class BudgetAndArchiveTests(unittest.TestCase):
             self.assertNotIn("sk-abcdefghijklmnop123456", log_text)
             self.assertFalse(list(synced.rglob("*.safetensors")))
             self.assertFalse(list(synced.rglob(".env")))
+            self.assertNotIn("同步时间", (synced / "README.md").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

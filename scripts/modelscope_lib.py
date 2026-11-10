@@ -395,7 +395,6 @@ def sync_results_to_repo(root: Path, repo: Path) -> dict[int, Path]:
                 _copy_synced_file(item, target)
         readme = (
             f"# Chapter {chapter:02d} 本地 GPU 实验记录\n\n"
-            f"同步时间：{_now()}\n\n"
             f"本目录由 `/mnt/workspace/agentic-rl-lab` 自动同步，适合 `git commit && git push` "
             f"后拉回本地阅读。模型大权重、adapter `.safetensors`、数据集 parquet、缓存和 `.env` "
             f"不会复制到 Git；完整大产物仍在持久化目录，或使用 `bash scripts/export_results.sh` 下载归档。\n"
@@ -448,15 +447,15 @@ def write_study_notes(root: Path) -> Path:
 9. `experiments/opsd/readme.md` → `01-opsd-sync.py` → `local_gpu.py`：Student 只
    看题，固定 Teacher 看题和参考解；两者对同一条 completion 的 logprob 差就是
    sampled-token reverse KL。
-10. `experiments/search-r1/readme.md` → `rollout.py` → `local_gpu.py`：多轮搜索
+10. `experiments/agentopsd/readme.md` → `rollout.py` → `teacher.py` →
+    `local_gpu.py`：真实 ALFWorld 多轮 rollout、同快照 Self-Teacher 与
+    turn-level credit。
+11. `experiments/search-r1/readme.md` → `rollout.py` → `local_gpu.py`：多轮搜索
     state machine、tool observation mask 和组内 advantage；服务器无外网时使用
     明确标注的离线证据后端，不能把它当成在线搜索指标。
-11. `experiments/retool/readme.md` → `protocol.py` → `sandbox.py` → `rollout.py`
+12. `experiments/retool/readme.md` → `protocol.py` → `sandbox.py` → `rollout.py`
     → `local_gpu.py`：代码交织轨迹、真实 Python 沙箱、observation mask 和本地
     PPO-style 更新。
-12. `experiments/agentopsd/readme.md` → `rollout.py` → `teacher.py` →
-    `local_gpu.py`：真实 ALFWorld 多轮 rollout、同快照 Self-Teacher
-    与 turn-level credit。
 13. `experiments/alfworld/readme.md` → `rollout.py` → `advantages.py` →
     `local_gpu.py`：真实 TextWorld 组内 GRPO。
 14. `experiments/tempo/readme.md` → `states.py` → `critic.py` → `tempo.py` →
@@ -494,7 +493,9 @@ def write_report(root: Path, state: dict[str, Any] | None = None) -> Path:
     lines += [
         "",
         "每章状态来自实际运行；没有真实运行证据时保持 `not_ported` 或 `data_unavailable`。",
-        "`completed` 只表示该 run 正常结束，不表示已经达到论文规模；13–16 当前是 smoke / 机制运行。",
+        "`completed` 只表示该 run 正常结束，不表示已经达到论文规模；10–16 当前是 smoke / 机制运行。",
+        "第 10 章现有两轮都因 dynamic sampling 丢弃了全部 group，"
+        "`updated_trajectories=0`，不能视为策略更新成功。",
         "外部 API 预算与密钥状态见 `api_budget.json` 和 `environment.json`。",
         "",
     ]
@@ -531,6 +532,16 @@ def write_environment(root: Path, repo: Path, profile: str) -> Path:
     }
     path = Path(root) / "environment.json"
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        try:
+            previous = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            previous = None
+        if isinstance(previous, dict):
+            previous_without_time = {key: value for key, value in previous.items() if key != "recorded_at"}
+            payload_without_time = {key: value for key, value in payload.items() if key != "recorded_at"}
+            if previous_without_time == payload_without_time:
+                return path
     _atomic_json(path, payload)
     return path
 

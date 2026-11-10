@@ -23,8 +23,8 @@
    看题，固定 Teacher 看题和参考解；两者对同一条 completion 的 logprob 差就是
    sampled-token reverse KL。
 10. `experiments/agentopsd/readme.md` → `rollout.py` → `teacher.py` →
-    `local_gpu.py`：真实 ALFWorld 多轮 rollout、同快照 Self-Teacher
-    与 turn-level credit。
+    `local_gpu.py`：真实 ALFWorld 多轮 rollout、同快照 Self-Teacher 与
+    turn-level credit。
 11. `experiments/search-r1/readme.md` → `rollout.py` → `local_gpu.py`：多轮搜索
     state machine、tool observation mask 和组内 advantage；服务器无外网时使用
     明确标注的离线证据后端，不能把它当成在线搜索指标。

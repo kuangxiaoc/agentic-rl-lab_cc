@@ -22,5 +22,6 @@
 | 16 | completed | run-tournament-smoke-r6 | {"mechanism_only": true, "steps": 1, "summary": "/mnt/workspace/agentic-rl-lab/runs/16-tournament-grpo/run-tournament-smoke-r6/summary.json", "tavily_calls": 2} |
 
 每章状态来自实际运行；没有真实运行证据时保持 `not_ported` 或 `data_unavailable`。
-`completed` 只表示该 run 正常结束，不表示已经达到论文规模；13–16 当前是 smoke / 机制运行。
+`completed` 只表示该 run 正常结束，不表示已经达到论文规模；10–16 当前是 smoke / 机制运行。
+第 10 章现有两轮都因 dynamic sampling 丢弃了全部 group，`updated_trajectories=0`，不能视为策略更新成功。
 外部 API 预算与密钥状态见 `api_budget.json` 和 `environment.json`。

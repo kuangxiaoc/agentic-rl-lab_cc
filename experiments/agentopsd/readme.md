@@ -455,6 +455,11 @@ bash scripts/run_modelscope.sh chapter 10 --force \
 
 每步 metrics 写入 `metrics/chapter-10.jsonl`，日志写入 `logs/chapter-10.log`。runner 会把轻量记录同步到 `experiments/agentopsd/results/`，服务器 `commit && push` 后本地 `pull` 即可阅读。
 
+当前已同步的 `run-agentopsd-smoke-20261110c` 和 `run-agentopsd-smoke-20261110d`
+都是真实 rollout，但所有 group 都被 dynamic sampling 丢弃，`train/updated_trajectories=0`。
+因此这两轮只能证明数据加载、多轮轨迹和 degenerate-group 过滤链路可运行，不能作为
+AgentOPSD 已经完成策略更新的证据。
+
 ### 9.5 与原版的关键差异
 
 | 项目 | 原版 | 本 fork |

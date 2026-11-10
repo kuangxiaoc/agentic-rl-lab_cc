@@ -1,0 +1,29 @@
+[
+  {
+    "step": 0,
+    "reward/mean": 0.0,
+    "reward/success_rate": 0.0,
+    "reward/all_success_group_rate": 0.0,
+    "reward/all_failure_group_rate": 1.0,
+    "trajectory/turns_mean": 7.833333333333333,
+    "trajectory/action_tokens_mean": 725.5833333333334,
+    "trajectory/valid_tool_call_rate": 0.5851063829787234,
+    "trajectory/admissible_action_rate": 0.574468085106383,
+    "trajectory/valid_action_rate": 0.574468085106383,
+    "advantage/degenerate_group_rate": 1.0,
+    "opsd/evidence_mean": 0.0,
+    "opsd/evidence_abs_mean": 0.0,
+    "opsd/weight_mean": 0.0,
+    "opsd/adv_multiplier_min": 1.0,
+    "opsd/adv_multiplier_max": 1.0,
+    "teacher/requests": 0.0,
+    "teacher/tokens": 0.0,
+    "train/trajectories": 12.0,
+    "train/updated_trajectories": 0.0,
+    "train/loss_mean": 0.0,
+    "dynamic_sampling/groups_sampled": 3.0,
+    "dynamic_sampling/groups_kept": 0.0,
+    "dynamic_sampling/groups_dropped": 3.0,
+    "train/kept_trajectories": 0.0
+  }
+]
