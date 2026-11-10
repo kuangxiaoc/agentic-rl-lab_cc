@@ -82,6 +82,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--learning-rate", type=float, default=4e-5)
     parser.add_argument("--lora-rank", type=int, default=16)
     parser.add_argument("--max-train-games", type=int, default=64)
+    parser.add_argument(
+        "--task-types",
+        default="",
+        help="逗号分隔的教学任务子集；留空表示使用原版支持的全部类型",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--save-every", type=int, default=0)
     parser.add_argument(
@@ -158,6 +163,7 @@ def load_games(
     seed: int,
     max_games: int,
     download: bool,
+    task_types: set[str] | frozenset[str] | None = None,
 ) -> list[Any]:
     """Discover text-only games, downloading once only when explicitly allowed."""
     def discover() -> list[Any]:
@@ -169,6 +175,7 @@ def load_games(
             "train",
             seed,
             max_games=max_games,
+            task_types=task_types,
         )
 
     try:
@@ -269,6 +276,16 @@ def main() -> int:
     max_action_tokens = args.max_action_tokens or (
         256 if args.profile == "smoke" else config["max_new_tokens"]
     )
+    task_types = {
+        item.strip()
+        for item in args.task_types.split(",")
+        if item.strip()
+    } or None
+    unknown_task_types = (task_types or set()) - agent_data.SUPPORTED_TASK_TYPES
+    if unknown_task_types:
+        raise ValueError(
+            "unknown --task-types: " + ", ".join(sorted(unknown_task_types))
+        )
     if (
         steps < 1
         or args.tasks_per_update < 1
@@ -294,6 +311,7 @@ def main() -> int:
         "max_turns": args.max_turns,
         "max_trajectory_tokens": args.max_trajectory_tokens,
         "max_action_tokens": max_action_tokens,
+        "task_types": sorted(task_types) if task_types else "all-supported",
         "dynamic_sampling": args.dynamic_sampling,
         "max_attempts": args.max_attempts,
         "teacher": "same local policy snapshot with privileged skill prompt",
@@ -315,6 +333,7 @@ def main() -> int:
             seed=args.seed,
             max_games=args.max_train_games,
             download=args.download_data,
+            task_types=task_types,
         )
         print(f"alfworld_games={len(games)}", flush=True)
 
@@ -416,6 +435,11 @@ def main() -> int:
                 torch_module=torch,
                 device=device,
             )
+            if args.dynamic_sampling and not kept_trajectories:
+                raise RuntimeError(
+                    f"No mixed-reward group found after {attempts} attempts at step {step}; "
+                    "refusing to record an optimizer update that did not happen"
+                )
             recorded_trajectories = [
                 trajectory
                 for _, trajectories, _ in attempt_records
@@ -469,6 +493,14 @@ def main() -> int:
                 "torch": torch.__version__,
                 "gpu": torch.cuda.get_device_name(0),
                 "games_available": len(games),
+                "effective_updates": sum(
+                    float(item.get("train/updated_trajectories", 0.0)) > 0
+                    for item in history
+                ),
+                "attempted_groups": sum(
+                    int(item.get("dynamic_sampling/groups_sampled", 0.0))
+                    for item in history
+                ),
             }
         )
         (run_dir / "summary.json").write_text(
@@ -483,6 +515,7 @@ def main() -> int:
             {
                 "adapter": str(adapter),
                 "steps": len(history),
+                "effective_updates": summary["effective_updates"],
                 "summary": str(run_dir / "summary.json"),
                 "mechanism_only": True,
                 "teacher": "same local policy snapshot with skill prompt",

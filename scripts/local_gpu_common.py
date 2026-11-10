@@ -12,6 +12,47 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
+@dataclass
+class EffectiveUpdateTracker:
+    """Count only groups that actually produced an optimizer update."""
+
+    target: int
+    max_attempts: int
+    attempts: int = 0
+    effective_updates: int = 0
+    skipped_groups: int = 0
+
+    def __post_init__(self) -> None:
+        if self.target < 1:
+            raise ValueError("target must be at least 1")
+        if self.max_attempts < self.target:
+            raise ValueError("max_attempts must be at least target")
+
+    @property
+    def complete(self) -> bool:
+        return self.effective_updates >= self.target
+
+    @property
+    def can_attempt(self) -> bool:
+        return not self.complete and self.attempts < self.max_attempts
+
+    def record(self, effective: bool) -> None:
+        if not self.can_attempt:
+            raise RuntimeError("recorded more attempts than the update budget allows")
+        self.attempts += 1
+        if effective:
+            self.effective_updates += 1
+        else:
+            self.skipped_groups += 1
+
+    def require_complete(self) -> None:
+        if not self.complete:
+            raise RuntimeError(
+                f"Only {self.effective_updates}/{self.target} effective updates were found "
+                f"in {self.attempts}/{self.max_attempts} attempts"
+            )
+
+
 def scalar_losses(
     old_logprob: float,
     current_logprob: float,

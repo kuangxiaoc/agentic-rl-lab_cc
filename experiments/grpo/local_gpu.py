@@ -18,6 +18,7 @@ full:  steps=10, group_size=4, max_new_tokens=512（更容易出现组内方差�
 from __future__ import annotations
 
 import json
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -51,12 +52,46 @@ def build_messages(original: object, question: str) -> list[dict[str, str]]:
     ]
 
 
+def parse_args() -> object:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="本地 GPU 版 GRPO / GSM8K")
+    parser.add_argument("--workspace-root", default=None)
+    parser.add_argument("--run-id", default=None)
+    parser.add_argument(
+        "--profile",
+        default=os.environ.get("RUN_PROFILE", "smoke"),
+        choices=("smoke", "full"),
+    )
+    parser.add_argument("--loss-fn", choices=("importance_sampling", "ppo", "cispo"), default="importance_sampling")
+    parser.add_argument("--steps", type=int, default=0, help="目标有效更新次数；0 表示使用 profile 默认值")
+    parser.add_argument("--group-size", type=int, default=0, help="0 表示使用 profile 默认值")
+    parser.add_argument("--max-new-tokens", type=int, default=0, help="0 表示使用 profile 默认值")
+    parser.add_argument("--start-index", type=int, default=0)
+    parser.add_argument("--max-attempts", type=int, default=0, help="0 表示有效更新次数的四倍")
+    parser.add_argument(
+        "--effective-only",
+        action="store_true",
+        help="跳过全对/全错组，只把有组内差异的样本计入目标更新次数",
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
     """主入口：准备 -> 下载 -> 建模 -> GRPO 循环 -> 落盘。"""
     # prepare_run 负责建 runs/02-grpo/<run_id>/、写 state/environment/
     # study_notes/api_budget，并把章节状态置为 running。
-    args = trainer.chapter_cli("本地 GPU 版 GRPO / GSM8K")
+    args = parse_args()
     root, run_dir, run_id, config = trainer.prepare_run(2, args)
+    steps = args.steps or config["steps"]
+    group_size = args.group_size or config["group_size"]
+    max_new_tokens = args.max_new_tokens or config["max_new_tokens"]
+    max_attempts = args.max_attempts or (steps * 4 if args.effective_only else steps)
+    if steps < 1 or group_size < 2 or max_new_tokens < 1 or max_attempts < steps:
+        raise ValueError(
+            "steps >= 1, group-size >= 2, max-new-tokens >= 1 and "
+            "max-attempts >= steps are required"
+        )
 
     # 只从原版文件里抽出纯常量和纯函数（AST 加载），从而不 import pytrio、
     # swanlab 等云端依赖。required 让缺失的常量在下载模型前就报错。
@@ -73,6 +108,12 @@ def main() -> int:
         "profile": args.profile,
         "loss_fn": args.loss_fn,
         **config,
+        "steps": steps,
+        "group_size": group_size,
+        "max_new_tokens": max_new_tokens,
+        "effective_only": args.effective_only,
+        "max_attempts": max_attempts,
+        "start_index": args.start_index,
         "external_api_calls": 0,
         "study_order": [
             "experiments/grpo/readme.md",
@@ -111,10 +152,11 @@ def main() -> int:
             lr=4e-5,
         )
         history: list[dict[str, float]] = []
-        # 一次 step = 一道题 + 一组回答；full 的 batch_size 仅记录未使用。
-        for step in range(config["steps"]):
-            # A. 取题：steps 超过数据量时从头循环；GSM8K 标准答案在 #### 之后。
-            row = rows[step % len(rows)]
+        tracker = common.EffectiveUpdateTracker(steps, max_attempts)
+        while tracker.can_attempt:
+            attempts = tracker.attempts
+            # A. 取题：GSM8K 标准答案在 #### 之后。
+            row = rows[(args.start_index + attempts) % len(rows)]
             question = str(row["question"])
             ground_truth = original.extract_gsm8k_answer(str(row["answer"]))
             # chat template 会插入 <|im_start|> / <|im_end|> 等 special tokens。
@@ -129,11 +171,11 @@ def main() -> int:
                 model,
                 tokenizer,
                 inputs,
-                config["group_size"],
-                config["max_new_tokens"],
+                group_size,
+                max_new_tokens,
                 temperature=1.0,
                 top_p=1.0,
-                seed=42 + step,
+                seed=42 + attempts,
                 torch_module=torch,
                 device=device,
             )
@@ -142,6 +184,42 @@ def main() -> int:
             rewards = [original.grade_answer(text, ground_truth) for text in texts]
             # D. 组内均值当 baseline。论文还会除以 std，这里为对齐原版省略了。
             advantages = common.group_advantages(rewards)
+            effective = common.is_effective_group(rewards, group_size)
+            if args.effective_only and not effective:
+                metric = {
+                    "step": attempts,
+                    "effective_step": tracker.effective_updates,
+                    "reward": sum(rewards) / len(rewards),
+                    "degenerate": 1.0,
+                    "train_samples": 0,
+                    "skipped_degenerate_group": 1.0,
+                    "avg_completion_tokens": sum(len(item) for item in completions) / len(completions),
+                    "loss": 0.0,
+                }
+                history.append(metric)
+                lib.append_metrics(root, 2, run_id, metric)
+                print(json.dumps(metric, ensure_ascii=False), flush=True)
+                with (run_dir / "samples.jsonl").open("a", encoding="utf-8") as handle:
+                    handle.write(
+                        json.dumps(
+                            {
+                                "step": attempts,
+                                "effective_step": tracker.effective_updates,
+                                "question": question,
+                                "ground_truth": ground_truth,
+                                "answers": texts,
+                                "rewards": rewards,
+                                "advantages": advantages,
+                                "skipped_degenerate_group": True,
+                            },
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
+                tracker.record(False)
+                del completions, old_logprobs, inputs
+                torch.cuda.empty_cache()
+                continue
             # E. 组装训练样本。Sample 里 advantages 被复制到每个 completion token，
             # 因为 reward 是整条回答级别的，没有逐 token 打分。
             samples: list[trainer.Sample] = []
@@ -184,7 +262,8 @@ def main() -> int:
             # G. 指标。loss 接近 0 不代表没学：组内 advantage 均值为 0，
             # 但每条梯度方向不同。判断有没有更新要看 train_samples。
             metric: dict[str, float] = {
-                "step": step,
+                "step": attempts,
+                "effective_step": tracker.effective_updates,
                 "reward": sum(rewards) / len(rewards),
                 "degenerate": 0.0 if samples else 1.0,
                 "train_samples": len(samples),
@@ -200,7 +279,8 @@ def main() -> int:
                 handle.write(
                     json.dumps(
                         {
-                            "step": step,
+                            "step": attempts,
+                            "effective_step": tracker.effective_updates,
                             "question": question,
                             "ground_truth": ground_truth,
                             "answers": texts,
@@ -211,8 +291,10 @@ def main() -> int:
                     )
                     + "\n"
                 )
+            tracker.record(bool(samples))
             del samples, completions, old_logprobs, inputs
             torch.cuda.empty_cache()
+        tracker.require_complete()
         # adapter 只存 LoRA 权重，留在 /mnt/workspace，不进 Git。
         adapter = trainer.save_adapter(model, run_dir)
         (run_dir / "history.json").write_text(
@@ -234,7 +316,14 @@ def main() -> int:
             2,
             run_id,
             "completed",
-            {"adapter": str(adapter), "steps": len(history), "summary": str(run_dir / "summary.json")},
+            {
+                "adapter": str(adapter),
+                "steps": tracker.effective_updates,
+                "attempts": tracker.attempts,
+                "skipped_groups": tracker.skipped_groups,
+                "summary": str(run_dir / "summary.json"),
+            },
+            replace_details=True,
         )
         print(f"chapter 02 completed: {run_dir}", flush=True)
         return 0

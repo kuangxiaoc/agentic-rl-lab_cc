@@ -494,8 +494,8 @@ def write_report(root: Path, state: dict[str, Any] | None = None) -> Path:
         "",
         "每章状态来自实际运行；没有真实运行证据时保持 `not_ported` 或 `data_unavailable`。",
         "`completed` 只表示该 run 正常结束，不表示已经达到论文规模；10–16 当前是 smoke / 机制运行。",
-        "第 10 章现有两轮都因 dynamic sampling 丢弃了全部 group，"
-        "`updated_trajectories=0`，不能视为策略更新成功。",
+        "第 10–12 章必须检查 `effective_updates` / `updated_trajectories`；"
+        "为零时不能视为策略更新成功。",
         "外部 API 预算与密钥状态见 `api_budget.json` 和 `environment.json`。",
         "",
     ]

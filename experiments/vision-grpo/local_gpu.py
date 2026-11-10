@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -54,9 +55,43 @@ def build_messages(original: object, row: dict[str, object], image: object) -> l
     ]
 
 
+def parse_args() -> object:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="本地 GPU 版 Vision GRPO / GeoQA")
+    parser.add_argument("--workspace-root", default=None)
+    parser.add_argument("--run-id", default=None)
+    parser.add_argument(
+        "--profile",
+        default=os.environ.get("RUN_PROFILE", "smoke"),
+        choices=("smoke", "full"),
+    )
+    parser.add_argument("--loss-fn", choices=("importance_sampling", "ppo", "cispo"), default="importance_sampling")
+    parser.add_argument("--steps", type=int, default=0, help="目标有效更新次数；0 表示使用 profile 默认值")
+    parser.add_argument("--group-size", type=int, default=0, help="0 表示使用 profile 默认值")
+    parser.add_argument("--max-new-tokens", type=int, default=0, help="0 表示使用 profile 默认值")
+    parser.add_argument("--start-index", type=int, default=0)
+    parser.add_argument("--max-attempts", type=int, default=0, help="0 表示有效更新次数的四倍")
+    parser.add_argument(
+        "--effective-only",
+        action="store_true",
+        help="跳过全对/全错组，只把有组内差异的样本计入目标更新次数",
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
-    args = trainer.chapter_cli("本地 GPU 版 Vision GRPO / GeoQA")
+    args = parse_args()
     root, run_dir, run_id, config = trainer.prepare_run(3, args)
+    steps = args.steps or config["steps"]
+    group_size = args.group_size or config["group_size"]
+    max_new_tokens = args.max_new_tokens or config["max_new_tokens"]
+    max_attempts = args.max_attempts or (steps * 4 if args.effective_only else steps)
+    if steps < 1 or group_size < 2 or max_new_tokens < 1 or max_attempts < steps:
+        raise ValueError(
+            "steps >= 1, group-size >= 2, max-new-tokens >= 1 and "
+            "max-attempts >= steps are required"
+        )
     original = common.load_original_module(
         "vision_train",
         REPO_ROOT / "experiments" / "vision-grpo" / "train.py",
@@ -69,6 +104,12 @@ def main() -> int:
         "profile": args.profile,
         "loss_fn": args.loss_fn,
         **config,
+        "steps": steps,
+        "group_size": group_size,
+        "max_new_tokens": max_new_tokens,
+        "effective_only": args.effective_only,
+        "max_attempts": max_attempts,
+        "start_index": args.start_index,
         "external_api_calls": 0,
         "study_order": [
             "experiments/vision-grpo/readme.md",
@@ -95,8 +136,10 @@ def main() -> int:
             lr=4e-5,
         )
         history: list[dict[str, float]] = []
-        for step in range(config["steps"]):
-            row = rows[step % len(rows)]
+        tracker = common.EffectiveUpdateTracker(steps, max_attempts)
+        while tracker.can_attempt:
+            attempts = tracker.attempts
+            row = rows[(args.start_index + attempts) % len(rows)]
             image = as_rgb_image(row.get("image"))
             gold_choice = original.CHOICE_LETTERS[int(row["label"])]
             inputs = trainer.apply_chat_template(
@@ -107,17 +150,55 @@ def main() -> int:
                 model,
                 processor,
                 inputs,
-                config["group_size"],
-                config["max_new_tokens"],
+                group_size,
+                max_new_tokens,
                 temperature=1.0,
                 top_p=1.0,
-                seed=42 + step,
+                seed=42 + attempts,
                 torch_module=torch,
                 device=device,
             )
             predicted = [original.extract_choice(text) for text in texts]
             rewards = [float(choice == gold_choice) for choice in predicted]
             advantages = common.group_advantages(rewards)
+            effective = common.is_effective_group(rewards, group_size)
+            if args.effective_only and not effective:
+                metric = {
+                    "step": attempts,
+                    "effective_step": tracker.effective_updates,
+                    "reward": sum(rewards) / len(rewards),
+                    "format_rate": sum(choice is not None for choice in predicted) / len(predicted),
+                    "degenerate": 1.0,
+                    "train_samples": 0,
+                    "skipped_degenerate_group": 1.0,
+                    "avg_completion_tokens": sum(len(item) for item in completions) / len(completions),
+                    "loss": 0.0,
+                }
+                history.append(metric)
+                lib.append_metrics(root, 3, run_id, metric)
+                print(json.dumps(metric, ensure_ascii=False), flush=True)
+                with (run_dir / "samples.jsonl").open("a", encoding="utf-8") as handle:
+                    handle.write(
+                        json.dumps(
+                            {
+                                "step": attempts,
+                                "effective_step": tracker.effective_updates,
+                                "id": row.get("id"),
+                                "gold_choice": gold_choice,
+                                "predicted": predicted,
+                                "answers": [lib.redact_text(text) for text in texts],
+                                "rewards": rewards,
+                                "advantages": advantages,
+                                "skipped_degenerate_group": True,
+                            },
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
+                tracker.record(False)
+                del completions, old_logprobs, inputs
+                torch.cuda.empty_cache()
+                continue
             samples: list[trainer.Sample] = []
             prompt_tokens = inputs["input_ids"][0].tolist()
             vision_inputs = {
@@ -157,7 +238,8 @@ def main() -> int:
                 optimizer.step()
                 loss_value = float(torch.stack(train_losses).mean().item())
             metric: dict[str, float] = {
-                "step": step,
+                "step": attempts,
+                "effective_step": tracker.effective_updates,
                 "reward": sum(rewards) / len(rewards),
                 "format_rate": sum(choice is not None for choice in predicted) / len(predicted),
                 "degenerate": 0.0 if samples else 1.0,
@@ -172,7 +254,8 @@ def main() -> int:
                 handle.write(
                     json.dumps(
                         {
-                            "step": step,
+                            "step": attempts,
+                            "effective_step": tracker.effective_updates,
                             "id": row.get("id"),
                             "gold_choice": gold_choice,
                             "predicted": predicted,
@@ -184,8 +267,10 @@ def main() -> int:
                     )
                     + "\n"
                 )
+            tracker.record(bool(samples))
             del samples, completions, old_logprobs, inputs, vision_inputs
             torch.cuda.empty_cache()
+        tracker.require_complete()
         adapter = trainer.save_adapter(model, run_dir)
         (run_dir / "history.json").write_text(
             json.dumps(history, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -206,7 +291,14 @@ def main() -> int:
             3,
             run_id,
             "completed",
-            {"adapter": str(adapter), "steps": len(history), "summary": str(run_dir / "summary.json")},
+            {
+                "adapter": str(adapter),
+                "steps": tracker.effective_updates,
+                "attempts": tracker.attempts,
+                "skipped_groups": tracker.skipped_groups,
+                "summary": str(run_dir / "summary.json"),
+            },
+            replace_details=True,
         )
         print(f"chapter 03 completed: {run_dir}", flush=True)
         return 0

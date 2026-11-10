@@ -116,9 +116,10 @@ def shuffled_games(
     seed: int,
     *,
     max_games: int = 0,
+    task_types: set[str] | frozenset[str] | None = None,
 ) -> list[GameExample]:
     """发现游戏后按固定种子打乱，并可限制本次使用数量。"""
-    games = discover_games(data_root, split)
+    games = discover_games(data_root, split, task_types=task_types)
     random.Random(seed).shuffle(games)
     if max_games > 0:
         games = games[:max_games]

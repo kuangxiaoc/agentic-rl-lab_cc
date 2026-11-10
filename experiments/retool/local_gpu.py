@@ -418,6 +418,11 @@ def main() -> int:
                 question_count += len(batch)
                 if not args.dynamic_sampling or has_signal:
                     break
+            if not trajectories:
+                raise RuntimeError(
+                    f"No effective question found after {attempts_used} attempts at step {step}; "
+                    "refusing to record an optimizer update that did not happen"
+                )
             losses, updated = rollout_trainer.train_trajectories(
                 model,
                 optimizer,
@@ -428,6 +433,11 @@ def main() -> int:
                 torch_module=torch,
                 device=device,
             )
+            if updated < 1:
+                raise RuntimeError(
+                    f"The rollout at step {step} produced no trainable trajectories "
+                    "despite a nonzero group advantage"
+                )
             metric = {
                 "step": step,
                 **rollout_metrics(
@@ -472,6 +482,14 @@ def main() -> int:
                 "torch": torch.__version__,
                 "gpu": torch.cuda.get_device_name(0),
                 "dataset_rows": len(examples),
+                "effective_updates": sum(
+                    float(item.get("train/updated_trajectories", 0.0)) > 0
+                    for item in history
+                ),
+                "updated_trajectories": sum(
+                    int(item.get("train/updated_trajectories", 0.0))
+                    for item in history
+                ),
             }
         )
         (run_dir / "summary.json").write_text(
@@ -486,6 +504,8 @@ def main() -> int:
             {
                 "adapter": str(adapter),
                 "steps": len(history),
+                "effective_updates": summary["effective_updates"],
+                "updated_trajectories": summary["updated_trajectories"],
                 "summary": str(run_dir / "summary.json"),
                 "mechanism_only": True,
             },

@@ -11,6 +11,31 @@ import local_gpu_common as common  # noqa: E402
 
 
 class PureAlgorithmTests(unittest.TestCase):
+    def test_effective_updates_retry_until_the_target_is_reached(self):
+        tracker = common.EffectiveUpdateTracker(target=2, max_attempts=5)
+        for effective in (False, False, True, True):
+            self.assertTrue(tracker.can_attempt)
+            tracker.record(effective)
+        tracker.require_complete()
+        self.assertEqual(tracker.effective_updates, 2)
+        self.assertEqual(tracker.attempts, 4)
+        self.assertEqual(tracker.skipped_groups, 2)
+        self.assertFalse(tracker.can_attempt)
+
+    def test_insufficient_effective_updates_fail_instead_of_claiming_success(self):
+        tracker = common.EffectiveUpdateTracker(target=2, max_attempts=3)
+        tracker.record(False)
+        tracker.record(True)
+        tracker.record(False)
+        with self.assertRaisesRegex(RuntimeError, r"Only 1/2 effective updates"):
+            tracker.require_complete()
+
+    def test_effective_update_tracker_rejects_invalid_budgets(self):
+        with self.assertRaises(ValueError):
+            common.EffectiveUpdateTracker(target=0, max_attempts=1)
+        with self.assertRaises(ValueError):
+            common.EffectiveUpdateTracker(target=2, max_attempts=1)
+
     def test_scalar_loss_formulas(self):
         old = -1.0
         current = -0.5
