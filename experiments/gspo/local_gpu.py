@@ -161,10 +161,9 @@ def main() -> int:
             lr=4e-5,
         )
         history: list[dict[str, float]] = []
-        effective_updates = 0
-        attempts = 0
-        skipped_groups = 0
-        while effective_updates < steps and attempts < max_attempts:
+        tracker = common.EffectiveUpdateTracker(steps, max_attempts)
+        while tracker.can_attempt:
+            attempts = tracker.attempts
             row = rows[(args.start_index + attempts) % len(rows)]
             question = str(row["question"])
             ground_truth = str(row["answer"]).split("####")[-1].strip()
@@ -190,10 +189,9 @@ def main() -> int:
             ]
             effective = common.is_effective_group(rewards, group_size)
             if args.effective_only and not effective:
-                skipped_groups += 1
                 metric = {
                     "step": attempts,
-                    "effective_step": effective_updates,
+                    "effective_step": tracker.effective_updates,
                     "reward": sum(rewards) / len(rewards),
                     "correct_rate": sum(rewards) / len(rewards),
                     "degenerate": 1.0,
@@ -210,7 +208,7 @@ def main() -> int:
                         json.dumps(
                             {
                                 "step": attempts,
-                                "effective_step": effective_updates,
+                                "effective_step": tracker.effective_updates,
                                 "question": question,
                                 "ground_truth": ground_truth,
                                 "answers": texts,
@@ -223,7 +221,7 @@ def main() -> int:
                         )
                         + "\n"
                     )
-                attempts += 1
+                tracker.record(False)
                 continue
             advantages = common.group_advantages(rewards)
             samples: list[trainer.Sample] = []
@@ -284,7 +282,7 @@ def main() -> int:
 
             metric = {
                 "step": attempts,
-                "effective_step": effective_updates,
+                "effective_step": tracker.effective_updates,
                 "reward": sum(rewards) / len(rewards),
                 "correct_rate": sum(1.0 for r in rewards if r > 0) / len(rewards),
                 "degenerate": 0.0 if samples else 1.0,
@@ -300,7 +298,7 @@ def main() -> int:
                     json.dumps(
                         {
                             "step": attempts,
-                            "effective_step": effective_updates,
+                            "effective_step": tracker.effective_updates,
                             "question": question,
                             "ground_truth": ground_truth,
                             "answers": texts,
@@ -312,11 +310,11 @@ def main() -> int:
                     )
                     + "\n"
                 )
-            effective_updates += 1
-            attempts += 1
+            tracker.record(bool(samples))
             del samples, completions, old_logprobs, inputs
             torch.cuda.empty_cache()
 
+        tracker.require_complete()
         adapter = trainer.save_adapter(model, run_dir)
         (run_dir / "history.json").write_text(
             json.dumps(history, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -325,9 +323,9 @@ def main() -> int:
             {
                 "history": history,
                 "adapter": str(adapter),
-                "attempts": attempts,
-                "effective_updates": effective_updates,
-                "skipped_groups": skipped_groups,
+                "attempts": tracker.attempts,
+                "effective_updates": tracker.effective_updates,
+                "skipped_groups": tracker.skipped_groups,
                 "torch": torch.__version__,
                 "gpu": torch.cuda.get_device_name(0),
             }
@@ -342,11 +340,12 @@ def main() -> int:
             "completed",
             {
                 "adapter": str(adapter),
-                "steps": effective_updates,
-                "attempts": attempts,
-                "skipped_groups": skipped_groups,
+                "steps": tracker.effective_updates,
+                "attempts": tracker.attempts,
+                "skipped_groups": tracker.skipped_groups,
                 "summary": str(run_dir / "summary.json"),
             },
+            replace_details=True,
         )
         print(f"chapter 08 completed: {run_dir}", flush=True)
         return 0
