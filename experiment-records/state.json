@@ -146,16 +146,16 @@
     },
     "9": {
       "details": {
-        "adapter": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-145924/adapter",
-        "steps": 2,
-        "summary": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-145924/summary.json"
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-150419/adapter",
+        "steps": 4,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-150419/summary.json"
       },
-      "run_id": "run-20261110-145924",
+      "run_id": "run-20261110-150419",
       "status": "completed",
-      "updated_at": "2026-11-10T07:03:45+00:00"
+      "updated_at": "2026-11-10T07:06:50+00:00"
     }
   },
   "created_at": "2026-11-08T08:05:06+00:00",
   "schema_version": 1,
-  "updated_at": "2026-11-10T07:03:45+00:00"
+  "updated_at": "2026-11-10T07:06:50+00:00"
 }

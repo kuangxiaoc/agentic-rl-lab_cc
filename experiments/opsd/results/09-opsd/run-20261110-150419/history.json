@@ -1,0 +1,38 @@
+[
+  {
+    "step": 0,
+    "prompts": 1,
+    "train_samples": 1,
+    "completion_tokens_mean": 256.0,
+    "reverse_kl_mean": 0.15218080821734478,
+    "reverse_kl_std": 1.1339147517173194,
+    "loss": 0.15141642093658447
+  },
+  {
+    "step": 1,
+    "prompts": 1,
+    "train_samples": 1,
+    "completion_tokens_mean": 256.0,
+    "reverse_kl_mean": 0.36203537813668374,
+    "reverse_kl_std": 1.3560269276175962,
+    "loss": 0.359292596578598
+  },
+  {
+    "step": 2,
+    "prompts": 1,
+    "train_samples": 1,
+    "completion_tokens_mean": 256.0,
+    "reverse_kl_mean": 0.5043349906773118,
+    "reverse_kl_std": 2.167144382027681,
+    "loss": 0.5088415145874023
+  },
+  {
+    "step": 3,
+    "prompts": 1,
+    "train_samples": 1,
+    "completion_tokens_mean": 256.0,
+    "reverse_kl_mean": 0.23480253962249364,
+    "reverse_kl_std": 1.1460788083610696,
+    "loss": 0.23181335628032684
+  }
+]

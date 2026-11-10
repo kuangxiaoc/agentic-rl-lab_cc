@@ -1,6 +1,6 @@
 # ModelScope 本地 GPU 实验报告
 
-更新时间：2026-11-10T07:03:45+00:00
+更新时间：2026-11-10T07:06:50+00:00
 
 | 章节 | 状态 | run_id | 说明 |
 | --- | --- | --- | --- |
@@ -12,7 +12,7 @@
 | 06 | completed | run-20261110-141706 | {"ceval_base_accuracy": 0.25, "ceval_final_accuracy": 0.225, "final_adapter": "/mnt/workspace/agentic-rl-lab/runs/06-medical-opd/run-20261110-141706/student_anchor_adapter/adapter", "medqa_base_accuracy": 0.18, "medqa_final_accuracy": 0.16, "mode": "sar", "sft_steps": 30, "teacher_adapter": "/mnt/workspace/agentic-rl-lab/runs/06-medical-opd/run-20261110-141706/medical_teacher_adapter/adapter"} |
 | 07 | completed | run-20261110-143037 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-143037/adapter", "attempts": 32, "skipped_groups": 26, "steps": 6, "summary": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-143037/summary.json"} |
 | 08 | completed | run-20261110-144342 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261110-144342/adapter", "attempts": 24, "skipped_groups": 20, "steps": 4, "summary": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261110-144342/summary.json"} |
-| 09 | completed | run-20261110-145924 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-145924/adapter", "steps": 2, "summary": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-145924/summary.json"} |
+| 09 | completed | run-20261110-150419 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-150419/adapter", "steps": 4, "summary": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-150419/summary.json"} |
 | 10 | not_ported | - | {} |
 | 11 | not_ported | - | {} |
 | 12 | not_ported | - | {} |

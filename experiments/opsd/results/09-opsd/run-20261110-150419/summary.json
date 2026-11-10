@@ -1,0 +1,59 @@
+{
+  "chapter": 9,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "dataset": "siyanzhao/Openthoughts_math_30k_opsd",
+  "dataset_revision": "1f33e9dc2e8a1c639ca74f8024ad4a9f1f5eae62",
+  "steps": 4,
+  "batch_size": 1,
+  "group_size": 1,
+  "max_new_tokens": 256,
+  "profile": "full",
+  "teacher": "frozen step-0 base model with privileged reference solution",
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/opsd/readme.md",
+    "experiments/opsd/01-opsd-sync.py",
+    "experiments/opsd/local_gpu.py"
+  ],
+  "history": [
+    {
+      "step": 0,
+      "prompts": 1,
+      "train_samples": 1,
+      "completion_tokens_mean": 256.0,
+      "reverse_kl_mean": 0.15218080821734478,
+      "reverse_kl_std": 1.1339147517173194,
+      "loss": 0.15141642093658447
+    },
+    {
+      "step": 1,
+      "prompts": 1,
+      "train_samples": 1,
+      "completion_tokens_mean": 256.0,
+      "reverse_kl_mean": 0.36203537813668374,
+      "reverse_kl_std": 1.3560269276175962,
+      "loss": 0.359292596578598
+    },
+    {
+      "step": 2,
+      "prompts": 1,
+      "train_samples": 1,
+      "completion_tokens_mean": 256.0,
+      "reverse_kl_mean": 0.5043349906773118,
+      "reverse_kl_std": 2.167144382027681,
+      "loss": 0.5088415145874023
+    },
+    {
+      "step": 3,
+      "prompts": 1,
+      "train_samples": 1,
+      "completion_tokens_mean": 256.0,
+      "reverse_kl_mean": 0.23480253962249364,
+      "reverse_kl_std": 1.1460788083610696,
+      "loss": 0.23181335628032684
+    }
+  ],
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-150419/adapter",
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10"
+}
