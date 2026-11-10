@@ -48,6 +48,7 @@ def parse_args() -> argparse.Namespace:
         choices=("smoke", "full"),
     )
     parser.add_argument("--max-train-samples", type=int, default=0, help="0 表示使用全部训练集")
+    parser.add_argument("--steps", type=int, default=0, help="0 表示使用 profile 的默认步数")
     parser.add_argument("--eval-limit", type=int, default=50, help="评测样本上限；0 表示全量")
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=1)
@@ -232,7 +233,7 @@ def evaluate_records(
 def main() -> int:
     args = parse_args()
     root, run_dir, run_id, config = trainer.prepare_run(4, args)
-    steps = config["steps"]
+    steps = args.steps or config["steps"]
     summary: dict[str, Any] = {
         "chapter": 4,
         "model": MODEL_ID,
