@@ -1,0 +1,89 @@
+{
+  "chapter": 3,
+  "model": "Qwen/Qwen3-VL-4B-Instruct",
+  "dataset": "hz2475/geoQA",
+  "profile": "smoke",
+  "loss_fn": "importance_sampling",
+  "steps": 2,
+  "batch_size": 1,
+  "group_size": 4,
+  "max_new_tokens": 512,
+  "effective_only": true,
+  "max_attempts": 30,
+  "start_index": 10,
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/vision-grpo/readme.md",
+    "experiments/vision-grpo/train.py",
+    "experiments/vision-grpo/local_gpu.py"
+  ],
+  "history": [
+    {
+      "step": 0,
+      "effective_step": 0,
+      "reward": 0.0,
+      "format_rate": 0.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_degenerate_group": 1.0,
+      "avg_completion_tokens": 512.0,
+      "loss": 0.0
+    },
+    {
+      "step": 1,
+      "effective_step": 0,
+      "reward": 0.0,
+      "format_rate": 0.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_degenerate_group": 1.0,
+      "avg_completion_tokens": 512.0,
+      "loss": 0.0
+    },
+    {
+      "step": 2,
+      "effective_step": 0,
+      "reward": 0.75,
+      "format_rate": 0.75,
+      "degenerate": 0.0,
+      "train_samples": 4,
+      "avg_completion_tokens": 406.5,
+      "loss": -0.00013984739780426025
+    },
+    {
+      "step": 3,
+      "effective_step": 1,
+      "reward": 0.0,
+      "format_rate": 0.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_degenerate_group": 1.0,
+      "avg_completion_tokens": 512.0,
+      "loss": 0.0
+    },
+    {
+      "step": 4,
+      "effective_step": 1,
+      "reward": 0.0,
+      "format_rate": 0.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_degenerate_group": 1.0,
+      "avg_completion_tokens": 512.0,
+      "loss": 0.0
+    },
+    {
+      "step": 5,
+      "effective_step": 1,
+      "reward": 0.5,
+      "format_rate": 0.5,
+      "degenerate": 0.0,
+      "train_samples": 4,
+      "avg_completion_tokens": 452.25,
+      "loss": 0.000166967511177063
+    }
+  ],
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/03-vision-grpo/run-20261110-231624/adapter",
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10"
+}

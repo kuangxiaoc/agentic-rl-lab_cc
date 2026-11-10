@@ -1,0 +1,20 @@
+{
+  "batch_size": 1,
+  "chapter": 2,
+  "dataset": "AI-ModelScope/gsm8k",
+  "effective_only": true,
+  "external_api_calls": 0,
+  "group_size": 4,
+  "loss_fn": "importance_sampling",
+  "max_attempts": 40,
+  "max_new_tokens": 512,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "profile": "smoke",
+  "start_index": 0,
+  "steps": 4,
+  "study_order": [
+    "experiments/grpo/readme.md",
+    "experiments/grpo/03-grpo.py",
+    "experiments/grpo/local_gpu.py"
+  ]
+}
