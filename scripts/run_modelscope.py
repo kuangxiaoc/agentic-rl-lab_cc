@@ -25,6 +25,7 @@ CHAPTER_SCRIPTS = {
     7: REPO_ROOT / "experiments" / "dapo" / "local_gpu.py",
     8: REPO_ROOT / "experiments" / "gspo" / "local_gpu.py",
     9: REPO_ROOT / "experiments" / "opsd" / "local_gpu.py",
+    10: REPO_ROOT / "experiments" / "agentopsd" / "local_gpu.py",
     11: REPO_ROOT / "experiments" / "search-r1" / "local_gpu.py",
     12: REPO_ROOT / "experiments" / "retool" / "local_gpu.py",
 }
@@ -89,6 +90,7 @@ def doctor(root: Path, profile: str) -> int:
     except Exception as exc:  # noqa: BLE001 - diagnostics must never fail the doctor
         print(f"bitsandbytes_cuda=error ({type(exc).__name__}: {exc})")
     print(f"api_key_present DASHSCOPE_API_KEY={bool(os.environ.get('DASHSCOPE_API_KEY'))}")
+    print(f"api_key_present TAVILY_API_KEY={bool(os.environ.get('TAVILY_API_KEY'))}")
     print("external_api_calls=disabled (budget reservation only)")
     return 0
 

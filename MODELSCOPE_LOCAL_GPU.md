@@ -1,6 +1,6 @@
 # 魔搭 GPU：本地训练循环改造说明
 
-这个 fork 以**单卡魔搭 GPU 本地实现**为主线：01–09、11–12 章已有对应本地 GPU 教程或附录，同目录 `local_gpu.py` 把采样、旧策略 logprob、advantage、loss 和 QLoRA 更新放在魔搭免费 NVIDIA 实例的同一张 GPU 上。原版 PyTRIO 代码仍保留作对照；10、13–16 如实标记为 `not_ported`，不会伪造成功结果。
+这个 fork 以**单卡魔搭 GPU 本地实现**为主线：01–12 章已有对应本地 GPU 教程或附录，同目录 `local_gpu.py` 把采样、旧策略 logprob、advantage、loss 和 QLoRA 更新放在魔搭免费 NVIDIA 实例的同一张 GPU 上。原版 PyTRIO 代码仍保留作对照；13–16 如实标记为 `not_ported`，不会伪造成功结果。
 
 ## 一句话启动
 
@@ -13,7 +13,7 @@ bash scripts/bootstrap_modelscope.sh
 bash scripts/run_modelscope.sh
 ```
 
-默认按阅读顺序运行 `1-3`，默认 profile 是 `smoke`；要一次跑完当前已移植的章节用 `RUN_CHAPTERS=1-9,11-12 bash scripts/run_modelscope.sh`。第 04 章（PyTrio-Jev）使用 Qwen3-4B 做单次 forward 的 masked 决策 SFT；第 05 章（General OPD）使用 Qwen3-1.7B student + Qwen3-4B teacher；第 06 章（Medical OPD）使用同一组 Qwen3 student/teacher，并增加 Base-anchor 或 IDT 模式。第 07 章（DAPO）与第 08 章（GSPO）也已本地化。第 09 章（OPSD）用同一个 Qwen3-4B 的 Student/Teacher 双 prompt 做 sampled-token reverse KL。第 11 章（Search-R1）复用原版多轮搜索状态机，当前默认的离线证据后端只验证机制；第 12 章（ReTool）使用真实本地 Python 沙箱和 Qwen3 JSON tool call。10、13–16 仍会如实标记 `not_ported`。首次运行会检查并安装缺失的训练库，但**不会**覆盖镜像自带的 GPU 版 `torch`；请永远不要在服务器执行 `uv sync --locked`，因为原仓库的 `uv.lock` 指向 CPU torch。若镜像没有 CUDA `torch`，bootstrap 会直接失败并提示选择 CUDA 13.0 / torch 2.13 环境。
+默认按阅读顺序运行 `1-3`，默认 profile 是 `smoke`；要一次跑完当前已移植的章节用 `RUN_CHAPTERS=1-12 bash scripts/run_modelscope.sh`。第 04 章（PyTrio-Jev）使用 Qwen3-4B 做单次 forward 的 masked 决策 SFT；第 05 章（General OPD）使用 Qwen3-1.7B student + Qwen3-4B teacher；第 06 章（Medical OPD）使用同一组 Qwen3 student/teacher，并增加 Base-anchor 或 IDT 模式。第 07 章（DAPO）与第 08 章（GSPO）也已本地化。第 09 章（OPSD）用同一个 Qwen3-4B 的 Student/Teacher 双 prompt 做 sampled-token reverse KL。第 10 章（AgentOPSD）在真实 ALFWorld TextWorld 上复用原版 Student rollout、带 Skill 的同快照 Self-Teacher 和 turn-level credit。第 11 章（Search-R1）复用原版多轮搜索状态机，当前默认的离线证据后端只验证机制；第 12 章（ReTool）使用真实本地 Python 沙箱和 Qwen3 JSON tool call。13–16 仍会如实标记 `not_ported`。首次运行会检查并安装缺失的训练库，但**不会**覆盖镜像自带的 GPU 版 `torch`；请永远不要在服务器执行 `uv sync --locked`，因为原仓库的 `uv.lock` 指向 CPU torch。若镜像没有 CUDA `torch`，bootstrap 会直接失败并提示选择 CUDA 13.0 / torch 2.13 环境。
 
 所有产物统一写入 `/mnt/workspace/agentic-rl-lab/`：
 
@@ -45,6 +45,7 @@ bash scripts/export_results.sh
 experiments/loss-functions/results/
 experiments/grpo/results/
 experiments/vision-grpo/results/
+experiments/agentopsd/results/
 experiments/search-r1/results/
 experiments/retool/results/
 experiment-records/
@@ -65,7 +66,7 @@ bash scripts/run_modelscope.sh chapter 07
 RUN_CHAPTERS=4-6 bash scripts/run_modelscope.sh
 
 # 当前已移植的完整顺序
-RUN_CHAPTERS=1-9,11-12 bash scripts/run_modelscope.sh
+RUN_CHAPTERS=1-12 bash scripts/run_modelscope.sh
 
 # 单章：按原阅读顺序，一个一个执行
 bash scripts/run_modelscope.sh chapter 01
@@ -81,7 +82,7 @@ bash scripts/run_modelscope.sh doctor
 
 `RUN_PROFILE=smoke` 默认配置是 `steps=2, batch_size=1, group_size=2, max_new_tokens=128`；`RUN_PROFILE=full` 是 `steps=10, batch_size=2, group_size=4, max_new_tokens=512`。02/03 当前按章节逐题采样；`full` 的 batch_size 是持久配置记录，第一版不会把多题塞进同一个 forward，以降低 24GB 显存实例的 OOM 风险。04–06 也读取同一个 `RUN_PROFILE`；它们各自还提供 `--steps` / `--sft-steps` 等更细的覆盖参数。
 
-## 01–09、11–12 分别做什么
+## 01–12 分别做什么
 
 - **01 Loss Functions**：不下载 4B 模型，用 PyTorch 张量在本地 GPU 上计算 `importance_sampling`、`ppo`、`cispo` 的 loss 和梯度。结果写到 `runs/01-loss-functions/<run>/losses.json`，与 `experiments/loss-functions/readme.md` 对照阅读。
 - **02 GRPO**：从魔搭下载 `Qwen/Qwen3-4B-Instruct-2507` 与 `AI-ModelScope/gsm8k` 的 `main/train-00000-of-00001.parquet`，用 4-bit NF4 QLoRA 做本地 `model.generate`、规则 reward、组内 advantage 和真实 `loss.backward()`。原版的 `extract_boxed` / `normalize_answer` / `extract_gsm8k_answer` / `grade_answer` 通过 AST 纯函数复用，不导入 PyTRIO。可加 `--loss-fn ppo` 或 `cispo`；默认 `importance_sampling`。
@@ -89,10 +90,13 @@ bash scripts/run_modelscope.sh doctor
 - **04 PyTrio-Jev**：从 ModelScope 下载 `LocalLLaMA/typed-decisions`，用 Qwen3-4B-Instruct-2507 做 marker-only masked SFT。每个字段只在 `decision` marker 前一个位置监督答案符号，评测时在候选符号上做受限 softmax。`ToolACE` 不是必需依赖，避免公开镜像不可用时整章失败。
 - **05 General OPD**：从 ModelScope 下载 DeepMath-103K 的一个 parquet 分片，Qwen3-1.7B student 先采样，Qwen3-4B-Instruct-2507 teacher 对同一条 token 轨迹计算 logprob，本地计算 `reverse_kl = student - teacher`，再用 PPO/IS 更新 student。
 - **06 Medical OPD**：本地 Medical SFT 训练 Qwen3-4B Medical Teacher；Qwen3-1.7B Student 先做 Medical OPD，再用原始 Qwen3-1.7B 做 Base-anchor OPD。`--mode idt` 可切换为 Medical/C-Eval 双 Teacher 交替训练。MedQA-zh 与 C-Eval 都在同一张卡上本地评测。
+- **10 AgentOPSD**：自动下载官方 ALFWorld 文本数据，Qwen3-4B-Instruct-2507 + 4-bit QLoRA 先在无 Skill 条件下完成多轮 TextWorld 轨迹；随后同一份当前参数以带 Skill 的 Teacher prompt 复评原轨迹 action token，计算每轮 evidence、belief 变化和 turn-level advantage，再做一次 action-only PPO 更新。Teacher 不下载第二个模型，也不改动作或重跑环境。
 - **11 Search-R1**：复用原版 `rollout.py` 的多轮 search state machine、tool observation mask、group-relative advantage 和本地 policy update。当前服务器默认使用 `local_search.py` 的**离线 oracle 词法证据后端**：证据里明确包含参考答案，只用于验证“模型生成 query → search call → observation → 继续推理 → reward → backward”的机制，不是在线检索 benchmark。真正接 Tavily / Wikipedia / DeepSeek Search 时，密钥只写服务器 `.env`，不提交 Git。
 - **12 ReTool**：复用原版多轮 code-interlaced rollout，工具调用进入真实 `LocalPythonSandbox`，observation 只作为上下文、不参与 policy loss。Qwen3-4B-Instruct-2507 使用 4-bit QLoRA。教学 smoke 默认预填 JSON tool-call 外壳，只让模型生成 Python 正文；预填前缀的 advantage 为 0，不训练这部分 token。这是为了在 A10 上用短轨迹跑通机制，不等同于论文的完整 ReTool 设置。
 
-04–06、11–12 也会在 `state.json` 记录 `running → completed / data_unavailable / failed`。单章失败会停止后续章节；按需可用 `bash scripts/run_modelscope.sh run 4-6 --continue-on-error`（runner 参数）让报告继续生成。每章的 `readme.md` 末尾都有本地 GPU 运行附录，说明模型对、命令、产物路径和与原版规模的边界。
+04–06、10–12 也会在 `state.json` 记录 `running → completed / data_unavailable / failed`。单章失败会停止后续章节；按需可用 `bash scripts/run_modelscope.sh run 4-6 --continue-on-error`（runner 参数）让报告继续生成。每章的 `readme.md` 末尾都有本地 GPU 运行附录，说明模型对、命令、产物路径和与原版规模的边界。
+
+第 10 章首次运行会调用官方 `alfworld-download` 下载数据到 `$WORKSPACE_ROOT/datasets/alfworld`。如果 GitHub release 不可达，状态会写成 `data_unavailable`，不会用其他文本任务冒充 ALFWorld。
 
 11/12 的 smoke 使用动态采样：同一题的一个 group 如果 reward 全相同，advantage 会全为 0，此时换下一题，最多尝试 `--max-question-attempts` 次。日志中的 `dynamic_sampling/groups_sampled`、`groups_kept`、`groups_dropped` 和 `drop_rate` 会如实记录被丢弃的组；如果整步没有可训练组，`train/updated_trajectories=0`，不会伪造 optimizer step。
 
@@ -116,7 +120,7 @@ bash scripts/run_modelscope.sh chapter 12 --force \
 
 ## 外部 API 与免费额度
 
-当前 01–09、11–12 的默认运行 **不发起任何外部搜索、裁判或教师 API 调用**；11 的离线证据后端和 12 的本地沙箱都不会访问外部服务。预算账本与密钥存在性检查已经预留，方便以后切到在线 Search-R1 / Tournament-GRPO：
+当前 01–12 的默认运行 **不发起任何外部搜索、裁判或教师 API 调用**；10 的 Teacher 是同一张卡上的本地参数快照，11 的离线证据后端和 12 的本地沙箱都不会访问外部服务。预算账本与密钥存在性检查已经预留，方便以后切到在线 Search-R1 / Tournament-GRPO：
 
 - 硬上限：`MAX_EXTERNAL_COST_CNY=50`、`ALLOW_PAID_OVERAGE=0`、每个模型 `FREE_TOKEN_LIMIT=1000000`。
 - 默认低成本候选：`deepseek-v4.1-flash`（裁判）、`qwen3.8-flash`（教师候选），关闭 thinking；不默认 `qwen3.8-max-0902`、`glm-5.3`、`kimi-k3` 或大参数模型。
@@ -145,4 +149,5 @@ bash scripts/run_modelscope.sh chapter 12 --force \
 - 05/06 使用 1.7B student + 4B teacher，是为了在 A10 上稳定跑通机制，不等同于原版 4B student / 27B teacher 的论文规模；不要把本地 smoke 的准确率直接和原版表格比较。
 - 04 的 ToolACE 可选数据默认不下载；如果后续需要完整五项 Jevbench 对照，再单独补 ToolACE 镜像或本地 JSONL。
 - 本地只做标准库测试、语法检查和 shell 语法检查；真实模型下载/首次 GPU smoke 必须在服务器完成。
+- 10 的 smoke 只验证 Student rollout、Teacher action-span 对齐、turn credit 和 PPO 更新；8–12 轮、单游戏、2 条轨迹的规模不能与论文 50 轮、16×8 轨迹的指标直接比较。
 - 11 的离线证据后端把参考答案放进检索片段，只验证训练机制；12 的教学脚手架预填 tool-call 外壳，只训练模型生成的 Python 正文。两者都不能直接与论文指标比较。

@@ -30,6 +30,23 @@ if missing:
     subprocess.check_call([sys.executable, '-m', 'pip', 'install', *missing])
 else:
     print('all runtime imports are already installed')
+
+# TextWorld / ALFWorld are only needed by chapters 10, 13 and 14.
+# Keep them optional so the other chapters do not wait for a large spaCy install.
+optional = {
+    'alfworld': 'alfworld==0.4.2',
+    'textworld': 'textworld[pddl]>=1.6.1',
+    'spacy': 'spacy==3.8.13',
+}
+missing_optional = [
+    package for module, package in optional.items()
+    if importlib.util.find_spec(module) is None
+]
+if missing_optional:
+    print('pip install (ALFWorld extras) ' + ' '.join(missing_optional), flush=True)
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', *missing_optional])
+else:
+    print('all ALFWorld imports are already installed')
 PY
 
 bash scripts/run_modelscope.sh doctor

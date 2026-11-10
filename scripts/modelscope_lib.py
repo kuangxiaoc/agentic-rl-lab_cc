@@ -31,6 +31,7 @@ CHAPTER_NAMES = {
     7: "07-dapo",
     8: "08-gspo",
     9: "09-opsd",
+    10: "10-agentopsd",
     11: "11-search-r1",
     12: "12-retool",
 }
@@ -44,6 +45,7 @@ CHAPTER_RESULT_DIRS = {
     7: "experiments/dapo/results",
     8: "experiments/gspo/results",
     9: "experiments/opsd/results",
+    10: "experiments/agentopsd/results",
     11: "experiments/search-r1/results",
     12: "experiments/retool/results",
 }
@@ -474,7 +476,7 @@ def write_report(root: Path, state: dict[str, Any] | None = None) -> Path:
         )
     lines += [
         "",
-        "10、13-16 的 `not_ported` 是如实记录，不代表运行成功。",
+        "13-16 的 `not_ported` 是如实记录，不代表运行成功。",
         "外部 API 预算与密钥状态见 `api_budget.json` 和 `environment.json`。",
         "",
     ]

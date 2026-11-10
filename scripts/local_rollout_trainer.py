@@ -118,3 +118,79 @@ def train_trajectories(
     optimizer.step()
     torch_module.cuda.empty_cache()
     return losses, len(samples)
+
+
+def build_turn_advantage_sample(trajectory: Any) -> trainer.Sample | None:
+    """Build one PPO sample with a different advantage for each action span.
+
+    AgentOPSD assigns credit per turn, not per trajectory. Assistant action
+    tokens get their turn's advantage; prompt, tool, and observation tokens
+    stay in the causal context with advantage zero.
+    """
+    steps = list(trajectory.steps)
+    credits = list(trajectory.turn_credits)
+    if not steps or len(steps) != len(credits):
+        return None
+
+    full_tokens = list(trajectory.full_student_tokens)
+    advantages = [0.0] * len(full_tokens)
+    old_logprobs = [0.0] * len(full_tokens)
+    for step, credit in zip(steps, credits):
+        start = int(step.action_start)
+        end = int(step.action_end)
+        if end - start != len(step.logprobs):
+            raise ValueError(f"turn {step.index} action span/logprob mismatch")
+        old_logprobs[start:end] = step.logprobs
+        advantages[start:end] = [float(credit.advantage)] * (end - start)
+
+    initial_length = int(trajectory.student_initial_length)
+    if initial_length < 1 or initial_length >= len(full_tokens):
+        return None
+    return trainer.Sample(
+        input_ids=full_tokens,
+        completion_ids=full_tokens[initial_length:],
+        old_logprobs=old_logprobs[initial_length:],
+        advantages=advantages[initial_length:],
+        reward=float(trajectory.reward),
+        text="",
+    )
+
+
+def train_turn_advantage_trajectories(
+    model: Any,
+    optimizer: Any,
+    trajectories: Iterable[Any],
+    *,
+    clip_low: float,
+    clip_high: float,
+    torch_module: Any,
+    device: Any,
+) -> tuple[list[float], int]:
+    """Run one PPO optimizer step over AgentOPSD turn-level credits."""
+    samples: list[trainer.Sample] = []
+    for trajectory in trajectories:
+        if abs(float(getattr(trajectory, "sequence_advantage", 0.0))) <= 1e-12:
+            continue
+        sample = build_turn_advantage_sample(trajectory)
+        if sample is not None:
+            samples.append(sample)
+    if not samples:
+        return [], 0
+
+    optimizer.zero_grad(set_to_none=True)
+    losses: list[float] = []
+    for sample in samples:
+        loss = trainer.sequence_policy_loss(
+            model,
+            sample,
+            torch_module,
+            device,
+            loss_fn="ppo",
+            clip_low=clip_low,
+            clip_high=clip_high,
+        )
+        (loss / len(samples)).backward()
+        losses.append(float(loss.detach().item()))
+    optimizer.step()
+    torch_module.cuda.empty_cache()
+    return losses, len(samples)

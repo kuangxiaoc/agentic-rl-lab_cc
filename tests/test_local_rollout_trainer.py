@@ -84,6 +84,46 @@ class MultiturnSampleTests(unittest.TestCase):
         assert sample is not None
         self.assertEqual(sample.advantages, [0.0, 2.0, 2.0])
 
+    def test_agentopsd_turn_advantages_mask_prompt_and_tool_tokens(self):
+        class Step:
+            def __init__(self, index, start, end, logprobs):
+                self.index = index
+                self.action_start = start
+                self.action_end = end
+                self.logprobs = logprobs
+
+        class Credit:
+            def __init__(self, advantage):
+                self.advantage = advantage
+
+        class Trajectory:
+            student_initial_length = 3
+            full_student_tokens = [1, 2, 3, 10, 11, 20, 21]
+            steps = [
+                Step(1, 3, 5, [-0.1, -0.2]),
+                Step(2, 5, 7, [-0.3, -0.4]),
+            ]
+            turn_credits = [Credit(1.5), Credit(-0.5)]
+            reward = 1.0
+            sequence_advantage = 0.5
+
+        sample = rollout_trainer.build_turn_advantage_sample(Trajectory())
+        assert sample is not None
+        self.assertEqual(sample.input_ids, [1, 2, 3, 10, 11, 20, 21])
+        self.assertEqual(sample.completion_ids, [10, 11, 20, 21])
+        self.assertEqual(sample.old_logprobs, [-0.1, -0.2, -0.3, -0.4])
+        self.assertEqual(sample.advantages, [1.5, 1.5, -0.5, -0.5])
+
+    def test_agentopsd_sample_requires_matching_turns(self):
+        class Trajectory:
+            student_initial_length = 1
+            full_student_tokens = [1, 2]
+            steps = []
+            turn_credits = []
+            reward = 0.0
+
+        self.assertIsNone(rollout_trainer.build_turn_advantage_sample(Trajectory()))
+
 
 class LocalTrioCompatibilityTests(unittest.TestCase):
     def test_token_prompt_and_sampling_params_shapes(self):

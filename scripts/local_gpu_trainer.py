@@ -503,6 +503,53 @@ class LocalSamplingClient:
             seed=int(getattr(sampling_params, "seed", 0)),
         )
 
+    def compute_logprobs(self, tokens: list[int]) -> list[float]:
+        """Score every input token under the current local policy.
+
+        The returned list has the same length as ``tokens``. Index 0 has no
+        preceding token, so it is reported as 0.0; index ``i`` is the logprob
+        of ``tokens[i]`` conditioned on ``tokens[:i]``. This matches the
+        absolute action spans used by the original AgentOPSD Teacher code.
+        """
+        if not tokens:
+            return []
+        input_ids = self.torch.tensor(
+            [tokens], device=self.device, dtype=self.torch.long
+        )
+        attention_mask = self.torch.ones_like(input_ids)
+        was_training = self.model.training
+        self.model.eval()
+        try:
+            with self.torch.no_grad():
+                logits = self.model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    use_cache=False,
+                ).logits[0]
+                targets = input_ids[0, 1:]
+                values: list[float] = []
+                # Score in bounded chunks so a long trajectory does not
+                # materialize a full float32 [sequence, vocabulary] matrix.
+                for start in range(0, len(tokens) - 1, 512):
+                    end = min(start + 512, len(tokens) - 1)
+                    chunk = self.torch.log_softmax(
+                        logits[start:end].float(), dim=-1
+                    )
+                    selected = chunk.gather(
+                        1, targets[start:end].unsqueeze(1)
+                    ).squeeze(1)
+                    values.extend(float(value) for value in selected.tolist())
+                del logits
+        finally:
+            if was_training:
+                self.model.train()
+            self.torch.cuda.empty_cache()
+        return [0.0, *values]
+
+    async def compute_logprobs_async(self, prompt: Any) -> list[float]:
+        """Accept the PyTRIO request shape used by the original Teacher."""
+        return self.compute_logprobs([int(token) for token in prompt.tokens])
+
 
 class LocalTokenPrompt:
     """Token-only prompt matching ``trio.ModelInput.from_ints``."""

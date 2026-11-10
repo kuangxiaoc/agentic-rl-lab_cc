@@ -380,3 +380,89 @@ AgentOPSD 保留了 GRPO 的终局奖励方向，再由 Self-Teacher 对不同 t
 | [`skills/alfworld/`](./skills/alfworld) | 固定版本的 general 与任务专属 Skill 资产 |
 
 推荐阅读顺序：先看 `train.py` 的主循环，再依次跟进 `rollout.py → teacher.py → advantages.py → loss.py`。这一条链正好对应“一批 Student 轨迹如何变成一次参数更新”。
+
+## 9. 本地 GPU 运行附录（单卡魔搭）
+
+本 fork 新增 [`local_gpu.py`](./local_gpu.py)，把原版远端 PyTRIO 的采样和训练边界换成一张本地 NVIDIA GPU。算法链路保持不变：
+
+```text
+无 Skill Student rollout
+→ 同一参数快照带 Skill 复评 action token
+→ Teacher evidence / belief / turn credit
+→ action-only PPO backward
+→ QLoRA optimizer step
+```
+
+Teacher 不是第二个模型，也不调用外部 API。它使用当前 Student 的同一份 QLoRA 参数，只是换成带固定 SkillBank 的 system prompt，因此不需要在 A10 上同时加载两份 4B 权重。
+
+### 9.1 依赖与数据
+
+```bash
+cd /mnt/workspace/agentic-rl-lab_cc
+bash scripts/bootstrap_modelscope.sh
+```
+
+bootstrap 会保留镜像自带 CUDA torch，并只在缺失时安装 `alfworld==0.4.2`、`textworld[pddl]`、`spacy==3.8.13`。不要执行 `uv sync --locked`。
+
+第一次运行会自动调用官方 `alfworld-download`，把数据写入持久目录：
+
+```text
+/mnt/workspace/agentic-rl-lab/datasets/alfworld/
+```
+
+数据不进入 Git。如果下载失败，章节状态会写成 `data_unavailable`，不会伪造成功。
+
+### 9.2 最小机制 smoke
+
+```bash
+bash scripts/run_modelscope.sh chapter 10 --force \
+  --chapter-arg=--run-id=agentopsd-mechanism \
+  --chapter-arg=--steps=2 \
+  --chapter-arg=--tasks-per-update=1 \
+  --chapter-arg=--group-size=2 \
+  --chapter-arg=--max-turns=8 \
+  --chapter-arg=--max-action-tokens=256 \
+  --chapter-arg=--max-attempts=3
+```
+
+这是真实模型 rollout、真实 TextWorld 环境、真实 Teacher forward 和真实 `backward()`，但规模很小。一个游戏的两条轨迹可能刚好全成功或全失败；脚本会丢弃这种没有组内梯度的 update，最多重试 `--max-attempts` 次，并如实记录 `dynamic_sampling/*` 指标。
+
+### 9.3 稍长但仍可在单次会话内看完的运行
+
+```bash
+bash scripts/run_modelscope.sh chapter 10 --force \
+  --chapter-arg=--run-id=agentopsd-study \
+  --chapter-arg=--steps=4 \
+  --chapter-arg=--tasks-per-update=2 \
+  --chapter-arg=--group-size=4 \
+  --chapter-arg=--max-turns=12 \
+  --chapter-arg=--max-action-tokens=384 \
+  --chapter-arg=--max-attempts=4
+```
+
+目标是在 A10 上运行约 10–30 分钟，而不是复刻论文 80-step、`16 × 8` 长轨迹训练。原版正式配置和论文结果见上文；本附录的定位是**单卡机制复现与可离线学习的实验记录**。
+
+### 9.4 产物
+
+```text
+/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/<run_id>/
+├── config.json
+├── history.json
+├── samples.jsonl
+├── summary.json
+└── adapter/                 # 轻量 LoRA 配置；大权重不进入 Git
+```
+
+每步 metrics 写入 `metrics/chapter-10.jsonl`，日志写入 `logs/chapter-10.log`。runner 会把轻量记录同步到 `experiments/agentopsd/results/`，服务器 `commit && push` 后本地 `pull` 即可阅读。
+
+### 9.5 与原版的关键差异
+
+| 项目 | 原版 | 本 fork |
+| --- | --- | --- |
+| 采样 / 训练 | PyTRIO 远端 | 本地 Qwen3-4B + 4-bit QLoRA |
+| Teacher | 同一 snapshot 带 Skill 复评 | 同一本地参数、同一 GPU、Skill prompt |
+| 训练规模 | 80 step，`16 × 8` | smoke 2 step，`1 × 2` |
+| 模型 | Qwen3.5-4B | Qwen3-4B-Instruct-2507 |
+| 指标比较 | 274-game 固定评测 | 只验证机制，不宣称论文级提升 |
+
+阅读时建议对照 [`rollout.py`](./rollout.py) 的 action span、[`teacher.py`](./teacher.py) 的 `compute_logprobs` 对齐，以及 [`advantages.py`](./advantages.py) 的 turn credit 递推。`local_gpu.py` 只替换模型执行边界，不改这三段核心逻辑。

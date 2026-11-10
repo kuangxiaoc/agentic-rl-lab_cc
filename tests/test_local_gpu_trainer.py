@@ -54,6 +54,8 @@ class _Row:
         self.values = list(values)
 
     def __getitem__(self, key):
+        if isinstance(key, int):
+            return self.values[key]
         return _Row(self.values[key]) if isinstance(key, slice) else self.values[key]
 
     def __len__(self):
@@ -62,6 +64,24 @@ class _Row:
     def tolist(self):
         return list(self.values)
 
+    def float(self):
+        return self
+
+    def unsqueeze(self, axis):
+        if axis != 1:
+            raise ValueError(axis)
+        return _Row([[value] for value in self.values])
+
+    def squeeze(self, axis):
+        if axis != 1:
+            raise ValueError(axis)
+        return _Row([value[0] if isinstance(value, list) else value for value in self.values])
+
+    def gather(self, axis, indices):
+        if axis != 1:
+            raise ValueError(axis)
+        return _Row([row[column[0]] for row, column in zip(self.values, indices.values)])
+
 
 class _Matrix:
     def __init__(self, rows):
@@ -69,7 +89,16 @@ class _Matrix:
         self.shape = (len(self.rows), len(self.rows[0]))
 
     def __getitem__(self, key):
+        if isinstance(key, tuple):
+            row, column = key
+            return _Row(self.rows[row]) if column == slice(None) else _Row(self.rows[row][column])
         return _Row(self.rows[key]) if isinstance(key, int) else self.rows[key]
+
+    def __len__(self):
+        return len(self.rows)
+
+    def tolist(self):
+        return [list(row) for row in self.rows]
 
 
 class _NoGrad:
@@ -83,6 +112,7 @@ class _NoGrad:
 class FakeTorch:
     def __init__(self):
         self.seeds = []
+        self.long = "long"
         self.cuda = type("Cuda", (), {"empty_cache": lambda self: None})()
 
     def manual_seed(self, value):
@@ -93,6 +123,14 @@ class FakeTorch:
 
     def log_softmax(self, logits, dim=-1):
         return logits
+
+    def tensor(self, values, device=None, dtype=None):
+        return _Matrix(values) if values and isinstance(values[0], list) else _Row(values)
+
+    def ones_like(self, value):
+        if isinstance(value, _Matrix):
+            return _Matrix([[1] * len(row) for row in value.rows])
+        return _Row([1] * len(value))
 
 
 class FakeOutput:
@@ -126,6 +164,13 @@ class FakeModel:
     def train(self):
         self.training = True
         return self
+
+    def __call__(self, **kwargs):
+        input_ids = kwargs["input_ids"]
+        tokens = input_ids.tolist()[0]
+        # One logits row per token, with a stable per-token score.
+        rows = [[-abs(index - token) for index in range(16)] for token in tokens]
+        return type("Output", (), {"logits": _Matrix([rows])})()
 
 
 class FakeTokenizer:
@@ -359,6 +404,29 @@ class GenerateGroupTests(unittest.TestCase):
         self.assertEqual(call["pad_token_id"], EOS)
         self.assertEqual(completions[0], [7, 8, EOS])
         self.assertEqual(len(texts), 2)
+
+
+class LocalSamplingClientLogprobTests(unittest.TestCase):
+    def test_logprobs_align_with_every_input_token(self):
+        client = trainer.LocalSamplingClient(
+            FakeModel(),
+            FakeTokenizer(),
+            FakeTorch(),
+            "cuda:0",
+        )
+        values = client.compute_logprobs([1, 2, 3])
+        self.assertEqual(len(values), 3)
+        self.assertEqual(values[0], 0.0)
+        self.assertTrue(all(value <= 0.0 for value in values[1:]))
+
+    def test_empty_input_is_empty(self):
+        client = trainer.LocalSamplingClient(
+            FakeModel(),
+            FakeTokenizer(),
+            FakeTorch(),
+            "cuda:0",
+        )
+        self.assertEqual(client.compute_logprobs([]), [])
 
 
 if __name__ == "__main__":

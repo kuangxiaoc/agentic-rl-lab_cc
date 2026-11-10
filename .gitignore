@@ -274,6 +274,7 @@ experiments/tempo/datasets/
 !experiments/pytrio-jev/results/
 !experiments/general-opd/results/
 !experiments/medical-opd/results/
+!experiments/agentopsd/results/
 !experiment-records/
 experiments/*/results/**/*.safetensors
 experiments/*/results/**/*.bin
