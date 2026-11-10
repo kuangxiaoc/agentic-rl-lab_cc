@@ -84,14 +84,14 @@
     },
     "4": {
       "details": {
-        "adapter": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-134111/adapter",
-        "eval_accuracy": 0.508,
-        "steps": 2,
-        "summary": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-134111/summary.json"
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-140523/adapter",
+        "eval_accuracy": 0.336,
+        "steps": 10,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-140523/summary.json"
       },
-      "run_id": "run-20261110-134111",
+      "run_id": "run-20261110-140523",
       "status": "completed",
-      "updated_at": "2026-11-10T05:42:33+00:00"
+      "updated_at": "2026-11-10T06:06:16+00:00"
     },
     "5": {
       "details": {
@@ -141,5 +141,5 @@
   },
   "created_at": "2026-11-08T08:05:06+00:00",
   "schema_version": 1,
-  "updated_at": "2026-11-10T06:02:48+00:00"
+  "updated_at": "2026-11-10T06:06:16+00:00"
 }

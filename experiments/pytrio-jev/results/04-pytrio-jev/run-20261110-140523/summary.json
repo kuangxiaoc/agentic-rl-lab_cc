@@ -1,0 +1,86 @@
+{
+  "chapter": 4,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "dataset": "LocalLLaMA/typed-decisions",
+  "profile": "full",
+  "epochs": 1,
+  "batch_size": 1,
+  "steps": 10,
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/pytrio-jev/readme.md",
+    "experiments/pytrio-jev/train.py",
+    "experiments/pytrio-jev/local_gpu.py"
+  ],
+  "history": [
+    {
+      "step": 0,
+      "loss": 18.04122543334961,
+      "marker_accuracy": 0.0,
+      "records": 1
+    },
+    {
+      "step": 1,
+      "loss": 13.495038032531738,
+      "marker_accuracy": 0.20000000298023224,
+      "records": 1
+    },
+    {
+      "step": 2,
+      "loss": 2.7258846759796143,
+      "marker_accuracy": 0.4000000059604645,
+      "records": 1
+    },
+    {
+      "step": 3,
+      "loss": 5.155096530914307,
+      "marker_accuracy": 0.20000000298023224,
+      "records": 1
+    },
+    {
+      "step": 4,
+      "loss": 1.7778583765029907,
+      "marker_accuracy": 0.4000000059604645,
+      "records": 1
+    },
+    {
+      "step": 5,
+      "loss": 3.5569026470184326,
+      "marker_accuracy": 0.20000000298023224,
+      "records": 1
+    },
+    {
+      "step": 6,
+      "loss": 1.5967978239059448,
+      "marker_accuracy": 0.4000000059604645,
+      "records": 1
+    },
+    {
+      "step": 7,
+      "loss": 1.2247364521026611,
+      "marker_accuracy": 0.20000000298023224,
+      "records": 1
+    },
+    {
+      "step": 8,
+      "loss": 0.6223016381263733,
+      "marker_accuracy": 0.800000011920929,
+      "records": 1
+    },
+    {
+      "step": 9,
+      "loss": 1.4991719722747803,
+      "marker_accuracy": 0.0,
+      "records": 1
+    }
+  ],
+  "eval": {
+    "records": 50,
+    "decisions": 250,
+    "correct": 84,
+    "accuracy": 0.336
+  },
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-140523/adapter",
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10"
+}
