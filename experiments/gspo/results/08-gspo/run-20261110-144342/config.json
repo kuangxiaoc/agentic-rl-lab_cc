@@ -1,0 +1,22 @@
+{
+  "batch_size": 2,
+  "chapter": 8,
+  "clip_high": 0.0004,
+  "clip_low": 0.0003,
+  "dataset": "AI-ModelScope/gsm8k",
+  "effective_only": true,
+  "external_api_calls": 0,
+  "group_size": 8,
+  "max_attempts": 24,
+  "max_new_tokens": 384,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "profile": "full",
+  "sequence_level": true,
+  "start_index": 500,
+  "steps": 6,
+  "study_order": [
+    "experiments/gspo/readme.md",
+    "experiments/gspo/loss.py",
+    "experiments/gspo/local_gpu.py"
+  ]
+}

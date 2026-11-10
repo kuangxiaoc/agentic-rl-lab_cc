@@ -1,6 +1,6 @@
 # ModelScope 本地 GPU 实验报告
 
-更新时间：2026-11-10T06:25:16+00:00
+更新时间：2026-11-10T06:52:55+00:00
 
 | 章节 | 状态 | run_id | 说明 |
 | --- | --- | --- | --- |
@@ -10,8 +10,8 @@
 | 04 | completed | run-20261110-140852 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-140852/adapter", "eval_accuracy": 0.344, "steps": 40, "summary": "/mnt/workspace/agentic-rl-lab/runs/04-pytrio-jev/run-20261110-140852/summary.json"} |
 | 05 | completed | run-20261110-141035 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/05-general-opd/run-20261110-141035/adapter", "steps": 15, "student_model": "Qwen/Qwen3-1.7B", "summary": "/mnt/workspace/agentic-rl-lab/runs/05-general-opd/run-20261110-141035/summary.json", "teacher_model": "Qwen/Qwen3-4B-Instruct-2507"} |
 | 06 | completed | run-20261110-141706 | {"ceval_base_accuracy": 0.25, "ceval_final_accuracy": 0.225, "final_adapter": "/mnt/workspace/agentic-rl-lab/runs/06-medical-opd/run-20261110-141706/student_anchor_adapter/adapter", "medqa_base_accuracy": 0.18, "medqa_final_accuracy": 0.16, "mode": "sar", "sft_steps": 30, "teacher_adapter": "/mnt/workspace/agentic-rl-lab/runs/06-medical-opd/run-20261110-141706/medical_teacher_adapter/adapter"} |
-| 07 | completed | run-20261110-142349 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-142349/adapter", "skipped_groups": 2, "steps": 2, "summary": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-142349/summary.json"} |
-| 08 | completed | run-20261110-142435 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261110-142435/adapter", "steps": 2, "summary": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261110-142435/summary.json"} |
+| 07 | completed | run-20261110-143037 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-143037/adapter", "attempts": 32, "skipped_groups": 26, "steps": 6, "summary": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-143037/summary.json"} |
+| 08 | completed | run-20261110-144342 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261110-144342/adapter", "attempts": 24, "skipped_groups": 20, "steps": 4, "summary": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261110-144342/summary.json"} |
 | 09 | not_ported | - | {} |
 | 10 | not_ported | - | {} |
 | 11 | not_ported | - | {} |

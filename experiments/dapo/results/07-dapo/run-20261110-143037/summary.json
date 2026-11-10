@@ -1,0 +1,338 @@
+{
+  "chapter": 7,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "dataset": "AI-ModelScope/gsm8k",
+  "steps": 8,
+  "batch_size": 2,
+  "group_size": 8,
+  "max_new_tokens": 384,
+  "profile": "full",
+  "clip_low": 0.8,
+  "clip_high": 1.28,
+  "dynamic_sampling": true,
+  "token_level_loss": true,
+  "overlong_cache": 0,
+  "max_attempts": 32,
+  "start_index": 500,
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/dapo/readme.md",
+    "experiments/dapo/reward.py",
+    "experiments/dapo/rollout.py",
+    "experiments/dapo/local_gpu.py"
+  ],
+  "history": [
+    {
+      "step": 0,
+      "effective_step": 0,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 1,
+      "effective_step": 0,
+      "reward": -1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 2,
+      "effective_step": 0,
+      "reward": 0.25,
+      "correct_rate": 0.625,
+      "degenerate": 0.0,
+      "train_samples": 8,
+      "skipped_by_dynamic_sampling": 0.0,
+      "avg_completion_tokens": 361.625,
+      "length_penalty_mean": 0.0,
+      "loss": 0.005598010495305061
+    },
+    {
+      "step": 3,
+      "effective_step": 1,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 4,
+      "effective_step": 1,
+      "reward": -1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 5,
+      "effective_step": 1,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 6,
+      "effective_step": 1,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 7,
+      "effective_step": 1,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 8,
+      "effective_step": 1,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 9,
+      "effective_step": 1,
+      "reward": -0.25,
+      "correct_rate": 0.375,
+      "degenerate": 0.0,
+      "train_samples": 8,
+      "skipped_by_dynamic_sampling": 0.0,
+      "avg_completion_tokens": 89.25,
+      "length_penalty_mean": 0.0,
+      "loss": -0.0044474974274635315
+    },
+    {
+      "step": 10,
+      "effective_step": 2,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 11,
+      "effective_step": 2,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 12,
+      "effective_step": 2,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 13,
+      "effective_step": 2,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 14,
+      "effective_step": 2,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 15,
+      "effective_step": 2,
+      "reward": -0.5,
+      "correct_rate": 0.25,
+      "degenerate": 0.0,
+      "train_samples": 8,
+      "skipped_by_dynamic_sampling": 0.0,
+      "avg_completion_tokens": 369.875,
+      "length_penalty_mean": 0.0,
+      "loss": 0.0077646467834711075
+    },
+    {
+      "step": 16,
+      "effective_step": 3,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 17,
+      "effective_step": 3,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 18,
+      "effective_step": 3,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 19,
+      "effective_step": 3,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 20,
+      "effective_step": 3,
+      "reward": -0.25,
+      "correct_rate": 0.375,
+      "degenerate": 0.0,
+      "train_samples": 8,
+      "skipped_by_dynamic_sampling": 0.0,
+      "avg_completion_tokens": 359.875,
+      "length_penalty_mean": 0.0,
+      "loss": 0.010178249329328537
+    },
+    {
+      "step": 21,
+      "effective_step": 4,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 22,
+      "effective_step": 4,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 23,
+      "effective_step": 4,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 24,
+      "effective_step": 4,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 25,
+      "effective_step": 4,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 26,
+      "effective_step": 4,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 27,
+      "effective_step": 4,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 28,
+      "effective_step": 4,
+      "reward": 0.75,
+      "correct_rate": 0.875,
+      "degenerate": 0.0,
+      "train_samples": 8,
+      "skipped_by_dynamic_sampling": 0.0,
+      "avg_completion_tokens": 175.875,
+      "length_penalty_mean": 0.0,
+      "loss": -0.008948851376771927
+    },
+    {
+      "step": 29,
+      "effective_step": 5,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    },
+    {
+      "step": 30,
+      "effective_step": 5,
+      "reward": 0.75,
+      "correct_rate": 0.875,
+      "degenerate": 0.0,
+      "train_samples": 8,
+      "skipped_by_dynamic_sampling": 0.0,
+      "avg_completion_tokens": 233.875,
+      "length_penalty_mean": 0.0,
+      "loss": 0.02837316319346428
+    },
+    {
+      "step": 31,
+      "effective_step": 6,
+      "reward": 1.0,
+      "degenerate": 1.0,
+      "train_samples": 0,
+      "skipped_by_dynamic_sampling": 1.0,
+      "loss": 0.0
+    }
+  ],
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-143037/adapter",
+  "skipped_groups": 26,
+  "attempts": 32,
+  "effective_updates": 6,
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10"
+}
