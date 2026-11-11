@@ -47,7 +47,7 @@ sys.path.insert(0, str(EXPERIMENT_DIR))
 import data as agent_data  # noqa: E402
 
 
-MODEL_ID = "Qwen/Qwen3-4B-Instruct-2507"
+MODEL_ID = "Qwen/Qwen3.5-4B"
 ALFWORLD_URL = "https://github.com/alfworld/alfworld/releases"
 
 
@@ -59,6 +59,13 @@ def parse_args() -> argparse.Namespace:
         "--profile",
         default=os.environ.get("RUN_PROFILE", "smoke"),
         choices=("smoke", "full"),
+    )
+    parser.add_argument("--model", default=MODEL_ID)
+    parser.add_argument(
+        "--vision-model",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="默认根据模型名判断；Qwen3.5-4B 使用视觉语言模型加载器",
     )
     parser.add_argument("--steps", type=int, default=0, help="0 表示使用 profile 默认值")
     parser.add_argument("--tasks-per-update", type=int, default=1)
@@ -298,11 +305,20 @@ def main() -> int:
     ):
         raise ValueError("steps/tasks/group/turns/token/concurrency limits are invalid")
 
+    model_id = str(args.model).strip()
+    if not model_id:
+        raise ValueError("--model must not be empty")
+    vision_model = (
+        args.vision_model
+        if args.vision_model is not None
+        else "qwen3.5" in model_id.lower()
+    )
     data_root = _data_root(root, args.data_root)
     skills_dir = _skills_dir(args.skills_dir)
     summary: dict[str, Any] = {
         "chapter": 10,
-        "model": MODEL_ID,
+        "model": model_id,
+        "vision_model": vision_model,
         "dataset": "alfworld/json_2.1.1",
         "data_root": str(data_root),
         "profile": args.profile,
@@ -346,12 +362,12 @@ def main() -> int:
         import asyncio
         import torch
 
-        model_dir = trainer.download_modelscope_model(MODEL_ID, root)
+        model_dir = trainer.download_modelscope_model(model_id, root)
         device = trainer.check_gpu()
         model, tokenizer, _ = trainer.build_qlora_model(
             model_dir,
             rank=args.lora_rank,
-            vision=False,
+            vision=vision_model,
         )
         model.train()
         optimizer = torch.optim.AdamW(
