@@ -536,9 +536,11 @@ def main() -> int:
             json.dumps(history, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
+        stats = search_client.stats
         external_api_calls = int(
-            getattr(search_client.stats, "api_requests", 0)
-            or getattr(search_client.stats, "requests", 0)
+            stats.api_requests
+            if hasattr(stats, "api_requests")
+            else stats.requests
         )
         summary.update(
             {
