@@ -1,6 +1,6 @@
 # ModelScope 本地 GPU 实验报告
 
-更新时间：2026-11-11T15:44:33+00:00
+更新时间：2026-11-11T17:17:42+00:00
 
 | 章节 | 状态 | run_id | 说明 |
 | --- | --- | --- | --- |
@@ -13,7 +13,7 @@
 | 07 | completed | run-20261110-233703 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-233703/adapter", "attempts": 27, "skipped_groups": 24, "steps": 3, "summary": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-233703/summary.json"} |
 | 08 | completed | run-20261111-214640 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261111-214640/adapter", "attempts": 23, "skipped_groups": 20, "steps": 3, "summary": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261111-214640/summary.json"} |
 | 09 | completed | run-20261110-150419 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-150419/adapter", "steps": 4, "summary": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-150419/summary.json"} |
-| 10 | failed | run-20261111-215724 | {"deferred": true, "interrupted": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/run-20261111-215724/interrupted.txt", "log": "/mnt/workspace/agentic-rl-lab/logs/chapter-10.log", "optimizer_step_observed": false, "reason": "stopped after 63 minutes without a recorded optimizer update", "run_id": "run-20261111-215724"} |
+| 10 | completed | agentopsd-qwen35-pickplace-4k-20261112 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/agentopsd-qwen35-pickplace-4k-20261112/adapter", "effective_updates": 1, "mechanism_only": true, "steps": 1, "summary": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/agentopsd-qwen35-pickplace-4k-20261112/summary.json", "teacher": "same local policy snapshot with skill prompt"} |
 | 11 | completed | search-online-tavily-2step-20261111 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/11-search-r1/search-online-tavily-2step-20261111/adapter", "effective_updates": 2, "external_api_calls": 29, "mechanism_only": true, "online_search_verified": true, "search_backend": "tavily", "search_backend_is_online": true, "steps": 2, "summary": "/mnt/workspace/agentic-rl-lab/runs/11-search-r1/search-online-tavily-2step-20261111/summary.json", "updated_trajectories": 8} |
 | 12 | completed | retool-2step-20261111 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/12-retool/retool-2step-20261111/adapter", "effective_updates": 2, "mechanism_only": true, "steps": 2, "summary": "/mnt/workspace/agentic-rl-lab/runs/12-retool/retool-2step-20261111/summary.json", "updated_trajectories": 8} |
 | 13 | completed | run-alfworld-grpo-smoke-20261110 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/13-alfworld/run-alfworld-grpo-smoke-20261110/adapter", "mechanism_only": true, "reward": "task success - 0.1 * invalid_action_count", "steps": 1, "summary": "/mnt/workspace/agentic-rl-lab/runs/13-alfworld/run-alfworld-grpo-smoke-20261110/summary.json"} |

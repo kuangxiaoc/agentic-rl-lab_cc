@@ -1,0 +1,27 @@
+{
+  "chapter": 10,
+  "data_root": "/mnt/workspace/agentic-rl-lab/datasets/alfworld",
+  "dataset": "alfworld/json_2.1.1",
+  "dynamic_sampling": true,
+  "external_api_calls": 0,
+  "group_size": 6,
+  "max_action_tokens": 192,
+  "max_attempts": 4,
+  "max_trajectory_tokens": 4096,
+  "max_turns": 6,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "profile": "smoke",
+  "steps": 1,
+  "study_order": [
+    "experiments/agentopsd/readme.md",
+    "experiments/agentopsd/rollout.py",
+    "experiments/agentopsd/teacher.py",
+    "experiments/agentopsd/advantages.py",
+    "experiments/agentopsd/local_gpu.py"
+  ],
+  "task_types": [
+    "look_at_obj_in_light"
+  ],
+  "tasks_per_update": 1,
+  "teacher": "same local policy snapshot with privileged skill prompt"
+}

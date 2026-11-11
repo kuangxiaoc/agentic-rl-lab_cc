@@ -11,16 +11,16 @@
     },
     "10": {
       "details": {
-        "deferred": true,
-        "interrupted": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/run-20261111-215724/interrupted.txt",
-        "log": "/mnt/workspace/agentic-rl-lab/logs/chapter-10.log",
-        "optimizer_step_observed": false,
-        "reason": "stopped after 63 minutes without a recorded optimizer update",
-        "run_id": "run-20261111-215724"
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/agentopsd-qwen35-pickplace-4k-20261112/adapter",
+        "effective_updates": 1,
+        "mechanism_only": true,
+        "steps": 1,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/agentopsd-qwen35-pickplace-4k-20261112/summary.json",
+        "teacher": "same local policy snapshot with skill prompt"
       },
-      "run_id": "run-20261111-215724",
-      "status": "failed",
-      "updated_at": "2026-11-11T15:04:24+00:00"
+      "run_id": "agentopsd-qwen35-pickplace-4k-20261112",
+      "status": "completed",
+      "updated_at": "2026-11-11T17:17:42+00:00"
     },
     "11": {
       "details": {
@@ -197,5 +197,5 @@
   },
   "created_at": "2026-11-08T08:05:06+00:00",
   "schema_version": 1,
-  "updated_at": "2026-11-11T15:44:33+00:00"
+  "updated_at": "2026-11-11T17:17:42+00:00"
 }

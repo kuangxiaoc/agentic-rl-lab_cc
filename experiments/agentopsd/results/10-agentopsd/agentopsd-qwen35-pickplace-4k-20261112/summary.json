@@ -1,0 +1,63 @@
+{
+  "chapter": 10,
+  "model": "Qwen/Qwen3.5-4B",
+  "vision_model": true,
+  "dataset": "alfworld/json_2.1.1",
+  "data_root": "/mnt/workspace/agentic-rl-lab/datasets/alfworld",
+  "profile": "smoke",
+  "steps": 1,
+  "tasks_per_update": 1,
+  "group_size": 8,
+  "max_turns": 20,
+  "max_trajectory_tokens": 4096,
+  "max_action_tokens": 128,
+  "task_types": [
+    "pick_and_place_simple"
+  ],
+  "dynamic_sampling": true,
+  "max_attempts": 2,
+  "teacher": "same local policy snapshot with privileged skill prompt",
+  "external_api_calls": 0,
+  "study_order": [
+    "experiments/agentopsd/readme.md",
+    "experiments/agentopsd/rollout.py",
+    "experiments/agentopsd/teacher.py",
+    "experiments/agentopsd/advantages.py",
+    "experiments/agentopsd/local_gpu.py"
+  ],
+  "history": [
+    {
+      "step": 0,
+      "reward/mean": 0.5,
+      "reward/success_rate": 0.5,
+      "reward/all_success_group_rate": 0.0,
+      "reward/all_failure_group_rate": 0.0,
+      "trajectory/turns_mean": 13.125,
+      "trajectory/action_tokens_mean": 421.0,
+      "trajectory/valid_tool_call_rate": 0.9904761904761905,
+      "trajectory/admissible_action_rate": 0.9238095238095239,
+      "trajectory/valid_action_rate": 0.9238095238095239,
+      "advantage/degenerate_group_rate": 0.0,
+      "opsd/evidence_mean": -0.4604988965509455,
+      "opsd/evidence_abs_mean": 0.7050829988272334,
+      "opsd/weight_mean": 0.9974425740430335,
+      "opsd/adv_multiplier_min": 0.9,
+      "opsd/adv_multiplier_max": 1.1,
+      "teacher/requests": 8.0,
+      "teacher/tokens": 35443.0,
+      "train/trajectories": 8.0,
+      "train/updated_trajectories": 8.0,
+      "train/loss_mean": 0.0016874689608812332,
+      "dynamic_sampling/groups_sampled": 1.0,
+      "dynamic_sampling/groups_kept": 1.0,
+      "dynamic_sampling/groups_dropped": 0.0,
+      "train/kept_trajectories": 8.0
+    }
+  ],
+  "adapter": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/agentopsd-qwen35-pickplace-4k-20261112/adapter",
+  "torch": "2.13.0+cu130",
+  "gpu": "NVIDIA A10",
+  "games_available": 64,
+  "effective_updates": 1,
+  "attempted_groups": 1
+}
