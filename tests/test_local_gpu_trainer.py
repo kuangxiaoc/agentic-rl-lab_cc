@@ -439,6 +439,8 @@ class StopSequenceTests(unittest.TestCase):
             stop=["stop"],
         )
         self.assertEqual(response.sequences[0].tokens, [7, 8])
+        self.assertEqual(model.calls[-1]["stop_strings"], ["stop"])
+        self.assertIs(model.calls[-1]["tokenizer"], tokenizer)
 
 
 class LocalSamplingClientLogprobTests(unittest.TestCase):

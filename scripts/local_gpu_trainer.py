@@ -497,17 +497,25 @@ class LocalSamplingClient:
         self.model.eval()
         try:
             with self.torch.no_grad():
+                generation_kwargs = {
+                    "input_ids": input_ids,
+                    "attention_mask": attention_mask,
+                    "do_sample": True,
+                    "num_return_sequences": num_samples,
+                    "max_new_tokens": max_tokens,
+                    "temperature": temperature,
+                    "top_p": top_p,
+                    "pad_token_id": pad_token_id(self.tokenizer),
+                    "return_dict_in_generate": True,
+                    "output_scores": True,
+                }
+                if stop:
+                    # Let Transformers stop decoding as soon as a tool call closes,
+                    # instead of generating to the token cap and trimming afterwards.
+                    generation_kwargs["stop_strings"] = list(stop)
+                    generation_kwargs["tokenizer"] = self.tokenizer
                 output = self.model.generate(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    do_sample=True,
-                    num_return_sequences=num_samples,
-                    max_new_tokens=max_tokens,
-                    temperature=temperature,
-                    top_p=top_p,
-                    pad_token_id=pad_token_id(self.tokenizer),
-                    return_dict_in_generate=True,
-                    output_scores=True,
+                    **generation_kwargs
                 )
                 sequences: list[GeneratedSequence] = []
                 eos_ids = (

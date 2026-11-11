@@ -338,4 +338,8 @@ def build_next_prompt(
 def stop_sequences(tokenizer: Any) -> list[str]:
     """返回一轮 assistant 生成使用的停止字符串。"""
     eos_token = getattr(tokenizer, "eos_token", None)
-    return [eos_token] if eos_token else []
+    stops = [eos_token] if eos_token else []
+    # The model must emit exactly one complete tool call. Stop as soon as the
+    # closing tag arrives rather than spending the remaining token budget.
+    stops.append("</tool_call>")
+    return stops

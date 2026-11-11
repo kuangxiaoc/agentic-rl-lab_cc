@@ -406,6 +406,26 @@ def main() -> int:
                     policy_snapshot_id=f"local-{run_id}-{step}-{attempt}",
                 )
                 trajectories = rollout.trajectories
+                print(
+                    json.dumps(
+                        {
+                            "event": "rollout",
+                            "step": step,
+                            "attempt": attempt,
+                            "rewards": [trajectory.reward for trajectory in trajectories],
+                            "turns": [len(trajectory.steps) for trajectory in trajectories],
+                            "action_tokens": [
+                                sum(len(step.completion_tokens) for step in trajectory.steps)
+                                for trajectory in trajectories
+                            ],
+                            "stop_reasons": [
+                                trajectory.stop_reason for trajectory in trajectories
+                            ],
+                        },
+                        ensure_ascii=False,
+                    ),
+                    flush=True,
+                )
                 keep = (not args.dynamic_sampling) or has_mixed_group(trajectories)
                 attempt_records.append((attempt, trajectories, keep))
                 if not keep:
