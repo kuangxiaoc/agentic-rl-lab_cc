@@ -11,14 +11,16 @@
     },
     "10": {
       "details": {
-        "error": "RuntimeError: ALFWorld dependencies are missing: alfworld, textworld, spacy. Run `bash scripts/bootstrap_modelscope.sh` on the server first.",
-        "error_log": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/run-20261111-215624/error.txt",
-        "exit_code": -15,
-        "log": "/mnt/workspace/agentic-rl-lab/logs/chapter-10.log"
+        "deferred": true,
+        "interrupted": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/run-20261111-215724/interrupted.txt",
+        "log": "/mnt/workspace/agentic-rl-lab/logs/chapter-10.log",
+        "optimizer_step_observed": false,
+        "reason": "stopped after 63 minutes without a recorded optimizer update",
+        "run_id": "run-20261111-215724"
       },
-      "run_id": null,
+      "run_id": "run-20261111-215724",
       "status": "failed",
-      "updated_at": "2026-11-11T15:01:24+00:00"
+      "updated_at": "2026-11-11T15:04:24+00:00"
     },
     "11": {
       "details": {
@@ -188,5 +190,5 @@
   },
   "created_at": "2026-11-08T08:05:06+00:00",
   "schema_version": 1,
-  "updated_at": "2026-11-11T15:01:24+00:00"
+  "updated_at": "2026-11-11T15:04:24+00:00"
 }
