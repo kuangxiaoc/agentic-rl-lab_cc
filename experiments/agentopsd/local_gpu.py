@@ -479,6 +479,27 @@ def main() -> int:
                             "stop_reasons": [
                                 trajectory.stop_reason for trajectory in trajectories
                             ],
+                            "valid_format_rates": [
+                                _mean(
+                                    [
+                                        float(step.valid_format)
+                                        for step in trajectory.steps
+                                    ]
+                                )
+                                for trajectory in trajectories
+                            ],
+                            "capped_turns": [
+                                sum(
+                                    len(step.completion_tokens)
+                                    >= max_action_tokens
+                                    for step in trajectory.steps
+                                )
+                                for trajectory in trajectories
+                            ],
+                            "actions": [
+                                [step.action for step in trajectory.steps]
+                                for trajectory in trajectories
+                            ],
                             "elapsed_seconds": round(
                                 perf_counter() - attempt_started, 2
                             ),
@@ -489,6 +510,22 @@ def main() -> int:
                 )
                 keep = (not args.dynamic_sampling) or has_mixed_group(trajectories)
                 attempt_records.append((attempt, trajectories, keep))
+                with (run_dir / "samples.jsonl").open(
+                    "a", encoding="utf-8"
+                ) as handle:
+                    for trajectory in trajectories:
+                        handle.write(
+                            json.dumps(
+                                {
+                                    "step": step,
+                                    "attempt": attempt,
+                                    "kept": keep,
+                                    **trajectory_record(trajectory),
+                                },
+                                ensure_ascii=False,
+                            )
+                            + "\n"
+                        )
                 if not keep:
                     continue
 
@@ -542,22 +579,6 @@ def main() -> int:
             history.append(metric)
             lib.append_metrics(root, 10, run_id, metric)
             print(json.dumps(metric, ensure_ascii=False), flush=True)
-            with (run_dir / "samples.jsonl").open("a", encoding="utf-8") as handle:
-                for attempt, trajectories, keep in attempt_records:
-                    for trajectory in trajectories:
-                        record = trajectory_record(trajectory)
-                        handle.write(
-                            json.dumps(
-                                {
-                                    "step": step,
-                                    "attempt": attempt,
-                                    "kept": keep,
-                                    **record,
-                                },
-                                ensure_ascii=False,
-                            )
-                            + "\n"
-                        )
 
             if args.save_every > 0 and (step + 1) % args.save_every == 0:
                 trainer.save_adapter(model, run_dir / f"adapter-step-{step + 1}")

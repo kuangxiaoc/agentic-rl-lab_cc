@@ -48,6 +48,10 @@ At every turn:
 2. Call alfworld_step exactly once with one action string.
 3. Wait for the next environment observation before choosing another action.
 
+Your whole response must contain exactly one <tool_call>...</tool_call> block and
+must end immediately after </tool_call>. Do not include any text, Markdown, or
+explanation before or after the tool call.
+
 Object names include instance numbers. For example, "apple 1" and "fridge 1" are complete
 environment identifiers; copy them exactly. Never invent abbreviations such as "fridage 1".
 Do not claim the task is complete yourself. The environment decides completion."""
