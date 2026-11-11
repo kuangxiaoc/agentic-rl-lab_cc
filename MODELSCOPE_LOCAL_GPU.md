@@ -13,7 +13,7 @@ bash scripts/bootstrap_modelscope.sh
 bash scripts/run_modelscope.sh
 ```
 
-默认按阅读顺序运行 `1-3`，默认 profile 是 `smoke`；要一次跑完全部章节用 `RUN_CHAPTERS=1-16 bash scripts/run_modelscope.sh`。第 04 章（PyTrio-Jev）使用 Qwen3-4B 做单次 forward 的 masked 决策 SFT；第 05 章（General OPD）使用 Qwen3-1.7B student + Qwen3-4B teacher；第 06 章（Medical OPD）使用同一组 Qwen3 student/teacher，并增加 Base-anchor 或 IDT 模式。第 07 章（DAPO）与第 08 章（GSPO）也已本地化。第 09 章（OPSD）用同一个 Qwen3-4B 的 Student/Teacher 双 prompt 做 sampled-token reverse KL。第 10 章（AgentOPSD）在真实 ALFWorld TextWorld 上复用原版 Student rollout、带 Skill 的同快照 Self-Teacher 和 turn-level credit。第 11 章（Search-R1）复用原版多轮搜索状态机，默认离线证据后端，设 `SEARCH_R1_BACKEND=tavily` 可跑真实在线搜索；第 12 章（ReTool）使用真实本地 Python 沙箱和 Qwen3 JSON tool call。第 13 章（ALFWorld）在真实 TextWorld 上跑组内 GRPO；第 14 章（TEMPO）复用环境存档读档和生成式 critic；第 15 章（Spec-o3）在本地跑图文 SFT + 多轮光谱工具 GRPO；第 16 章（Tournament-GRPO）使用 Tavily 搜索和同一 Qwen base 的本地裁判。首次运行会检查并安装缺失的训练库，但**不会**覆盖镜像自带的 GPU 版 `torch`；请永远不要在服务器执行 `uv sync --locked`，因为原仓库的 `uv.lock` 指向 CPU torch。若镜像没有 CUDA `torch`，bootstrap 会直接失败并提示选择 CUDA 13.0 / torch 2.13 环境。
+默认按阅读顺序运行 `1-3`，默认 profile 是 `smoke`；要一次跑完全部章节用 `RUN_CHAPTERS=1-16 bash scripts/run_modelscope.sh`。第 04 章（PyTrio-Jev）使用 Qwen3-4B 做单次 forward 的 masked 决策 SFT；第 05 章（General OPD）使用 Qwen3-1.7B student + Qwen3-4B teacher；第 06 章（Medical OPD）使用同一组 Qwen3 student/teacher，并增加 Base-anchor 或 IDT 模式。第 07 章（DAPO）与第 08 章（GSPO）也已本地化。第 09 章（OPSD）用同一个 Qwen3-4B 的 Student/Teacher 双 prompt 做 sampled-token reverse KL。第 10 章（AgentOPSD）使用 Qwen3.5 4B，在真实 ALFWorld TextWorld 上复用原版 Student rollout、带 Skill 的同快照 Self-Teacher 和 turn-level credit；已验证 `1 step × 8 trajectories × 4K token` 的真实 QLoRA 更新。第 11 章（Search-R1）复用原版多轮搜索状态机，默认离线证据后端，设 `SEARCH_R1_BACKEND=tavily` 可跑真实在线搜索；第 12 章（ReTool）使用真实本地 Python 沙箱和 Qwen3 JSON tool call。第 13 章（ALFWorld）在真实 TextWorld 上跑组内 GRPO；第 14 章（TEMPO）复用环境存档读档和生成式 critic；第 15 章（Spec-o3）在本地跑图文 SFT + 多轮光谱工具 GRPO；第 16 章（Tournament-GRPO）使用 Tavily 搜索和同一 Qwen base 的本地裁判。首次运行会检查并安装缺失的训练库，但**不会**覆盖镜像自带的 GPU 版 `torch`；请永远不要在服务器执行 `uv sync --locked`，因为原仓库的 `uv.lock` 指向 CPU torch。若镜像没有 CUDA `torch`，bootstrap 会直接失败并提示选择 CUDA 13.0 / torch 2.13 环境。
 
 所有产物统一写入 `/mnt/workspace/agentic-rl-lab/`：
 
@@ -94,7 +94,7 @@ bash scripts/run_modelscope.sh doctor
 - **04 PyTrio-Jev**：从 ModelScope 下载 `LocalLLaMA/typed-decisions`，用 Qwen3-4B-Instruct-2507 做 marker-only masked SFT。每个字段只在 `decision` marker 前一个位置监督答案符号，评测时在候选符号上做受限 softmax。`ToolACE` 不是必需依赖，避免公开镜像不可用时整章失败。
 - **05 General OPD**：从 ModelScope 下载 DeepMath-103K 的一个 parquet 分片，Qwen3-1.7B student 先采样，Qwen3-4B-Instruct-2507 teacher 对同一条 token 轨迹计算 logprob，本地计算 `reverse_kl = student - teacher`，再用 PPO/IS 更新 student。
 - **06 Medical OPD**：本地 Medical SFT 训练 Qwen3-4B Medical Teacher；Qwen3-1.7B Student 先做 Medical OPD，再用原始 Qwen3-1.7B 做 Base-anchor OPD。`--mode idt` 可切换为 Medical/C-Eval 双 Teacher 交替训练。MedQA-zh 与 C-Eval 都在同一张卡上本地评测。
-- **10 AgentOPSD**：自动下载官方 ALFWorld 文本数据，Qwen3-4B-Instruct-2507 + 4-bit QLoRA 先在无 Skill 条件下完成多轮 TextWorld 轨迹；随后同一份当前参数以带 Skill 的 Teacher prompt 复评原轨迹 action token，计算每轮 evidence、belief 变化和 turn-level advantage，再做一次 action-only PPO 更新。Teacher 不下载第二个模型，也不改动作或重跑环境。
+- **10 AgentOPSD**：自动下载官方 ALFWorld 文本数据，Qwen3.5 4B + 4-bit QLoRA 先在无 Skill 条件下完成多轮 TextWorld 轨迹；随后同一份当前参数以带 Skill 的 Teacher prompt 复评原轨迹 action token，计算每轮 evidence、belief 变化和 turn-level advantage，再做一次 action-only PPO 更新。已验证 run 使用 `pick_and_place_simple`、8 条轨迹、4K 轨迹上限和 128 action token，得到 4 成功 / 4 失败的混合奖励组，8 条轨迹全部进入真实更新。Teacher 不下载第二个模型，也不改动作或重跑环境。
 - **11 Search-R1**：复用原版 `rollout.py` 的多轮 search state machine、tool observation mask、group-relative advantage 和本地 policy update。默认使用 `local_search.py` 的**离线 oracle 词法证据后端**验证机制；设 `SEARCH_R1_BACKEND=tavily` 后，Qwen 自己生成 query，`search.py` 调用真实 Tavily 网页搜索，`samples.jsonl` 保存 query 和模型实际看到的 observation。密钥只写服务器仓库根目录 `.env` 或 `experiments/search-r1/.env`，不提交 Git。
 - **12 ReTool**：复用原版多轮 code-interlaced rollout，工具调用进入真实 `LocalPythonSandbox`，observation 只作为上下文、不参与 policy loss。Qwen3-4B-Instruct-2507 使用 4-bit QLoRA。教学 smoke 默认预填 JSON tool-call 外壳，只让模型生成 Python 正文；预填前缀的 advantage 为 0，不训练这部分 token。这是为了在 A10 上用短轨迹跑通机制，不等同于论文的完整 ReTool 设置。
 - **13 ALFWorld**：复用原版的真实 TextWorld 环境、单工具协议和 group-relative advantage，Qwen3-4B-Instruct-2507 + 4-bit QLoRA 在本地完成多轮家务轨迹。当前记录是 1 step、1 个游戏 × 4 条轨迹、最多 6 轮；只验证环境、轨迹、advantage 和 PPO 更新，不等同于原版 80 step、50 轮、12K token 的正式训练。
@@ -167,7 +167,7 @@ bash scripts/run_modelscope.sh chapter 11 --force \
 - 13–16 的 `completed` 只表示对应 run 正常结束；13/14 是单次机制 smoke，15 是 20 步 SFT + 2 步 GRPO，16 是单步 Tavily + 本地裁判 smoke，都不等同于论文训练规模。
 - 04 的 ToolACE 可选数据默认不下载；如果后续需要完整五项 Jevbench 对照，再单独补 ToolACE 镜像或本地 JSONL。
 - 本地只做标准库测试、语法检查和 shell 语法检查；真实模型下载/首次 GPU smoke 必须在服务器完成。
-- 10 的 smoke 只验证 Student rollout、Teacher action-span 对齐、turn credit 和 PPO 更新；8–12 轮、单游戏、2 条轨迹的规模不能与论文 50 轮、16×8 轨迹的指标直接比较。
+- 10 的已验证 smoke 只验证 Student rollout、Teacher action-span 对齐、turn credit 和 PPO 更新；1 step、单游戏、8 条轨迹、最多 20 轮、4K token 的规模不能与论文 50 轮、16×8 轨迹的指标直接比较。`agentopsd-qwen35-pickplace-4k-20261112` 的 8 条轨迹全部更新，但只有 4 条成功，仍是机制证据而不是能力结论。
 - 11 的离线证据后端把参考答案放进检索片段，只验证训练机制；在线 Tavily 只返回网页摘要，搜索覆盖也不等于论文的本地 Wikipedia 索引。12 的教学脚手架预填 tool-call 外壳，只训练模型生成的 Python 正文。两者都不能直接与论文指标比较。
 - 13 当前只跑了 1 step、1 个游戏 × 4 条轨迹、最多 6 轮；14 只跑了 1 次 warm-up + 1 次 TD、2 条分支；两者是环境与算法链路 smoke，不是原论文训练规模。
 - 15 的已验证记录是 20 步 SFT + 2 步 GRPO，训练样本来自单题、group=2 的短轨迹；不能据此声称达到论文的 256 题开发集指标。

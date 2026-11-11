@@ -412,20 +412,22 @@ bootstrap 会保留镜像自带 CUDA torch，并只在缺失时安装 `alfworld=
 
 数据不进入 Git。如果下载失败，章节状态会写成 `data_unavailable`，不会伪造成功。
 
-### 9.2 最小机制 smoke
+### 9.2 已验证的最小真实更新
 
 ```bash
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
 bash scripts/run_modelscope.sh chapter 10 --force \
-  --chapter-arg=--run-id=agentopsd-mechanism \
-  --chapter-arg=--steps=2 \
-  --chapter-arg=--tasks-per-update=1 \
-  --chapter-arg=--group-size=2 \
-  --chapter-arg=--max-turns=8 \
-  --chapter-arg=--max-action-tokens=256 \
-  --chapter-arg=--max-attempts=3
+  --chapter-arg=--run-id=agentopsd-qwen35-pickplace-4k-20261112 \
+  --chapter-arg=--steps=1 \
+  --chapter-arg=--task-types=pick_and_place_simple \
+  --chapter-arg=--group-size=8 \
+  --chapter-arg=--max-turns=20 \
+  --chapter-arg=--max-trajectory-tokens=4096 \
+  --chapter-arg=--max-action-tokens=128 \
+  --chapter-arg=--max-attempts=2
 ```
 
-这是真实模型 rollout、真实 TextWorld 环境、真实 Teacher forward 和真实 `backward()`，但规模很小。一个游戏的两条轨迹可能刚好全成功或全失败；脚本会丢弃这种没有组内梯度的 update，最多重试 `--max-attempts` 次，并如实记录 `dynamic_sampling/*` 指标。
+这是真实模型 rollout、真实 TextWorld 环境、真实 Teacher forward 和真实 `backward()`，但规模仍是一个教学 smoke。8 条轨迹中 4 条成功、4 条因 4K 轨迹上限结束，形成可训练的非退化组；`train/updated_trajectories=8`，不是一个伪造的“完成”标记。脚本会丢弃全成功或全失败的组，最多重试 `--max-attempts` 次，并如实记录 `dynamic_sampling/*` 指标。
 
 ### 9.3 稍长但仍可在单次会话内看完的运行
 
@@ -435,8 +437,9 @@ bash scripts/run_modelscope.sh chapter 10 --force \
   --chapter-arg=--steps=4 \
   --chapter-arg=--tasks-per-update=2 \
   --chapter-arg=--group-size=4 \
-  --chapter-arg=--max-turns=12 \
-  --chapter-arg=--max-action-tokens=384 \
+  --chapter-arg=--max-turns=20 \
+  --chapter-arg=--max-trajectory-tokens=4096 \
+  --chapter-arg=--max-action-tokens=128 \
   --chapter-arg=--max-attempts=4
 ```
 
@@ -455,19 +458,22 @@ bash scripts/run_modelscope.sh chapter 10 --force \
 
 每步 metrics 写入 `metrics/chapter-10.jsonl`，日志写入 `logs/chapter-10.log`。runner 会把轻量记录同步到 `experiments/agentopsd/results/`，服务器 `commit && push` 后本地 `pull` 即可阅读。
 
-当前已同步的 `run-agentopsd-smoke-20261110c` 和 `run-agentopsd-smoke-20261110d`
-都是真实 rollout，但所有 group 都被 dynamic sampling 丢弃，`train/updated_trajectories=0`。
-因此这两轮只能证明数据加载、多轮轨迹和 degenerate-group 过滤链路可运行，不能作为
-AgentOPSD 已经完成策略更新的证据。
+当前已同步的 `agentopsd-qwen35-pickplace-4k-20261112` 是已验证的真实更新：
+`effective_updates=1`、`train/updated_trajectories=8`、`teacher/requests=8`，
+奖励组为 4 成功 / 4 失败，`train/loss_mean=0.0016874689608812332`。
+更早的 `run-agentopsd-smoke-20261110c` 和 `run-agentopsd-smoke-20261110d`
+所有 group 都被 dynamic sampling 丢弃，`train/updated_trajectories=0`；它们只证明
+数据加载、多轮轨迹和 degenerate-group 过滤链路可运行。`agentopsd-qwen35-pickplace-long-20261112`
+保留了 8K 上下文的 OOM 记录，便于对照为什么现在的 4K 配置可以在 A10 上完成更新。
 
 ### 9.5 与原版的关键差异
 
 | 项目 | 原版 | 本 fork |
 | --- | --- | --- |
-| 采样 / 训练 | PyTRIO 远端 | 本地 Qwen3-4B + 4-bit QLoRA |
+| 采样 / 训练 | PyTRIO 远端 | 本地 Qwen3.5 4B + 4-bit QLoRA |
 | Teacher | 同一 snapshot 带 Skill 复评 | 同一本地参数、同一 GPU、Skill prompt |
-| 训练规模 | 80 step，`16 × 8` | smoke 2 step，`1 × 2` |
-| 模型 | Qwen3.5-4B | Qwen3-4B-Instruct-2507 |
+| 训练规模 | 80 step，`16 × 8` | smoke 1 step，`1 × 8`，4K trajectory |
+| 模型 | Qwen3.5-4B | Qwen3.5 4B |
 | 指标比较 | 274-game 固定评测 | 只验证机制，不宣称论文级提升 |
 
 阅读时建议对照 [`rollout.py`](./rollout.py) 的 action span、[`teacher.py`](./teacher.py) 的 `compute_logprobs` 对齐，以及 [`advantages.py`](./advantages.py) 的 turn credit 递推。`local_gpu.py` 只替换模型执行边界，不改这三段核心逻辑。

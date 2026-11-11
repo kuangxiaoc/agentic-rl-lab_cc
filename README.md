@@ -65,7 +65,7 @@
 | [DAPO](./experiments/dapo/readme.md) | 拆解四项核心改进，并记录 Dynamic Sampling 在真实训练中的时间成本；附本地 GPU 版 | [代码](./experiments/dapo/local_gpu.py) |
 | [GSPO](./experiments/gspo/readme.md) | 将重要性比率与裁剪从 token 级提升到 sequence 级；附本地 GPU 版 | [代码](./experiments/gspo/local_gpu.py) |
 | [OPSD](./experiments/opsd/readme.md) | 用固定的 step-0 Teacher 蒸馏 Student 自采样轨迹；附本地 GPU 版 | [代码](./experiments/opsd/local_gpu.py) · [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/opsd/) |
-| [AgentOPSD](./experiments/agentopsd/readme.md) | Qwen3-4B + ALFWorld，带 Skill 的同快照 Self-Teacher 分配 turn-level credit | [代码](./experiments/agentopsd/local_gpu.py) · [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/agentopsd/) |
+| [AgentOPSD](./experiments/agentopsd/readme.md) | Qwen3.5 4B + ALFWorld，带 Skill 的同快照 Self-Teacher 分配 turn-level credit；附本地 GPU 真实更新记录 | [代码](./experiments/agentopsd/local_gpu.py) · [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/agentopsd/) |
 | [Search-R1](./experiments/search-r1/readme.md) | Qwen3-4B + 多轮搜索状态机 + 组内 advantage；本地 GPU 可切 Tavily 真实在线搜索 | [代码](./experiments/search-r1/local_gpu.py) |
 | [ReTool](./experiments/retool/readme.md) | Qwen3-4B + 真实 Python 沙箱 + 多轮 code observation；附本地 GPU 机制训练 | [代码](./experiments/retool/local_gpu.py) |
 | [ALFWorld](./experiments/alfworld/readme.md) | 用 12K 长轨迹、真实 TextWorld 环境和 group-relative advantage 训练家务 Agent | [代码](./experiments/alfworld/local_gpu.py) · [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/alfworld/) |
@@ -75,7 +75,7 @@
 
 ## 快速启动
 
-> 当前主线是**单卡魔搭 GPU 本地实现**。01–16 章都有 `local_gpu.py`，运行说明附在各自 `readme.md` 末尾。第 13–16 章的已跑记录是 smoke / 机制规模，不是原论文规模。运行、归档和 Git 回传说明见 [魔搭 GPU 改造说明](./MODELSCOPE_LOCAL_GPU.md)。
+> 当前主线是**单卡魔搭 GPU 本地实现**。01–16 章都有 `local_gpu.py`，运行说明附在各自 `readme.md` 末尾。第 10、13–16 章的已跑记录是 smoke / 机制规模，不是原论文规模。运行、归档和 Git 回传说明见 [魔搭 GPU 改造说明](./MODELSCOPE_LOCAL_GPU.md)。
 
 &emsp;&emsp;如果是直接 clone 这个仓库：
 
