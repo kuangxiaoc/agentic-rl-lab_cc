@@ -27,6 +27,7 @@ import sys
 import traceback
 from collections import defaultdict
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 
@@ -398,12 +399,69 @@ def main() -> int:
                     for index in range(args.tasks_per_update)
                 ]
                 next_game += args.tasks_per_update
+                attempt_started = perf_counter()
+                completed_trajectories = 0
+                print(
+                    json.dumps(
+                        {
+                            "event": "rollout_start",
+                            "step": step,
+                            "attempt": attempt,
+                            "games": [game.id for game in batch],
+                            "group_size": group_size,
+                            "max_turns": args.max_turns,
+                            "max_action_tokens": max_action_tokens,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    flush=True,
+                )
+
+                def report_progress(finished: int) -> None:
+                    nonlocal completed_trajectories
+                    completed_trajectories += finished
+                    print(
+                        json.dumps(
+                            {
+                                "event": "rollout_progress",
+                                "step": step,
+                                "attempt": attempt,
+                                "completed_trajectories": completed_trajectories,
+                                "elapsed_seconds": round(
+                                    perf_counter() - attempt_started, 2
+                                ),
+                            },
+                            ensure_ascii=False,
+                        ),
+                        flush=True,
+                    )
+
+                def report_round(round_index: int, requests: int) -> None:
+                    print(
+                        json.dumps(
+                            {
+                                "event": "rollout_round",
+                                "step": step,
+                                "attempt": attempt,
+                                "round": round_index,
+                                "requests": requests,
+                                "elapsed_seconds": round(
+                                    perf_counter() - attempt_started, 2
+                                ),
+                            },
+                            ensure_ascii=False,
+                        ),
+                        flush=True,
+                    )
+
                 rollout = rollout_batch(
                     sampling_client,
                     tokenizer,
                     batch,
                     rollout_config,
                     policy_snapshot_id=f"local-{run_id}-{step}-{attempt}",
+                    progress_callback=report_progress,
+                    round_callback=report_round,
                 )
                 trajectories = rollout.trajectories
                 print(
@@ -421,6 +479,9 @@ def main() -> int:
                             "stop_reasons": [
                                 trajectory.stop_reason for trajectory in trajectories
                             ],
+                            "elapsed_seconds": round(
+                                perf_counter() - attempt_started, 2
+                            ),
                         },
                         ensure_ascii=False,
                     ),

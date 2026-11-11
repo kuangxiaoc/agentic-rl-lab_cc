@@ -518,6 +518,7 @@ def rollout_batch(
     policy_snapshot_id: str | None = None,
     environment_factory: EnvironmentFactory | None = None,
     progress_callback: Callable[[int], None] | None = None,
+    round_callback: Callable[[int, int], None] | None = None,
 ) -> RolloutBatch:
     """Complete grouped Student trajectories without assigning advantages."""
     snapshot_id = str(
@@ -598,6 +599,8 @@ def rollout_batch(
             _report_finished(trajectories, progress_callback)
             if not requests:
                 break
+            if round_callback is not None:
+                round_callback(round_index + 1, len(requests))
             responses = asyncio.run(
                 _sample_requests_async(sampling_client, requests, tokenizer, config)
             )
