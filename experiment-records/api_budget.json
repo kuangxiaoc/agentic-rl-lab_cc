@@ -34,6 +34,22 @@
       "model": "tavily-search",
       "output_tokens": 0,
       "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:25:07+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:25:40+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
     }
   ],
   "free_token_limit": 1000000,
@@ -47,10 +63,10 @@
   },
   "providers": {
     "tavily": {
-      "calls": 4,
+      "calls": 6,
       "tokens": 0
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-10T14:05:32+00:00"
+  "updated_at": "2026-11-11T15:25:40+00:00"
 }
