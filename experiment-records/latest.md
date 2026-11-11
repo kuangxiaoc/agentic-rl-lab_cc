@@ -1,6 +1,6 @@
 # ModelScope 本地 GPU 实验报告
 
-更新时间：2026-11-11T15:01:24+00:00
+更新时间：2026-11-11T15:04:24+00:00
 
 | 章节 | 状态 | run_id | 说明 |
 | --- | --- | --- | --- |
@@ -13,7 +13,7 @@
 | 07 | completed | run-20261110-233703 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-233703/adapter", "attempts": 27, "skipped_groups": 24, "steps": 3, "summary": "/mnt/workspace/agentic-rl-lab/runs/07-dapo/run-20261110-233703/summary.json"} |
 | 08 | completed | run-20261111-214640 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261111-214640/adapter", "attempts": 23, "skipped_groups": 20, "steps": 3, "summary": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261111-214640/summary.json"} |
 | 09 | completed | run-20261110-150419 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-150419/adapter", "steps": 4, "summary": "/mnt/workspace/agentic-rl-lab/runs/09-opsd/run-20261110-150419/summary.json"} |
-| 10 | failed | - | {"error": "RuntimeError: ALFWorld dependencies are missing: alfworld, textworld, spacy. Run `bash scripts/bootstrap_modelscope.sh` on the server first.", "error_log": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/run-20261111-215624/error.txt", "exit_code": -15, "log": "/mnt/workspace/agentic-rl-lab/logs/chapter-10.log"} |
+| 10 | failed | run-20261111-215724 | {"deferred": true, "interrupted": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/run-20261111-215724/interrupted.txt", "log": "/mnt/workspace/agentic-rl-lab/logs/chapter-10.log", "optimizer_step_observed": false, "reason": "stopped after 63 minutes without a recorded optimizer update", "run_id": "run-20261111-215724"} |
 | 11 | completed | run-search-offline-short-2step-20261110 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/11-search-r1/run-search-offline-short-2step-20261110/adapter", "mechanism_only": true, "search_backend": "offline-evidence-oracle", "steps": 2, "summary": "/mnt/workspace/agentic-rl-lab/runs/11-search-r1/run-search-offline-short-2step-20261110/summary.json"} |
 | 12 | completed | run-retool-short-2step-20261110 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/12-retool/run-retool-short-2step-20261110/adapter", "mechanism_only": true, "steps": 2, "summary": "/mnt/workspace/agentic-rl-lab/runs/12-retool/run-retool-short-2step-20261110/summary.json"} |
 | 13 | completed | run-alfworld-grpo-smoke-20261110 | {"adapter": "/mnt/workspace/agentic-rl-lab/runs/13-alfworld/run-alfworld-grpo-smoke-20261110/adapter", "mechanism_only": true, "reward": "task success - 0.1 * invalid_action_count", "steps": 1, "summary": "/mnt/workspace/agentic-rl-lab/runs/13-alfworld/run-alfworld-grpo-smoke-20261110/summary.json"} |

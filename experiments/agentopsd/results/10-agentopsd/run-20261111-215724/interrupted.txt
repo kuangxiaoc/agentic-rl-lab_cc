@@ -1,0 +1,1 @@
+Interrupted after 63 minutes without an optimizer update. No effective update is claimed. The run was deferred by the user; rerun after confirming tool-call early stopping.
