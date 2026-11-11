@@ -792,11 +792,12 @@ Search-R1 用最终答案计算 reward，在同题的多条搜索轨迹之间计
 
 - `scripts/local_gpu_trainer.py` 提供最小 PyTRIO 兼容采样接口；
 - `scripts/local_rollout_trainer.py` 把多轮 assistant token 拼成训练样本，tool observation 只保留为上下文，不计算 policy loss；
-- `experiments/search-r1/local_search.py` 提供**离线 oracle 词法证据后端**，用于服务器暂时无法访问在线搜索时验证机制。
+- `experiments/search-r1/search.py` 提供 DeepSeek、Tavily 和 Wikipedia 在线后端；
+- `experiments/search-r1/local_search.py` 保留**离线 oracle 词法证据后端**，用于断网时低成本验证机制。
 
-离线后端不是在线检索：它会从已下载的 NQ/HotpotQA 行里做词法 top-k，并且证据片段明确包含参考答案。因此本附录的 correctness 数字只能说明训练链路是否跑通，不能当作 Search-R1 论文指标或检索质量。
+离线后端不是在线检索：它会从已下载的 NQ/HotpotQA 行里做词法 top-k，并且证据片段明确包含参考答案。因此离线运行的 correctness 数字只能说明训练链路是否跑通，不能当作 Search-R1 论文指标或检索质量。
 
-服务器命令：
+离线机制检查：
 
 ```bash
 bash scripts/run_modelscope.sh chapter 11 --force \
@@ -805,26 +806,37 @@ bash scripts/run_modelscope.sh chapter 11 --force \
   --chapter-arg=--max-question-attempts=4
 ```
 
+真实在线搜索使用 Tavily。把 `TAVILY_API_KEY` 写到服务器仓库根目录 `.env`（或 `experiments/search-r1/.env`），然后执行一条命令：
+
+```bash
+SEARCH_R1_BACKEND=tavily \
+bash scripts/run_modelscope.sh chapter 11 --force \
+  --chapter-arg=--run-id=search-online-4step \
+  --chapter-arg=--steps=4
+```
+
+在线模式下，Qwen3-4B 自己生成 query，Tavily 返回真实网页摘要，摘要作为 tool observation 接回下一轮推理；reward、group advantage、assistant-token mask 和 optimizer step 仍走同一套 Search-R1 状态机。默认 `search_depth=basic`、Top 2，先跑通学习闭环，不把它冒充论文的 160 GB Wikipedia 检索环境。
+
 产物：
 
 ```text
 /mnt/workspace/agentic-rl-lab/runs/11-search-r1/<run-id>/
 ├── config.json
 ├── history.json
-├── samples.jsonl       # 每个 attempt、是否保留、search calls、advantage、turns
+├── samples.jsonl       # turns、search query、实际 observation、advantage、是否保留
 ├── summary.json
 └── adapter/            # .safetensors 留在服务器，不进 Git
 ```
 
-验证机制时至少检查：
+在线运行至少检查：
 
-1. `samples.jsonl` 中有 `<tool_call>` search call；
-2. 至少一条轨迹拿到 search observation 后继续生成；
-3. 至少一个 group 的 advantage 非零；
-4. `train/updated_trajectories > 0` 且 `train/loss_mean != 0`；
-5. `search_backend_is_online=false` 时，不要引用 accuracy 作为在线效果。
+1. `summary.json` 中 `search_backend="tavily"`、`search_backend_is_online=true`；
+2. `external_api_calls > 0`、`online_search_verified=true`；
+3. `samples.jsonl` 的 `search_traces` 有真实 query、URL/摘要或明确 search error；
+4. 至少一条轨迹拿到 search observation 后继续生成；
+5. 至少一个 group 的 advantage 非零，`train/updated_trajectories > 0` 且 `train/loss_mean != 0`。
 
-动态采样会记录 `dynamic_sampling/groups_sampled`、`groups_kept`、`groups_dropped` 和 `drop_rate`。整步没有混合组时不会执行 optimizer step。以后接 Tavily / Wikipedia / DeepSeek Search 时，只把密钥写到服务器 `/mnt/workspace/agentic-rl-lab/.env` 或 `experiments/search-r1/.env`，不要提交 Git。
+动态采样会记录 `dynamic_sampling/groups_sampled`、`groups_kept`、`groups_dropped` 和 `drop_rate`。整步没有混合组时不会执行 optimizer step。每次在线调用前都会先写持久化预算账本 `api_budget.json`；密钥只写服务器仓库根目录 `.env` 或 `experiments/search-r1/.env`，不要提交 Git。
 
 
 ## 参考资料

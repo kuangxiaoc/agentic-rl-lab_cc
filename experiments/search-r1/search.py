@@ -1,4 +1,4 @@
-"""提供 DeepSeek 官方 Search API 和 Wikipedia 两个搜索后端。"""
+"""提供 DeepSeek、Tavily 和 Wikipedia 三个在线搜索后端。"""
 
 import gzip
 import json
@@ -17,15 +17,16 @@ import httpx
 from dotenv import load_dotenv
 
 
-SEARCH_BACKENDS = ("deepseek", "wikipedia")
+SEARCH_BACKENDS = ("deepseek", "wikipedia", "tavily")
 DEEPSEEK_SEARCH_ENDPOINT = "https://api.deepseek.com/v1/tools/search"
 WIKIPEDIA_SEARCH_ENDPOINT = "https://en.wikipedia.org/w/api.php"
+TAVILY_SEARCH_ENDPOINT = "https://api.tavily.com/search"
 WIKIPEDIA_USER_AGENT = (
     "agentic-rl-lab/0.1 "
     "(https://github.com/datawhalechina/agentic-rl-lab)"
 )
-DEFAULT_SEARCH_CONCURRENCY = {"deepseek": 16, "wikipedia": 3}
-DEFAULT_SEARCH_TIMEOUT = {"deepseek": 60.0, "wikipedia": 15.0}
+DEFAULT_SEARCH_CONCURRENCY = {"deepseek": 16, "wikipedia": 3, "tavily": 4}
+DEFAULT_SEARCH_TIMEOUT = {"deepseek": 60.0, "wikipedia": 15.0, "tavily": 30.0}
 
 
 @dataclass(frozen=True)
@@ -77,7 +78,7 @@ class SearchStats:
                 "search/latency": self.latency_total / denominator,
                 "search/results": self.result_count / denominator,
             }
-            if self.backend == "deepseek":
+            if self.backend in {"deepseek", "tavily"}:
                 metrics.update(
                     {
                         "search/api_requests": self.api_requests / denominator,
@@ -218,6 +219,148 @@ class DeepSeekSearchClient:
         status: int | None = None,
     ) -> SearchResult:
         """把请求异常转换为不会泄露密钥的工具结果。"""
+        latency = time.perf_counter() - started
+        with self.stats._lock:
+            self.stats.errors += 1
+            self.stats.latency_total += latency
+        return SearchResult(False, [], latency, status=status, error=message)
+
+
+@dataclass
+class TavilySearchClient:
+    """Call Tavily's Search API and return the common SearchResult shape."""
+
+    api_key: str | None = field(default=None, repr=False)
+    count: int = 3
+    timeout: float = DEFAULT_SEARCH_TIMEOUT["tavily"]
+    max_retries: int = 1
+    retry_delay: float = 1.0
+    stats: SearchStats = field(
+        default_factory=lambda: SearchStats(backend="tavily")
+    )
+
+    def __post_init__(self) -> None:
+        self.api_key = self.api_key or os.getenv("TAVILY_API_KEY")
+        if not self.api_key or not self.api_key.strip():
+            raise ValueError("请设置 TAVILY_API_KEY")
+        self.api_key = self.api_key.strip()
+        if not 1 <= self.count <= 20:
+            raise ValueError("search_count 必须在 1 到 20 之间")
+
+    @classmethod
+    def from_env(
+        cls, env_path: str | Path | None = None, **kwargs: Any
+    ) -> "TavilySearchClient":
+        if env_path:
+            load_dotenv(env_path)
+        return cls(**kwargs)
+
+    def search(self, query: str) -> SearchResult:
+        """Return up to ``count`` search snippets without leaking the API key."""
+        started = time.perf_counter()
+        with self.stats._lock:
+            self.stats.requests += 1
+
+        query = query.strip()
+        if not query or len(query) > 400:
+            return self._error_result(
+                started, "query must contain 1 to 400 Unicode characters", 400
+            )
+
+        saw_timeout = False
+        saw_rate_limit = False
+        attempt = 0
+        while True:
+            try:
+                with self.stats._lock:
+                    self.stats.api_requests += 1
+                response = httpx.post(
+                    TAVILY_SEARCH_ENDPOINT,
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "query": query,
+                        "search_depth": "basic",
+                        "max_results": self.count,
+                        "include_answer": False,
+                        "include_raw_content": False,
+                    },
+                    timeout=self.timeout,
+                    trust_env=False,
+                )
+                response.raise_for_status()
+                payload = response.json()
+                results = payload.get("results") if isinstance(payload, dict) else None
+                if not isinstance(results, list):
+                    raise ValueError("invalid Tavily results")
+                items: list[SearchItem] = []
+                for item in results[: self.count]:
+                    if not isinstance(item, dict):
+                        raise ValueError("invalid Tavily result item")
+                    content = str(
+                        item.get("content") or item.get("snippet") or ""
+                    ).strip()
+                    if not content:
+                        continue
+                    items.append(
+                        SearchItem(
+                            title=str(item.get("title") or "Untitled").strip(),
+                            content=content,
+                            source="Tavily",
+                            url=str(item.get("url") or "").strip() or None,
+                        )
+                    )
+                latency = time.perf_counter() - started
+                with self.stats._lock:
+                    self.stats.successes += 1
+                    self.stats.latency_total += latency
+                    self.stats.billable_requests += 1
+                    self.stats.result_count += len(items)
+                return SearchResult(True, items, latency, status=response.status_code)
+            except httpx.HTTPStatusError as error:
+                status = error.response.status_code
+                retryable = status in (408, 429) or status >= 500
+                with self.stats._lock:
+                    if status == 408 and not saw_timeout:
+                        self.stats.timeouts += 1
+                        saw_timeout = True
+                    if status == 429 and not saw_rate_limit:
+                        self.stats.rate_limits += 1
+                        saw_rate_limit = True
+                if retryable and attempt < self.max_retries:
+                    time.sleep(self.retry_delay * (2**attempt))
+                    attempt += 1
+                    continue
+                return self._error_result(started, f"HTTP {status}", status)
+            except httpx.TimeoutException:
+                with self.stats._lock:
+                    if not saw_timeout:
+                        self.stats.timeouts += 1
+                        saw_timeout = True
+                if attempt < self.max_retries:
+                    time.sleep(self.retry_delay * (2**attempt))
+                    attempt += 1
+                    continue
+                return self._error_result(started, "request timeout")
+            except httpx.HTTPError:
+                if attempt < self.max_retries:
+                    time.sleep(self.retry_delay * (2**attempt))
+                    attempt += 1
+                    continue
+                return self._error_result(started, "HTTP request failed")
+            except (ValueError, TypeError, AttributeError):
+                return self._error_result(started, "invalid search response", 200)
+            except Exception as error:  # noqa: BLE001 - never leak the key in a tool result
+                return self._error_result(started, type(error).__name__)
+
+    def _error_result(
+        self,
+        started: float,
+        message: str,
+        status: int | None = None,
+    ) -> SearchResult:
         latency = time.perf_counter() - started
         with self.stats._lock:
             self.stats.errors += 1
@@ -383,7 +526,7 @@ class WikipediaSearchClient:
         return SearchResult(False, [], latency, status=status, error=message)
 
 
-SearchClient = DeepSeekSearchClient | WikipediaSearchClient
+SearchClient = DeepSeekSearchClient | TavilySearchClient | WikipediaSearchClient
 
 
 def resolve_search_concurrency(backend: str, value: int | None) -> int:
@@ -413,7 +556,7 @@ def create_search_client(
     count: int = 3,
     timeout: float | None = None,
 ) -> SearchClient:
-    """按名称创建搜索后端；两个后端共用同一套 rollout 接口。"""
+    """按名称创建搜索后端；三个后端共用同一套 rollout 接口。"""
     resolved_timeout = resolve_search_timeout(backend, timeout)
     if backend == "deepseek":
         return DeepSeekSearchClient.from_env(
@@ -423,6 +566,12 @@ def create_search_client(
         )
     if backend == "wikipedia":
         return WikipediaSearchClient(timeout=resolved_timeout)
+    if backend == "tavily":
+        return TavilySearchClient.from_env(
+            env_path,
+            count=count,
+            timeout=resolved_timeout,
+        )
     raise ValueError(f"不支持的搜索后端: {backend}")
 
 

@@ -1,13 +1,10 @@
-"""11 Search-R1: local-GPU mechanism run with an offline evidence backend.
+"""11 Search-R1: local-GPU training with switchable online/offline search.
 
-This preserves the original Search-R1 rollout, tool protocol, reward, group
-advantage, and policy-update loop.  The only substitution is the search service:
-the GPU box in this workspace cannot reach Wikipedia or DeepSeek Search, so the
-run uses ``local_search.py``, an explicitly labelled oracle-like lexical corpus.
-
-Do not read this chapter's correctness numbers as an online Search-R1 result.
-The useful learning signal here is the multi-turn state machine and the
-retrieved-observation mask, not retrieval quality.
+The rollout, tool protocol, reward, group advantage, and policy-update loop are
+shared across backends. Set ``--search-backend tavily`` for a real online run:
+the local Qwen model generates each query and Tavily returns the observations.
+``offline`` remains the safe default and is an explicitly labelled oracle-like
+mechanism test, not an online retrieval result.
 """
 
 from __future__ import annotations
@@ -18,7 +15,9 @@ import json
 import os
 import random
 import sys
+import threading
 import traceback
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -37,11 +36,6 @@ sys.path.insert(0, str(EXPERIMENT_DIR))
 import data as search_data  # noqa: E402
 import local_search  # noqa: E402
 
-# ``rollout.py`` imports ``search``.  Inject the offline module under that name
-# so the original state machine is reused without importing httpx/dotenv.
-sys.modules["search"] = local_search
-from rollout import RolloutConfig, rollout_batch  # noqa: E402
-
 
 MODEL_ID = "Qwen/Qwen3-4B-Instruct-2507"
 DATASET_ID = "zhuangzhuang2023/nq_hotpotqa_train"
@@ -49,7 +43,7 @@ DATASET_PATTERN = "train.parquet"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="本地 GPU 版 Search-R1（离线证据后端）")
+    parser = argparse.ArgumentParser(description="本地 GPU 版 Search-R1（离线/在线搜索）")
     parser.add_argument("--workspace-root", default=None)
     parser.add_argument("--run-id", default=None)
     parser.add_argument(
@@ -72,7 +66,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-tool-response-tokens", type=int, default=512)
     parser.add_argument("--search-count", type=int, default=2)
     parser.add_argument("--search-concurrency", type=int, default=2)
+    parser.add_argument("--search-timeout", type=float, default=None)
     parser.add_argument("--corpus-size", type=int, default=512)
+    parser.add_argument(
+        "--search-backend",
+        choices=("offline", "tavily", "wikipedia", "deepseek"),
+        default=os.environ.get("SEARCH_R1_BACKEND", "offline"),
+        help="offline 使用本地 oracle；tavily/wikipedia/deepseek 使用在线检索",
+    )
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top-p", type=float, default=1.0)
     parser.add_argument("--learning-rate", type=float, default=4e-5)
@@ -192,6 +193,44 @@ def mean(values: list[float]) -> float:
     return sum(values) / len(values) if values else 0.0
 
 
+def _load_search_module(backend: str) -> Any:
+    """Load either the offline backend or the real online Search client."""
+    if backend == "offline":
+        sys.modules["search"] = local_search
+        return local_search
+    sys.modules.pop("search", None)
+    import search as search_module  # noqa: F401 - import after choosing the backend
+
+    return search_module
+
+
+class BudgetedSearchClient:
+    """Record each online search in the persistent API ledger before it runs."""
+
+    def __init__(self, client: Any, root: Path, provider: str) -> None:
+        self.client = client
+        self.root = root
+        self.provider = provider
+        self._usage_lock = threading.Lock()
+
+    @property
+    def stats(self) -> Any:
+        return self.client.stats
+
+    def search(self, query: str) -> Any:
+        with self._usage_lock:
+            lib.record_external_usage(
+                self.root,
+                self.provider,
+                f"{self.provider}-search",
+                0,
+                0,
+                estimated_cost_cny=0.0,
+                allow_unlisted_model=True,
+            )
+        return self.client.search(query)
+
+
 def degenerate_group_rate(trajectories: list[Any], question_count: int) -> float:
     groups: dict[int, list[float]] = {}
     for trajectory in trajectories:
@@ -205,7 +244,7 @@ def rollout_metrics(
     losses: list[float],
     updated_trajectories: int,
     question_count: int,
-    search_client: local_search.OfflineEvidenceSearch,
+    search_client: Any,
     *,
     groups_sampled: int,
     groups_kept: int,
@@ -271,6 +310,7 @@ def trajectory_record(
         "valid_format": trajectory.valid_format,
         "search_calls": trajectory.search_calls,
         "final_text": trajectory.final_text,
+        "search_traces": [asdict(trace) for trace in trajectory.search_traces],
         "turns": [
             {
                 "text": turn.text,
@@ -284,6 +324,9 @@ def trajectory_record(
 
 def main() -> int:
     args = parse_args()
+    search_module = _load_search_module(args.search_backend)
+    from rollout import RolloutConfig, rollout_batch  # noqa: E402
+
     root, run_dir, run_id, config = trainer.prepare_run(11, args)
     steps = args.steps or (4 if args.profile == "smoke" else config["steps"])
     group_size = args.group_size or (4 if args.profile == "smoke" else config["group_size"])
@@ -319,8 +362,13 @@ def main() -> int:
         "dynamic_sampling": args.dynamic_sampling,
         "max_question_attempts": args.max_question_attempts,
         "prefer_short_questions": args.prefer_short_questions,
-        "search_backend": "offline-evidence-oracle",
-        "search_backend_is_online": False,
+        "search_backend": (
+            "offline-evidence-oracle"
+            if args.search_backend == "offline"
+            else args.search_backend
+        ),
+        "search_backend_is_online": args.search_backend != "offline",
+        "search_timeout": args.search_timeout,
         "external_api_calls": 0,
         "study_order": [
             "experiments/search-r1/readme.md",
@@ -340,6 +388,27 @@ def main() -> int:
             args.max_train_samples,
             prefer_short=args.prefer_short_questions,
         )
+        if args.search_backend == "offline":
+            corpus = examples[: max(1, args.corpus_size)]
+            search_client: Any = local_search.OfflineEvidenceSearch(
+                corpus,
+                max_results=args.search_count,
+            )
+        else:
+            corpus = []
+            env_path = EXPERIMENT_DIR / ".env"
+            if not env_path.exists():
+                env_path = REPO_ROOT / ".env"
+            search_client = BudgetedSearchClient(
+                search_module.create_search_client(
+                    args.search_backend,
+                    env_path=env_path,
+                    count=args.search_count,
+                    timeout=args.search_timeout,
+                ),
+                root,
+                args.search_backend,
+            )
         model_dir = trainer.download_modelscope_model(MODEL_ID, root)
         import torch
 
@@ -351,11 +420,6 @@ def main() -> int:
         optimizer = torch.optim.AdamW(
             (parameter for parameter in model.parameters() if parameter.requires_grad),
             lr=args.learning_rate,
-        )
-        corpus = examples[: max(1, args.corpus_size)]
-        search_client = local_search.OfflineEvidenceSearch(
-            corpus,
-            max_results=args.search_count,
         )
         rollout_config = RolloutConfig(
             group_size=group_size,
@@ -472,6 +536,10 @@ def main() -> int:
             json.dumps(history, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
+        external_api_calls = int(
+            getattr(search_client.stats, "api_requests", 0)
+            or getattr(search_client.stats, "requests", 0)
+        )
         summary.update(
             {
                 "history": history,
@@ -480,6 +548,10 @@ def main() -> int:
                 "gpu": torch.cuda.get_device_name(0),
                 "dataset_rows": len(examples),
                 "corpus_rows": len(corpus),
+                "external_api_calls": external_api_calls,
+                "online_search_verified": bool(
+                    args.search_backend != "offline" and external_api_calls > 0
+                ),
                 "effective_updates": sum(
                     float(item.get("train/updated_trajectories", 0.0)) > 0
                     for item in history
@@ -506,7 +578,10 @@ def main() -> int:
                 "updated_trajectories": summary["updated_trajectories"],
                 "summary": str(run_dir / "summary.json"),
                 "mechanism_only": True,
-                "search_backend": "offline-evidence-oracle",
+                "search_backend": summary["search_backend"],
+                "search_backend_is_online": summary["search_backend_is_online"],
+                "external_api_calls": summary["external_api_calls"],
+                "online_search_verified": summary["online_search_verified"],
             },
             replace_details=True,
         )

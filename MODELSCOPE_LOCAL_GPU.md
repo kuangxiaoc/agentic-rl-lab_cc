@@ -13,7 +13,7 @@ bash scripts/bootstrap_modelscope.sh
 bash scripts/run_modelscope.sh
 ```
 
-默认按阅读顺序运行 `1-3`，默认 profile 是 `smoke`；要一次跑完全部章节用 `RUN_CHAPTERS=1-16 bash scripts/run_modelscope.sh`。第 04 章（PyTrio-Jev）使用 Qwen3-4B 做单次 forward 的 masked 决策 SFT；第 05 章（General OPD）使用 Qwen3-1.7B student + Qwen3-4B teacher；第 06 章（Medical OPD）使用同一组 Qwen3 student/teacher，并增加 Base-anchor 或 IDT 模式。第 07 章（DAPO）与第 08 章（GSPO）也已本地化。第 09 章（OPSD）用同一个 Qwen3-4B 的 Student/Teacher 双 prompt 做 sampled-token reverse KL。第 10 章（AgentOPSD）在真实 ALFWorld TextWorld 上复用原版 Student rollout、带 Skill 的同快照 Self-Teacher 和 turn-level credit。第 11 章（Search-R1）复用原版多轮搜索状态机，当前默认的离线证据后端只验证机制；第 12 章（ReTool）使用真实本地 Python 沙箱和 Qwen3 JSON tool call。第 13 章（ALFWorld）在真实 TextWorld 上跑组内 GRPO；第 14 章（TEMPO）复用环境存档读档和生成式 critic；第 15 章（Spec-o3）在本地跑图文 SFT + 多轮光谱工具 GRPO；第 16 章（Tournament-GRPO）使用 Tavily 搜索和同一 Qwen base 的本地裁判。首次运行会检查并安装缺失的训练库，但**不会**覆盖镜像自带的 GPU 版 `torch`；请永远不要在服务器执行 `uv sync --locked`，因为原仓库的 `uv.lock` 指向 CPU torch。若镜像没有 CUDA `torch`，bootstrap 会直接失败并提示选择 CUDA 13.0 / torch 2.13 环境。
+默认按阅读顺序运行 `1-3`，默认 profile 是 `smoke`；要一次跑完全部章节用 `RUN_CHAPTERS=1-16 bash scripts/run_modelscope.sh`。第 04 章（PyTrio-Jev）使用 Qwen3-4B 做单次 forward 的 masked 决策 SFT；第 05 章（General OPD）使用 Qwen3-1.7B student + Qwen3-4B teacher；第 06 章（Medical OPD）使用同一组 Qwen3 student/teacher，并增加 Base-anchor 或 IDT 模式。第 07 章（DAPO）与第 08 章（GSPO）也已本地化。第 09 章（OPSD）用同一个 Qwen3-4B 的 Student/Teacher 双 prompt 做 sampled-token reverse KL。第 10 章（AgentOPSD）在真实 ALFWorld TextWorld 上复用原版 Student rollout、带 Skill 的同快照 Self-Teacher 和 turn-level credit。第 11 章（Search-R1）复用原版多轮搜索状态机，默认离线证据后端，设 `SEARCH_R1_BACKEND=tavily` 可跑真实在线搜索；第 12 章（ReTool）使用真实本地 Python 沙箱和 Qwen3 JSON tool call。第 13 章（ALFWorld）在真实 TextWorld 上跑组内 GRPO；第 14 章（TEMPO）复用环境存档读档和生成式 critic；第 15 章（Spec-o3）在本地跑图文 SFT + 多轮光谱工具 GRPO；第 16 章（Tournament-GRPO）使用 Tavily 搜索和同一 Qwen base 的本地裁判。首次运行会检查并安装缺失的训练库，但**不会**覆盖镜像自带的 GPU 版 `torch`；请永远不要在服务器执行 `uv sync --locked`，因为原仓库的 `uv.lock` 指向 CPU torch。若镜像没有 CUDA `torch`，bootstrap 会直接失败并提示选择 CUDA 13.0 / torch 2.13 环境。
 
 所有产物统一写入 `/mnt/workspace/agentic-rl-lab/`：
 
@@ -95,7 +95,7 @@ bash scripts/run_modelscope.sh doctor
 - **05 General OPD**：从 ModelScope 下载 DeepMath-103K 的一个 parquet 分片，Qwen3-1.7B student 先采样，Qwen3-4B-Instruct-2507 teacher 对同一条 token 轨迹计算 logprob，本地计算 `reverse_kl = student - teacher`，再用 PPO/IS 更新 student。
 - **06 Medical OPD**：本地 Medical SFT 训练 Qwen3-4B Medical Teacher；Qwen3-1.7B Student 先做 Medical OPD，再用原始 Qwen3-1.7B 做 Base-anchor OPD。`--mode idt` 可切换为 Medical/C-Eval 双 Teacher 交替训练。MedQA-zh 与 C-Eval 都在同一张卡上本地评测。
 - **10 AgentOPSD**：自动下载官方 ALFWorld 文本数据，Qwen3-4B-Instruct-2507 + 4-bit QLoRA 先在无 Skill 条件下完成多轮 TextWorld 轨迹；随后同一份当前参数以带 Skill 的 Teacher prompt 复评原轨迹 action token，计算每轮 evidence、belief 变化和 turn-level advantage，再做一次 action-only PPO 更新。Teacher 不下载第二个模型，也不改动作或重跑环境。
-- **11 Search-R1**：复用原版 `rollout.py` 的多轮 search state machine、tool observation mask、group-relative advantage 和本地 policy update。当前服务器默认使用 `local_search.py` 的**离线 oracle 词法证据后端**：证据里明确包含参考答案，只用于验证“模型生成 query → search call → observation → 继续推理 → reward → backward”的机制，不是在线检索 benchmark。真正接 Tavily / Wikipedia / DeepSeek Search 时，密钥只写服务器 `.env`，不提交 Git。
+- **11 Search-R1**：复用原版 `rollout.py` 的多轮 search state machine、tool observation mask、group-relative advantage 和本地 policy update。默认使用 `local_search.py` 的**离线 oracle 词法证据后端**验证机制；设 `SEARCH_R1_BACKEND=tavily` 后，Qwen 自己生成 query，`search.py` 调用真实 Tavily 网页搜索，`samples.jsonl` 保存 query 和模型实际看到的 observation。密钥只写服务器仓库根目录 `.env` 或 `experiments/search-r1/.env`，不提交 Git。
 - **12 ReTool**：复用原版多轮 code-interlaced rollout，工具调用进入真实 `LocalPythonSandbox`，observation 只作为上下文、不参与 policy loss。Qwen3-4B-Instruct-2507 使用 4-bit QLoRA。教学 smoke 默认预填 JSON tool-call 外壳，只让模型生成 Python 正文；预填前缀的 advantage 为 0，不训练这部分 token。这是为了在 A10 上用短轨迹跑通机制，不等同于论文的完整 ReTool 设置。
 - **13 ALFWorld**：复用原版的真实 TextWorld 环境、单工具协议和 group-relative advantage，Qwen3-4B-Instruct-2507 + 4-bit QLoRA 在本地完成多轮家务轨迹。当前记录是 1 step、1 个游戏 × 4 条轨迹、最多 6 轮；只验证环境、轨迹、advantage 和 PPO 更新，不等同于原版 80 step、50 轮、12K token 的正式训练。
 - **14 TEMPO**：复用原版 macro-step 边界、StateStore 存档读档、特权 walkthrough critic 和 actor/critic 共享参数，只替换 PyTRIO 采样与训练边界。当前记录是 1 次 warm-up + 1 次 TD、2 条分支 × 4 轮 macro-step；用于验证 return 拼装、critic 误差奖励和 actor/critic 联合更新。
@@ -124,17 +124,26 @@ bash scripts/run_modelscope.sh chapter 12 --force \
   --chapter-arg=--max-question-attempts=4
 ```
 
-这两条 smoke 的产物在 `/mnt/workspace/agentic-rl-lab/runs/11-search-r1/`、`runs/12-retool/`；轻量 JSON/JSONL/日志会同步到 `experiments/search-r1/results/` 和 `experiments/retool/results/`。
+第 11 章真实在线 Tavily 运行：
+
+```bash
+SEARCH_R1_BACKEND=tavily \
+bash scripts/run_modelscope.sh chapter 11 --force \
+  --chapter-arg=--run-id=search-online-4step \
+  --chapter-arg=--steps=4
+```
+
+这些 smoke 的产物在 `/mnt/workspace/agentic-rl-lab/runs/11-search-r1/`、`runs/12-retool/`；轻量 JSON/JSONL/日志会同步到 `experiments/search-r1/results/` 和 `experiments/retool/results/`。
 
 ## 外部 API 与免费额度
 
-当前 01–15 的默认运行 **不发起任何外部搜索、裁判或教师 API 调用**；10 的 Teacher 是同一张卡上的本地参数快照，11 的离线证据后端和 12 的本地沙箱都不会访问外部服务。第 16 章是唯一默认发起外部请求的章节：每次 `google_search` 调用 Tavily，并写入 `api_budget.json`；本地裁判不调用 API。预算账本与密钥存在性检查如下：
+当前 01–15 的默认运行 **不发起任何外部搜索、裁判或教师 API 调用**；10 的 Teacher 是同一张卡上的本地参数快照，11 默认的离线证据后端和 12 的本地沙箱都不会访问外部服务。显式设置 `SEARCH_R1_BACKEND=tavily` 后，第 11 章的每次搜索都会写入 `api_budget.json`；第 16 章同样调用 Tavily，本地裁判不调用 API。预算账本与密钥存在性检查如下：
 
 - 硬上限：`MAX_EXTERNAL_COST_CNY=50`、`ALLOW_PAID_OVERAGE=0`、每个模型 `FREE_TOKEN_LIMIT=1000000`。
 - 默认低成本候选：`deepseek-v4.1-flash`（裁判）、`qwen3.8-flash`（教师候选），关闭 thinking；不默认 `qwen3.8-max-0902`、`glm-5.3`、`kimi-k3` 或大参数模型。
-- 搜索：Tavily 每月 1000 次免费优先；SerpAPI 每月 250 次作为备选。未来调用前必须通过 `record_external_usage()` 的额度检查。当前 `local_search.py` 不是 Tavily 客户端，不能把离线 oracle 结果当成在线搜索效果。
+- 搜索：Tavily 每月 1000 次免费优先；SerpAPI 每月 250 次作为备选。11/16 的在线调用前都会写 `record_external_usage()`；`samples.jsonl` 中可直接检查 query 和 observation。`local_search.py` 仍不是在线客户端，不能把离线 oracle 结果当成在线搜索效果。
 
-你截图里的百炼免费额度是**每个模型/快照各自约 100 万输入+输出 token、有效期 90 天、仅北京地域实时推理**。跑通本地单卡 01–09 通常不用这些 API；1M token 对以后少量裁判实验是够入门的，但普通聊天 API 不能替代 OPD Teacher 的逐 token logprob。务必在百炼控制台开启「免费额度用完即停」，否则免费额度耗尽后可能自动转为按量付费。密钥请放在 `/mnt/workspace/agentic-rl-lab/.env`，不要把真实值写进仓库；可参考 `scripts/.env.example`。
+你截图里的百炼免费额度是**每个模型/快照各自约 100 万输入+输出 token、有效期 90 天、仅北京地域实时推理**。跑通本地单卡 01–09 通常不用这些 API；1M token 对以后少量裁判实验是够入门的，但普通聊天 API 不能替代 OPD Teacher 的逐 token logprob。务必在百炼控制台开启「免费额度用完即停」，否则免费额度耗尽后可能自动转为按量付费。密钥请放在服务器仓库根目录 `/mnt/workspace/agentic-rl-lab_cc/.env`（或章节自己的 `.env`），不要把真实值写进仓库；可参考 `.env.example`。
 
 注意：OPD 依赖 teacher 对学生轨迹的 token logprob，普通百炼文本生成 API 不能等价替代；本 fork 的 05/06 使用本地 4-bit teacher forward 计算 logprob，不把“低价教师 API”当作已经复现 OPD。
 
@@ -159,7 +168,7 @@ bash scripts/run_modelscope.sh chapter 12 --force \
 - 04 的 ToolACE 可选数据默认不下载；如果后续需要完整五项 Jevbench 对照，再单独补 ToolACE 镜像或本地 JSONL。
 - 本地只做标准库测试、语法检查和 shell 语法检查；真实模型下载/首次 GPU smoke 必须在服务器完成。
 - 10 的 smoke 只验证 Student rollout、Teacher action-span 对齐、turn credit 和 PPO 更新；8–12 轮、单游戏、2 条轨迹的规模不能与论文 50 轮、16×8 轨迹的指标直接比较。
-- 11 的离线证据后端把参考答案放进检索片段，只验证训练机制；12 的教学脚手架预填 tool-call 外壳，只训练模型生成的 Python 正文。两者都不能直接与论文指标比较。
+- 11 的离线证据后端把参考答案放进检索片段，只验证训练机制；在线 Tavily 只返回网页摘要，搜索覆盖也不等于论文的本地 Wikipedia 索引。12 的教学脚手架预填 tool-call 外壳，只训练模型生成的 Python 正文。两者都不能直接与论文指标比较。
 - 13 当前只跑了 1 step、1 个游戏 × 4 条轨迹、最多 6 轮；14 只跑了 1 次 warm-up + 1 次 TD、2 条分支；两者是环境与算法链路 smoke，不是原论文训练规模。
 - 15 的已验证记录是 20 步 SFT + 2 步 GRPO，训练样本来自单题、group=2 的短轨迹；不能据此声称达到论文的 256 题开发集指标。
 - 16 的裁判是同一 Qwen base 关闭 adapter，不是论文的 Qwen2.5-72B / Jev；Tavily 只返回网页摘要，搜索覆盖与 DeepSeek Search 不同。`group_size=2` 时当前使用 `2 * tournament + format`，这是为了让两个二值信号不抵消的本地改动，不能写成原论文配置。

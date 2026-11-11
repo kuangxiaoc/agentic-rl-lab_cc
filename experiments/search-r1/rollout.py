@@ -51,6 +51,19 @@ class AssistantTurn:
     forced_prefix_tokens: int = 0  # 仅用于教学前缀；这些 token 不参与 policy loss。
 
 
+@dataclass(frozen=True)
+class SearchTrace:
+    """保存一次真实搜索调用，便于训练结束后复盘 query 和 observation。"""
+
+    call_id: str
+    query: str
+    ok: bool
+    status: int | None
+    latency: float
+    observation: str | None
+    error: str | None
+
+
 @dataclass
 class Trajectory:
     """保存一条完整搜索轨迹及其训练信号。"""
@@ -70,6 +83,7 @@ class Trajectory:
     exact_match: bool = False  # 最终答案是否精确命中参考答案。
     done: bool = False  # 当前轨迹是否已经结束。
     forced_tool_prefix_tokens: int = 0  # 首轮教学前缀长度，需要并回 assistant action。
+    search_traces: list[SearchTrace] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -321,10 +335,32 @@ def finish_search(
         config,
     )
     if fitted is None:
+        pending.trajectory.search_traces.append(
+            SearchTrace(
+                call_id=pending.call_id,
+                query=pending.query,
+                ok=result.ok,
+                status=result.status,
+                latency=result.latency,
+                observation=None,
+                error=result.error or "search observation exceeded the trajectory budget",
+            )
+        )
         pending.trajectory.final_text = pending.assistant_text
         pending.trajectory.done = True
         return True
     content, next_prompt_tokens = fitted
+    pending.trajectory.search_traces.append(
+        SearchTrace(
+            call_id=pending.call_id,
+            query=pending.query,
+            ok=result.ok,
+            status=result.status,
+            latency=result.latency,
+            observation=content,
+            error=result.error,
+        )
+    )
     pending.trajectory.messages.append(tool_message(pending.call_id, content))
     pending.trajectory.next_prompt_tokens = next_prompt_tokens
     pending.trajectory.search_calls += 1

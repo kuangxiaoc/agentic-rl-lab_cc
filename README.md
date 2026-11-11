@@ -66,7 +66,7 @@
 | [GSPO](./experiments/gspo/readme.md) | 将重要性比率与裁剪从 token 级提升到 sequence 级；附本地 GPU 版 | [代码](./experiments/gspo/local_gpu.py) |
 | [OPSD](./experiments/opsd/readme.md) | 用固定的 step-0 Teacher 蒸馏 Student 自采样轨迹；附本地 GPU 版 | [代码](./experiments/opsd/local_gpu.py) · [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/opsd/) |
 | [AgentOPSD](./experiments/agentopsd/readme.md) | Qwen3-4B + ALFWorld，带 Skill 的同快照 Self-Teacher 分配 turn-level credit | [代码](./experiments/agentopsd/local_gpu.py) · [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/agentopsd/) |
-| [Search-R1](./experiments/search-r1/readme.md) | Qwen3-4B + 多轮搜索状态机 + 组内 advantage；附本地 GPU 离线证据后端与在线后端说明 | [代码](./experiments/search-r1/local_gpu.py) |
+| [Search-R1](./experiments/search-r1/readme.md) | Qwen3-4B + 多轮搜索状态机 + 组内 advantage；本地 GPU 可切 Tavily 真实在线搜索 | [代码](./experiments/search-r1/local_gpu.py) |
 | [ReTool](./experiments/retool/readme.md) | Qwen3-4B + 真实 Python 沙箱 + 多轮 code observation；附本地 GPU 机制训练 | [代码](./experiments/retool/local_gpu.py) |
 | [ALFWorld](./experiments/alfworld/readme.md) | 用 12K 长轨迹、真实 TextWorld 环境和 group-relative advantage 训练家务 Agent | [代码](./experiments/alfworld/local_gpu.py) · [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/alfworld/) |
 | [TEMPO](./experiments/tempo/readme.md) | 算法级复现 macro-step 优化与生成式 critic | [代码](./experiments/tempo/local_gpu.py) · [阅读](https://datawhalechina.github.io/agentic-rl-lab/experiments/tempo/) |
@@ -125,7 +125,7 @@ uv add \
   "tqdm>=4.68.3"
 ```
 
-&emsp;&emsp;Search-R1 直接调用 DeepSeek 官方 Search API，使用 `httpx`，无需额外安装搜索封装。详见[快速启动指南](./experiments/search-r1/start.md)。
+&emsp;&emsp;Search-R1 支持 DeepSeek、Tavily 和 Wikipedia 在线后端，使用 `httpx`，无需额外安装搜索封装；ModelScope 单卡可直接切 Tavily。详见[快速启动指南](./experiments/search-r1/start.md)。
 
 &emsp;&emsp;ALFWorld 的 optional extra 对应：
 

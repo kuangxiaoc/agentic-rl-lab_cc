@@ -15,6 +15,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import modelscope_lib as lib  # noqa: E402
 
 
+def _load_repo_env() -> None:
+    """Load local API keys once so doctor, budget, and child chapters agree."""
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    for path in (
+        REPO_ROOT / "experiments" / "search-r1" / ".env",
+        REPO_ROOT / ".env",
+    ):
+        if path.exists():
+            load_dotenv(path, override=False)
+
+
+_load_repo_env()
+
+
 CHAPTER_SCRIPTS = {
     1: REPO_ROOT / "experiments" / "loss-functions" / "local_gpu.py",
     2: REPO_ROOT / "experiments" / "grpo" / "local_gpu.py",
@@ -95,7 +112,7 @@ def doctor(root: Path, profile: str) -> int:
         print(f"bitsandbytes_cuda=error ({type(exc).__name__}: {exc})")
     print(f"api_key_present DASHSCOPE_API_KEY={bool(os.environ.get('DASHSCOPE_API_KEY'))}")
     print(f"api_key_present TAVILY_API_KEY={bool(os.environ.get('TAVILY_API_KEY'))}")
-    print("external_api_calls=disabled (budget reservation only)")
+    print("external_api_calls=chapter-gated; online calls use the persistent budget ledger")
     return 0
 
 
