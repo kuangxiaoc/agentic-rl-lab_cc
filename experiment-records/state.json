@@ -11,15 +11,14 @@
     },
     "10": {
       "details": {
-        "adapter": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/run-agentopsd-smoke-20261110d/adapter",
-        "mechanism_only": true,
-        "steps": 1,
-        "summary": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/run-agentopsd-smoke-20261110d/summary.json",
-        "teacher": "same local policy snapshot with skill prompt"
+        "error": "RuntimeError: ALFWorld dependencies are missing: alfworld, textworld, spacy. Run `bash scripts/bootstrap_modelscope.sh` on the server first.",
+        "error_log": "/mnt/workspace/agentic-rl-lab/runs/10-agentopsd/run-20261111-215624/error.txt",
+        "exit_code": -15,
+        "log": "/mnt/workspace/agentic-rl-lab/logs/chapter-10.log"
       },
-      "run_id": "run-agentopsd-smoke-20261110d",
-      "status": "completed",
-      "updated_at": "2026-11-10T12:08:42+00:00"
+      "run_id": null,
+      "status": "failed",
+      "updated_at": "2026-11-11T15:01:24+00:00"
     },
     "11": {
       "details": {
@@ -166,15 +165,15 @@
     },
     "8": {
       "details": {
-        "adapter": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261110-144342/adapter",
-        "attempts": 24,
+        "adapter": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261111-214640/adapter",
+        "attempts": 23,
         "skipped_groups": 20,
-        "steps": 4,
-        "summary": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261110-144342/summary.json"
+        "steps": 3,
+        "summary": "/mnt/workspace/agentic-rl-lab/runs/08-gspo/run-20261111-214640/summary.json"
       },
-      "run_id": "run-20261110-144342",
+      "run_id": "run-20261111-214640",
       "status": "completed",
-      "updated_at": "2026-11-10T06:52:55+00:00"
+      "updated_at": "2026-11-11T13:55:53+00:00"
     },
     "9": {
       "details": {
@@ -189,5 +188,5 @@
   },
   "created_at": "2026-11-08T08:05:06+00:00",
   "schema_version": 1,
-  "updated_at": "2026-11-10T15:47:34+00:00"
+  "updated_at": "2026-11-11T15:01:24+00:00"
 }

@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/mnt/workspace/agentic-rl-lab_cc/experiments/agentopsd/local_gpu.py", line 330, in main
+    ensure_alfworld_dependencies()
+  File "/mnt/workspace/agentic-rl-lab_cc/experiments/agentopsd/local_gpu.py", line 126, in ensure_alfworld_dependencies
+    raise RuntimeError(
+RuntimeError: ALFWorld dependencies are missing: alfworld, textworld, spacy. Run `bash scripts/bootstrap_modelscope.sh` on the server first.
