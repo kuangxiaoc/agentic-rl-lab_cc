@@ -50,6 +50,238 @@
       "model": "tavily-search",
       "output_tokens": 0,
       "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:38:58+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:38:58+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:39:00+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:39:00+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:39:22+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:39:22+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:39:25+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:39:28+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:41:14+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:41:14+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:41:17+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:41:19+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:41:43+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:41:43+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:41:45+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:41:49+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:42:07+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:42:07+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:42:10+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:42:11+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:42:44+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:42:44+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:42:47+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:42:47+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:43:59+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:43:59+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:44:01+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:44:02+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
+    },
+    {
+      "at": "2026-11-11T15:44:20+00:00",
+      "estimated_cost_cny": 0.0,
+      "input_tokens": 0,
+      "model": "tavily-search",
+      "output_tokens": 0,
+      "provider": "tavily"
     }
   ],
   "free_token_limit": 1000000,
@@ -63,10 +295,10 @@
   },
   "providers": {
     "tavily": {
-      "calls": 6,
+      "calls": 35,
       "tokens": 0
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-11T15:25:40+00:00"
+  "updated_at": "2026-11-11T15:44:20+00:00"
 }
