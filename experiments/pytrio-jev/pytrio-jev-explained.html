@@ -10,8 +10,8 @@
 <div class="page">
 <aside class="rail">
   <a class="brand" href="../phase-02/index.html"><b>PHASE 02</b><span>实验记录 · 04–09</span></a>
-  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#math">符号与公式</a></li><li><a href="#pipeline">完整训练链路</a></li><li><a href="#curve">真实训练记录</a></li><li><a href="#sample">一个真实样本</a></li><li><a href="#fields">分字段结果</a></li><li><a href="#mechanism">机制</a></li><li><a href="#worked">真实数据手算</a></li><li><a href="#limits">结果边界</a></li><li><a href="#faq">常见疑问</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
-  <div class="rail-note">这一页只讲实验本身：输入、信号、真实 run、结果边界。代码路径留在页尾，方便回查。</div>
+  <nav><ol><li><a href="#plain">先看人话版</a></li><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#math">符号与公式</a></li><li><a href="#pipeline">完整训练链路</a></li><li><a href="#curve">真实训练记录</a></li><li><a href="#sample">一个真实样本</a></li><li><a href="#fields">分字段结果</a></li><li><a href="#mechanism">机制</a></li><li><a href="#worked">真实数据手算</a></li><li><a href="#limits">结果边界</a></li><li><a href="#faq">常见疑问</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
+  <div class="rail-note">第一遍只读“人话版”。公式、代码和工程细节是第二遍再看的附录。</div>
 </aside>
 <main>
 <header class="hero">
@@ -21,6 +21,46 @@
   <div class="metrics"><div class="metric"><span>模型</span><b>Qwen3-4B</b><small>4-bit QLoRA</small></div><div class="metric"><span>训练</span><b>40 steps</b><small>1 条/step</small></div><div class="metric"><span>评测</span><b>250 决策</b><small>50 条记录</small></div><div class="metric"><span>准确率</span><b>34.4%</b><small>86 / 250</small></div><div class="metric"><span>外部 API</span><b>0</b><small>纯本地</small></div></div>
 </header>
 <div class="primer-banner"><span><b>数学先修</b> 这一章只需要理解 logit、softmax 和 cross entropy；没有 reward、advantage 或 ratio。</span><a href="../phase-02/math-primer.html">数学小抄 · MATH PRIMER →</a></div>
+
+<section id="plain">
+<div class="eyebrow">00 · 先把任务说成人话</div>
+<h2>这不是在教模型聊天，而是在教它填一张多字段选择题答题卡</h2>
+<p class="lede">先不要看 loss、marker、softmax。把它们全部拿掉，这一章其实只做一件事：让 Qwen 读完一段 agent 日志，然后对五个固定问题各选一个答案。</p>
+<div class="grid-3">
+  <div class="card"><div class="tiny">模型看见</div><h3>日志 + 选择题</h3><p>一段 state，以及 action、risk、urgency 等字段。每个字段下面只有几个允许的选项。</p></div>
+  <div class="card"><div class="tiny">模型要做</div><h3>每个字段选一个</h3><p>不是写一段解释，而是给五个字段分别交一个符号，比如 B、yes、1、success。</p></div>
+  <div class="card"><div class="tiny">训练目标</div><h3>让正确选项概率更高</h3><p>答对的标准已经写在训练数据里。模型选错，就调整 LoRA；这里没有 reward 或 RL。</p></div>
+</div>
+<div class="worked">
+<h3>用一个示意样本走完整条路（数字为讲解用，不是原始数据）</h3>
+<pre><code>state:
+  agent 调用了搜索工具，但请求超时；用户又问了一次退款进度。
+
+questions:
+  action:       A=continue  B=retry  C=ask_user  D=stop
+  needs_review: no / yes
+  outcome:      success / partial / failure
+  risk:         0 / 1 / 2
+  urgency:      0 / 1 / 2
+
+gold:
+  action=retry, needs_review=yes, outcome=partial, risk=1, urgency=1</code></pre>
+<p>Qwen 读完上面整段内容后，会对每个字段分别给出候选概率。比如 risk 得到 <code>0: 0.1 / 1: 0.7 / 2: 0.2</code>，系统就选概率最大的 <code>1</code>。如果 gold 也是 <code>1</code>，这个字段就算答对。</p>
+</div>
+<div class="flow five">
+  <div class="node"><b>一份日志</b><span>state</span></div><div class="arrow">→</div>
+  <div class="node"><b>五道选择题</b><span>固定选项</span></div><div class="arrow">→</div>
+  <div class="node"><b>Qwen 读一遍</b><span>一次 forward</span></div><div class="arrow">→</div>
+  <div class="node"><b>五组概率</b><span>每组对应一个字段</span></div><div class="arrow">→</div>
+  <div class="node"><b>各选最大</b><span>得到五个答案</span></div>
+</div>
+<div class="grid-2">
+  <div class="card"><div class="tiny">普通聊天模型</div><h3>问一句，写一段</h3><p>输出是开放式自然语言，答案可能很长，也不一定遵守选项。</p></div>
+  <div class="card"><div class="tiny">Jev 式决策模型</div><h3>给状态和选项，只做选择</h3><p>输出被限制在合法符号里，适合意图识别、工单路由、风险分级。</p></div>
+</div>
+<div class="callout note"><b>你原来的理解其实已经对了大半</b><p>“LoRA 微调 Qwen 4B，做一个类似 Jev 的决策模型”完全正确。还差的三件事是：它具体在填什么题、LoRA 怎样被训练、40 步为什么只是一个流程冒烟而不是正式训练。</p></div>
+<div class="callout warn"><b>40 步不是 40 个 epoch</b><p>这里的 batch size 是 1，所以 40 步大约就是看 40 条训练记录、做 40 次参数更新。原版正式实验是 2160 条数据、2 个 epoch、batch size 16，约 270 步。本次本地 run 的目标是确认“模型能加载、loss 能回传、adapter 能保存、评测能执行”，不是把准确率练到论文水平。</p></div>
+</section>
 
 <section id="verdict">
 <div class="eyebrow">01 · 先看结论</div>
