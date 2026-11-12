@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>两段老师：先学专科，再拉回通用 · 第二阶段实验记录</title>
+<link rel="stylesheet" href="../phase-02/phase-02.css">
+</head>
+<body>
+<div class="page">
+<aside class="rail">
+  <a class="brand" href="../phase-02/index.html"><b>PHASE 02</b><span>实验记录 · 04–09</span></a>
+  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#sft">SFT</a></li><li><a href="#medical">Medical OPD</a></li><li><a href="#anchor">Base-anchor</a></li><li><a href="#eval">本地评测</a></li><li><a href="#limits">结果边界</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
+  <div class="rail-note">这一页只讲实验本身：输入、信号、真实 run、结果边界。代码路径留在页尾，方便回查。</div>
+</aside>
+<main>
+<header class="hero">
+  <div class="kicker">CH.06 · STAGED MEDICAL OPD · RUN 20261110-141706</div>
+  <h1>两段老师：先学专科，再拉回通用</h1>
+  <p class="deck">这不是单一算法页，而是一条三段式训练链：Medical SFT 产出老师，Medical OPD 教学生，Base-anchor OPD 再把通用分布拉回来。最终评测是一次诚实的负结果。</p>
+  <div class="metrics"><div class="metric"><span>流程</span><b>SAR</b><small>三段式</small></div><div class="metric"><span>SFT</span><b>30 steps</b><small>loss 16.88→0.25</small></div><div class="metric"><span>Medical OPD</span><b>8 steps</b><small>KL ≈ 12.34</small></div><div class="metric"><span>Anchor OPD</span><b>8 steps</b><small>KL 近 0 起步</small></div><div class="metric"><span>评测</span><b>90 题</b><small>50 + 40</small></div></div>
+</header>
+
+<section id="verdict">
+<div class="eyebrow">01 · 先看结论</div>
+<h2>完整流程跑通了，评测没有变好</h2>
+<p class="lede">这一章把 Medical SFT、Medical OPD、Base-anchor OPD 串成 SAR 流程。最终 adapter 在本地小评测上没有超过 base：MedQA 9/50 → 8/50，C-Eval 10/40 → 9/40。</p>
+<div class="big-number"><b>−1</b><span>两道评测集都只少了 1 道题。样本只有 50 和 40 条，这种差异不能单独解释成训练退化。</span></div>
+<div class="callout warn"><b>这是本章最诚实的部分</b><p>训练流程完整、每阶段都有真实 backward 和 adapter，但本地 smoke 评测没有给出正向证据。不要把“pipeline completed”改写成“医疗能力提升”。</p></div>
+</section>
+
+<section id="design">
+<div class="eyebrow">02 · 实验设计</div>
+<h2>三段式 SAR：先学专科，再拉回通用</h2>
+<div class="flow">
+  <div class="node"><b>Medical SFT</b><span>30 steps · 4B teacher</span></div><div class="arrow">→</div>
+  <div class="node"><b>Medical OPD</b><span>8 steps · 1.7B student</span></div><div class="arrow">→</div>
+  <div class="node"><b>Base-anchor OPD</b><span>8 steps · 1.7B base teacher</span></div>
+</div>
+<div class="table-wrap"><table>
+<tr><th>阶段</th><th>谁在学</th><th>谁在教</th><th>训练 prompt</th></tr>
+<tr><td>Medical SFT</td><td>Qwen3-4B + LoRA</td><td>固定医学答案</td><td>medical-o1 中文数据</td></tr>
+<tr><td>Medical OPD</td><td>Qwen3-1.7B + fresh LoRA</td><td>4B + Medical SFT adapter</td><td>医疗问题</td></tr>
+<tr><td>Base-anchor OPD</td><td>上阶段 student adapter</td><td>原始 1.7B base</td><td>C-Eval 非医疗题</td></tr>
+</table></div>
+</section>
+
+<section id="sft">
+<div class="eyebrow">03 · 第一段</div>
+<h2>SFT 的 loss 确实降得很明显</h2>
+<p>30 个 SFT step，每步 1 条样本。训练批上的 token accuracy 从接近 0 上升到 93.1%，loss 从 16.88 降到 0.247。</p>
+<div class="bars">
+  <div class="bar-row"><span class="bar-label">step 0</span><div class="bar-track"><div class="bar-fill rust" style="width:100%"></div></div><span class="bar-value">16.88</span></div>
+  <div class="bar-row"><span class="bar-label">step 10</span><div class="bar-track"><div class="bar-fill" style="width:37%"></div></div><span class="bar-value">6.323</span></div>
+  <div class="bar-row"><span class="bar-label">step 20</span><div class="bar-track"><div class="bar-fill" style="width:14%"></div></div><span class="bar-value">2.406</span></div>
+  <div class="bar-row"><span class="bar-label">step 29</span><div class="bar-track"><div class="bar-fill" style="width:2%"></div></div><span class="bar-value">0.247</span></div>
+</div>
+<p>但这是训练 batch 上的指标，不是 held-out 医疗准确率。它证明 masked SFT 链路在学，不证明模型已经获得可靠的临床推理。</p>
+</section>
+
+<section id="medical">
+<div class="eyebrow">04 · 第二段</div>
+<h2>Medical OPD 的 KL 非常大</h2>
+<p>8 个 step 的 reverse KL 均值在 10.16–13.52 之间，均值 12.34，远高于第 05 章的 0.58。一个真实样本可以直接看到原因。</p>
+<div class="sample"><div class="sample-head"><span>medical_opd · step 0 · 肾结石题</span><span>128 token</span></div><div class="sample-body">
+<div class="table-wrap"><table>
+<tr><th class="num">student Σ logp</th><th class="num">teacher Σ logp</th><th class="num">reverse KL Σ</th><th class="num">每 token</th></tr>
+<tr><td class="num">−25.745</td><td class="num">−1450.987</td><td class="num">+1425.242</td><td class="num">+11.135</td></tr>
+</table></div>
+<p>Student 在写“肾结石、血钙、血磷”的推理前缀，Medical Teacher 对这条 1.7B 轨迹给出的概率极低。Teacher 更“专业”不等于它对 Student 的每个前缀都自信。</p>
+</div></div>
+<div class="callout note"><b>KL 大不是自动的好信号</b><p>它说明两个策略差异很大，也说明训练更新可能很激烈。要判断这种差异是否带来正确能力，仍然需要独立评测。</p></div>
+</section>
+
+<section id="anchor">
+<div class="eyebrow">05 · 第三段</div>
+<h2>Base-anchor 的 KL 一开始几乎为 0</h2>
+<p>第三阶段使用 C-Eval 非医疗题，Teacher 是原始 1.7B base。前几个 step 的 KL 很小，说明 Student 与 anchor 在这些短回答上的分布接近；随后才开始拉开。</p>
+<div class="table-wrap"><table>
+<tr><th>step</th><th class="num">completion tokens</th><th class="num">reverse KL mean</th><th>读法</th></tr>
+<tr><td>0</td><td class="num">2.0</td><td class="num">0.000008</td><td>几乎完全一致</td></tr>
+<tr><td>1</td><td class="num">11.0</td><td class="num">−0.0065</td><td>token 级均值可为负</td></tr>
+<tr><td>2</td><td class="num">24.0</td><td class="num">0.0431</td><td>开始出现差异</td></tr>
+<tr><td>7</td><td class="num">2.0</td><td class="num">0.1755</td><td>短回答仍会波动</td></tr>
+</table></div>
+<p>token 级 reverse KL 的单个样本可以为负；只有对完整分布取期望，KL 才保证非负。这里的重点是观察流程，不是把负值当成公式失效。</p>
+</section>
+
+<section id="eval">
+<div class="eyebrow">06 · 本地评测</div>
+<h2>Base 与最终 adapter 的对比</h2>
+<div class="table-wrap"><table>
+<tr><th>评测</th><th class="num">base</th><th class="num">final</th><th class="num">差值</th><th>样本</th></tr>
+<tr><td>MedQA-zh</td><td class="num">18.0%</td><td class="num">16.0%</td><td class="num">−2.0 pp</td><td>50</td></tr>
+<tr><td>C-Eval non-med</td><td class="num">25.0%</td><td class="num">22.5%</td><td class="num">−2.5 pp</td><td>40</td></tr>
+</table></div>
+<div class="grid-2">
+  <div class="card"><div class="tiny">MedQA</div><h3>9 / 50 → 8 / 50</h3><p>只差一道题。这个量级不足以做稳定能力判断。</p></div>
+  <div class="card"><div class="tiny">C-Eval</div><h3>10 / 40 → 9 / 40</h3><p>同样只差一道题，且只覆盖本地抽样的非医疗 subset。</p></div>
+</div>
+</section>
+
+<section id="limits">
+<div class="eyebrow">07 · 结果边界</div>
+<h2>不要从这次 run 推出“OPD 无效”</h2>
+<p>这次实验能确认的是：三段式训练链、两个 Teacher 的切换、adapter 保存和本地选择题评测都真实发生。不能确认的是：Medical OPD 在论文规模下是否有效、SAR 是否普遍优于其他调度、1.7B/4B 的配置能否代表原版。</p>
+<div class="callout"><b>最值得复读的地方</b><p>SFT 训练指标很好，最终评测却没变好。这说明“训练目标在优化”与“目标任务在改善”之间还有一段距离，正是后续实验设计要回答的问题。</p></div>
+<p>阅读入口：<a href="./readme.md">readme.md</a> · 代码：<a href="./local_gpu.py">local_gpu.py</a> · 指标：<a href="./results/06-medical-opd/run-20261110-141706/eval/metrics.json">eval/metrics.json</a>。</p>
+</section>
+
+<section id="questions">
+<div class="eyebrow">08 · 读完自检</div>
+<h2>你应该能回答的三个问题</h2>
+<ul class="checklist">
+  <li>为什么 Medical SFT 的 token accuracy 很高，却不能直接当作医疗能力？</li>
+  <li>为什么 Medical OPD 的 KL 比 General OPD 大一个数量级？</li>
+  <li>为什么 50 题和 40 题上的 1 题差异，不能写成稳定的能力下降？</li>
+</ul>
+</section>
+
+<footer class="meta">
+  <div>数据来源：experiments/medical-opd/results/06-medical-opd/run-20261110-141706/{summary,sft/history,medical_opd_history,anchor_opd_history,eval/metrics}.json</div>
+  <div>页面路径：experiments/medical-opd/medical-opd-explained.html</div>
+</footer>
+<div class="pager">
+  <a href="../general-opd/general-opd-explained.html">← 05 General OPD</a>
+  <span>PHASE 02 · 03 / 06</span>
+  <a href="../dapo/dapo-explained.html">07 DAPO →</a>
+</div>
+</main>
+</div>
+<script src="../phase-02/phase-02.js"></script>
+</body>
+</html>

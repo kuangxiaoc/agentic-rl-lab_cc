@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>决策不是生成：一次 forward 做五个选择 · 第二阶段实验记录</title>
+<link rel="stylesheet" href="../phase-02/phase-02.css">
+</head>
+<body>
+<div class="page">
+<aside class="rail">
+  <a class="brand" href="../phase-02/index.html"><b>PHASE 02</b><span>实验记录 · 04–09</span></a>
+  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#curve">真实训练记录</a></li><li><a href="#sample">一个真实样本</a></li><li><a href="#fields">分字段结果</a></li><li><a href="#mechanism">机制</a></li><li><a href="#limits">结果边界</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
+  <div class="rail-note">这一页只讲实验本身：输入、信号、真实 run、结果边界。代码路径留在页尾，方便回查。</div>
+</aside>
+<main>
+<header class="hero">
+  <div class="kicker">CH.04 · MASKED DECISION SFT · RUN 20261110-140852</div>
+  <h1>决策不是生成：一次 forward 做五个选择</h1>
+  <p class="deck">这一章的实验对象不是一条回答，而是一条记录里的多个固定选项。模型只在 decision marker 前一个位置被监督，推理时只读候选符号的概率。</p>
+  <div class="metrics"><div class="metric"><span>模型</span><b>Qwen3-4B</b><small>4-bit QLoRA</small></div><div class="metric"><span>训练</span><b>40 steps</b><small>1 条/step</small></div><div class="metric"><span>评测</span><b>250 决策</b><small>50 条记录</small></div><div class="metric"><span>准确率</span><b>34.4%</b><small>86 / 250</small></div><div class="metric"><span>外部 API</span><b>0</b><small>纯本地</small></div></div>
+</header>
+
+<section id="verdict">
+<div class="eyebrow">01 · 先看结论</div>
+<h2>它不是 RL，而是一次极窄的监督</h2>
+<p class="lede">第 04 章把“回答一道题”改成“在一次 forward 里同时做五个固定选项判断”。每个字段只在 <code>decision</code> marker 前一个位置计算 loss，推理时也只读候选符号的 logits。</p>
+<div class="big-number"><b>34.4%</b><span>250 个决策中答对 86 个。训练 loss 明显下降，但这只是 50 条测试记录的局部结果。</span></div>
+<div class="callout note"><b>这一章最值得记住的实验事实</b><p>训练最后一步的 marker accuracy 是 60%，但测试集总体只有 34.4%。单条记录的 batch loss 很小，不等于模型已经学会稳定的决策规则。</p></div>
+</section>
+
+<section id="design">
+<div class="eyebrow">02 · 实验设计</div>
+<h2>一条记录，五个字段，一次前向</h2>
+<p>输入是一段状态、若干带固定选项的问题，以及一个 JSON 骨架。模型不生成整段 JSON，只在每个字段的 <code>decision</code> token 之前预测答案符号。</p>
+<div class="flow five">
+  <div class="node"><b>state</b><span>agent trace</span></div><div class="arrow">→</div>
+  <div class="node"><b>questions</b><span>固定选项</span></div><div class="arrow">→</div>
+  <div class="node"><b>JSON skeleton</b><span>含 decision marker</span></div><div class="arrow">→</div>
+  <div class="node"><b>one forward</b><span>所有字段共享上下文</span></div><div class="arrow">→</div>
+  <div class="node"><b>candidate softmax</b><span>只比较合法符号</span></div>
+</div>
+<div class="table-wrap"><table>
+<tr><th>项目</th><th>最终 run 的实际值</th></tr>
+<tr><td>模型</td><td><code>Qwen/Qwen3-4B-Instruct-2507</code> + 4-bit QLoRA</td></tr>
+<tr><td>训练</td><td>1 epoch，40 steps，每步 1 条记录，batch size 1</td></tr>
+<tr><td>数据</td><td>ModelScope <code>LocalLLaMA/typed-decisions</code> 的 train/test parquet</td></tr>
+<tr><td>评测</td><td>前 50 条 test 记录，共 250 个字段决策</td></tr>
+<tr><td>外部 API</td><td>0 次</td></tr>
+</table></div>
+</section>
+
+<section id="curve">
+<div class="eyebrow">03 · 真实训练记录</div>
+<h2>loss 从 18.04 降下来，但不是平滑下降</h2>
+<p>每步只有一条记录，所以曲线会被单条样本的字段数量、长度和难度强烈影响。下面挑了几个代表性 step，不把噪声当趋势。</p>
+<div class="table-wrap"><table>
+<tr><th>step</th><th class="num">loss</th><th class="num">marker accuracy</th><th>读法</th></tr>
+<tr><td>0</td><td class="num">18.041</td><td class="num">0.0</td><td>初始输出几乎完全不对</td></tr>
+<tr><td>8</td><td class="num">0.625</td><td class="num">0.8</td><td>这一条记录上已能对上多数 marker</td></tr>
+<tr><td>20</td><td class="num">0.820</td><td class="num">0.8</td><td>换一条记录，表现仍会回落</td></tr>
+<tr><td>34</td><td class="num">0.480</td><td class="num">1.0</td><td>该记录五个字段全对</td></tr>
+<tr><td>39</td><td class="num">0.719</td><td class="num">0.6</td><td>最后一步并不代表测试集最优</td></tr>
+</table></div>
+<div class="callout"><b>为什么曲线会抖</b><p>这不是常规的大 batch 训练。每一步只更新一条记录，marker accuracy 是该记录内几个字段的比例。它的主要作用是确认 marker 对齐和梯度链路，不是估计泛化能力。</p></div>
+</section>
+
+<section id="sample">
+<div class="eyebrow">04 · 一个真实样本</div>
+<h2><code>agent_trace_observability_000000</code></h2>
+<p>这是评测集第一条记录。五个字段在同一次 forward 中得到结果，但答错和答对混在一起。</p>
+<div class="table-wrap"><table>
+<tr><th>字段</th><th>prediction</th><th>gold</th><th>结果</th><th class="num">confidence</th></tr>
+<tr><td><code>action</code></td><td>observe</td><td>continue</td><td style="color:var(--rust)">错</td><td class="num">0.649</td></tr>
+<tr><td><code>needs_review</code></td><td>yes</td><td>no</td><td style="color:var(--rust)">错</td><td class="num">0.671</td></tr>
+<tr><td><code>outcome</code></td><td>success</td><td>success</td><td style="color:var(--forest)">对</td><td class="num">0.532</td></tr>
+<tr><td><code>risk</code></td><td>1</td><td>1</td><td style="color:var(--forest)">对</td><td class="num">0.679</td></tr>
+<tr><td><code>urgency</code></td><td>1</td><td>0</td><td style="color:var(--rust)">错</td><td class="num">0.772</td></tr>
+</table></div>
+<p>三个错误字段的置信度并不低，<code>urgency</code> 甚至在 0.772 时答错。候选 softmax 给出的是模型内部相对偏好，不是经过校准的业务概率。</p>
+</section>
+
+<section id="fields">
+<div class="eyebrow">05 · 分字段结果</div>
+<h2>五个字段的难度并不一样</h2>
+<div class="bars">
+  <div class="bar-row"><span class="bar-label">action</span><div class="bar-track"><div class="bar-fill" style="width:26%"></div></div><span class="bar-value">26%</span></div>
+  <div class="bar-row"><span class="bar-label">needs_review</span><div class="bar-track"><div class="bar-fill gold" style="width:42%"></div></div><span class="bar-value">42%</span></div>
+  <div class="bar-row"><span class="bar-label">outcome</span><div class="bar-track"><div class="bar-fill rust" style="width:24%"></div></div><span class="bar-value">24%</span></div>
+  <div class="bar-row"><span class="bar-label">risk</span><div class="bar-track"><div class="bar-fill gold" style="width:44%"></div></div><span class="bar-value">44%</span></div>
+  <div class="bar-row"><span class="bar-label">urgency</span><div class="bar-track"><div class="bar-fill" style="width:36%"></div></div><span class="bar-value">36%</span></div>
+</div>
+<p>总体 34.4% 不是五个字段的平均能力，而是 250 个独立决策混在一起后的结果。<code>outcome</code> 和 <code>action</code> 明显更难，<code>risk</code> 与 <code>needs_review</code> 稍好。</p>
+</section>
+
+<section id="mechanism">
+<div class="eyebrow">06 · 机制</div>
+<h2>标签只落在 marker 前一个位置</h2>
+<pre><code>input:  ... "action": "decision" ...
+labels: ...          ↑ 只在这里填答案 token
+                        其余位置 = -100
+
+eval:
+  logits[marker - 1]
+      ↓ index_select(合法候选符号)
+      ↓ softmax
+  prediction = argmax</code></pre>
+<p>这就是“决策模型”和普通 SFT 的差别。普通 SFT 要模型写完整答案；这里只要求它在固定位置从有限候选里选一个。所有字段共享 state，但答案不出现在输入中，因此字段之间不会看到彼此的标签。</p>
+</section>
+
+<section id="limits">
+<div class="eyebrow">07 · 结果边界</div>
+<h2>这张图能说明什么，不能说明什么</h2>
+<div class="grid-2">
+  <div class="card"><div class="tiny">可以说明</div><h3>机制跑通</h3><p>marker 对齐、masked cross entropy、候选 softmax、LoRA 保存和评测回读都产生了可复核记录。</p></div>
+  <div class="card"><div class="tiny">不能说明</div><h3>业务可用</h3><p>50 条测试记录不足以支撑生产路由结论；置信度也未校准，不能直接拿阈值放行。</p></div>
+</div>
+<div class="callout warn"><b>不要把 34.4% 和原版五项 Jevbench 平均分混在一起</b><p>这次本地 run 只使用 typed-decisions 的 train/test，没有 ToolACE 和 Jevbench 全套评测，也没有温度校准。它是一个机制实验，不是论文表格的等价复现。</p></div>
+</section>
+
+<section id="questions">
+<div class="eyebrow">08 · 读完自检</div>
+<h2>你应该能回答的三个问题</h2>
+<ul class="checklist">
+  <li>为什么一条记录只产生几个非零 label，而不是整段 JSON 都参与 loss？</li>
+  <li>为什么推理时要在候选符号上做 softmax，而不是让模型自由生成？</li>
+  <li>为什么训练 loss 下降、marker accuracy 到 1.0，仍然不能推断测试集准确率会高？</li>
+</ul>
+<p>阅读入口：<a href="./readme.md">readme.md</a> · 代码：<a href="./local_gpu.py">local_gpu.py</a> · 数据：<a href="./results/04-pytrio-jev/run-20261110-140852/summary.json">summary.json</a>。</p>
+</section>
+
+<footer class="meta">
+  <div>数据来源：experiments/pytrio-jev/results/04-pytrio-jev/run-20261110-140852/{summary,eval}.json(l)</div>
+  <div>页面路径：experiments/pytrio-jev/pytrio-jev-explained.html</div>
+</footer>
+<div class="pager">
+  <a href="../phase-02/index.html">← 第二阶段入口</a>
+  <span>PHASE 02 · 01 / 06</span>
+  <a href="../general-opd/general-opd-explained.html">05 General OPD →</a>
+</div>
+</main>
+</div>
+<script src="../phase-02/phase-02.js"></script>
+</body>
+</html>

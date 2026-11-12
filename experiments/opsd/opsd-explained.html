@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPSD：拿着参考答案，给自己判卷 · 第二阶段实验记录</title>
+<link rel="stylesheet" href="../phase-02/phase-02.css">
+</head>
+<body>
+<div class="page">
+<aside class="rail">
+  <a class="brand" href="../phase-02/index.html"><b>PHASE 02</b><span>实验记录 · 04–09</span></a>
+  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#prompts">两个 prompt</a></li><li><a href="#flow">数据流</a></li><li><a href="#sample">一条真实轨迹</a></li><li><a href="#curve">四步曲线</a></li><li><a href="#dense">信号形态</a></li><li><a href="#limits">结果边界</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
+  <div class="rail-note">这一页只讲实验本身：输入、信号、真实 run、结果边界。代码路径留在页尾，方便回查。</div>
+</aside>
+<main>
+<header class="hero">
+  <div class="kicker">CH.09 · ON-POLICY SELF-DISTILLATION · RUN 20261110-150419</div>
+  <h1>OPSD：拿着参考答案，给自己判卷</h1>
+  <p class="deck">Student 闭卷写，Teacher 开卷看同一条轨迹。两者是同一份 base，只差一个参考解上下文；每个 completion token 都得到一条稠密但并非绝对正确的监督。</p>
+  <div class="metrics"><div class="metric"><span>Student</span><b>Qwen3-4B</b><small>QLoRA</small></div><div class="metric"><span>Teacher</span><b>同一 base</b><small>冻结 + 参考解</small></div><div class="metric"><span>训练</span><b>4 steps</b><small>4 条 completion</small></div><div class="metric"><span>KL</span><b>0.152→0.235</b><small>中间峰值 0.504</small></div><div class="metric"><span>外部 API</span><b>0</b><small>纯本地</small></div></div>
+</header>
+
+<section id="verdict">
+<div class="eyebrow">01 · 先看结论</div>
+<h2>同一个模型，换一份 prompt，就变成了老师</h2>
+<p class="lede">OPSD 的 Teacher 不是更大的模型，而是同一个 Qwen3-4B base：Student 只看题目，Teacher 额外看到参考解。Student 先采样，两个 prompt 再对同一条 completion 计算 logprob。</p>
+<div class="big-number"><b>4</b><span>次真实 optimizer step，每次 1 条 256-token completion。KL 从 0.152 波动到 0.504，再回到 0.235。</span></div>
+<div class="callout note"><b>这一章的重点是“特权上下文”</b><p>Teacher 的能力来自它看到了 Student 看不到的参考解，而不是来自第二份更大的参数。</p></div>
+</section>
+
+<section id="design">
+<div class="eyebrow">02 · 实验设计</div>
+<h2>Student 与 Teacher 共用同一份 base</h2>
+<div class="table-wrap"><table>
+<tr><th>项目</th><th>最终 run</th><th>含义</th></tr>
+<tr><td>模型</td><td><code>Qwen/Qwen3-4B-Instruct-2507</code></td><td>Student 挂 QLoRA，Teacher 冻结</td></tr>
+<tr><td>数据</td><td><code>siyanzhao/Openthoughts_math_30k_opsd</code></td><td>固定 revision，problem + solution</td></tr>
+<tr><td>训练</td><td>4 steps，batch 1，group 1</td><td>每次 1 条 completion</td></tr>
+<tr><td>上限</td><td>256 new tokens</td><td>4 条 completion 全部撞满</td></tr>
+<tr><td>信号</td><td>sampled-token reverse KL</td><td>不是 full-vocabulary JSD</td></tr>
+</table></div>
+</section>
+
+<section id="prompts">
+<div class="eyebrow">03 · 两个 prompt</div>
+<h2>差别只在参考解，不在模型参数</h2>
+<div class="grid-2">
+  <div class="card"><div class="tiny">Student prompt</div><h3>只有题目</h3><p>Problem: …<br>Please reason step by step …</p></div>
+  <div class="card"><div class="tiny">Teacher prompt</div><h3>题目 + 参考解</h3><p>Problem: …<br>Reference Solution Begin … End<br>请理解上面的推理，但不要直接复制。</p></div>
+</div>
+<p>Teacher 不会重新生成答案。它拿到的是 <code>teacher_prompt + student_completion</code>，只对 Student 已经写出的 token 做一次 forward。</p>
+</section>
+
+<section id="flow">
+<div class="eyebrow">04 · 数据流</div>
+<h2>一次采样，两次打分</h2>
+<div class="flow five">
+  <div class="node"><b>Problem</b><span>Student 只看题</span></div><div class="arrow">→</div>
+  <div class="node"><b>Student sample</b><span>1 条 completion</span></div><div class="arrow">→</div>
+  <div class="node"><b>Student score</b><span>旧 logprob</span></div><div class="arrow">→</div>
+  <div class="node"><b>Teacher score</b><span>题目 + 参考解</span></div><div class="arrow">→</div>
+  <div class="node"><b>KL advantage</b><span>只更新 Student</span></div>
+</div>
+<pre><code>reverse_kl_t = log p_student(token_t | problem, prefix)
+             - log p_teacher(token_t | problem, solution, prefix)
+
+advantage_t  = -beta * reverse_kl_t</code></pre>
+</section>
+
+<section id="sample">
+<div class="eyebrow">05 · 一条真实轨迹</div>
+<h2>二次方程题：Teacher 对这条前缀更不自信</h2>
+<p>第 0 步的题目是 <code>x² − mx + 24</code> 的整数根问题。Student 写了 256 token，Teacher 在同一串 token 上给出更低的总概率。</p>
+<div class="table-wrap"><table>
+<tr><th>step</th><th class="num">tokens</th><th class="num">student Σ logp</th><th class="num">teacher Σ logp</th><th class="num">reverse KL Σ</th><th class="num">每 token</th></tr>
+<tr><td>0</td><td class="num">256</td><td class="num">−44.125</td><td class="num">−83.084</td><td class="num">+38.958</td><td class="num">+0.152</td></tr>
+<tr><td>1</td><td class="num">256</td><td class="num">−39.232</td><td class="num">−131.913</td><td class="num">+92.681</td><td class="num">+0.362</td></tr>
+</table></div>
+<div class="sample"><div class="sample-head"><span>step 0 · completion 开头</span><span>256 token 截断</span></div><div class="sample-body"><p class="quote">“We are given a quadratic expression: x² − mx + 24 … We are to find how many different values of m are possible.”</p><p>Student 还在列因式对，Teacher 已经带着参考解在看同一段前缀。KL 为正，表示 Student 比 Teacher 更偏爱这些 token，因此 advantage 为负，训练会压低它们。</p></div></div>
+</section>
+
+<section id="curve">
+<div class="eyebrow">06 · 四步曲线</div>
+<h2>KL 不是单调下降</h2>
+<div class="bars">
+  <div class="bar-row"><span class="bar-label">step 0</span><div class="bar-track"><div class="bar-fill" style="width:30%"></div></div><span class="bar-value">0.152</span></div>
+  <div class="bar-row"><span class="bar-label">step 1</span><div class="bar-track"><div class="bar-fill gold" style="width:72%"></div></div><span class="bar-value">0.362</span></div>
+  <div class="bar-row"><span class="bar-label">step 2</span><div class="bar-track"><div class="bar-fill rust" style="width:100%"></div></div><span class="bar-value">0.504</span></div>
+  <div class="bar-row"><span class="bar-label">step 3</span><div class="bar-track"><div class="bar-fill" style="width:47%"></div></div><span class="bar-value">0.235</span></div>
+</div>
+<p>4 个 step、4 道题、4 条 completion，任何一道题变难都可能把均值拉高。这里的实验价值是“每个 token 都拿到了信号”，不是“KL 已经收敛”。</p>
+</section>
+
+<section id="dense">
+<div class="eyebrow">07 · 信号形态</div>
+<h2>稠密反馈，但不是无限可靠的老师</h2>
+<div class="grid-3">
+  <div class="card"><div class="tiny">优点</div><h3>每个 token 都有梯度</h3><p>不用等整条回答结束，也不用组内出现对错混合。</p></div>
+  <div class="card"><div class="tiny">优点</div><h3>不需要第二个模型</h3><p>Teacher 只是同一份 base 加参考解，显存和部署都更轻。</p></div>
+  <div class="card"><div class="tiny">风险</div><h3>参考解不等于正确</h3><p>Teacher 看到 solution 后仍可能给出错误偏好；KL 只表示差异，不表示真理。</p></div>
+</div>
+</section>
+
+<section id="limits">
+<div class="eyebrow">08 · 结果边界</div>
+<h2>这次 run 没有证明数学能力提高</h2>
+<p>可以确认：同一 base 的双 prompt、Student 采样、Teacher 同轨迹打分、reverse KL advantage、4 次 optimizer step 都真实发生。不能确认：AIME 或任何独立数学 benchmark 提升，也不能确认 full-vocabulary JSD 的效果。</p>
+<div class="callout warn"><b>全部 completion 都是 256 token</b><p>4 个 step 的平均 completion 长度都是 256，正好撞上上限。这次比较的是推理前缀上的 token 偏好，不是完整解答。</p></div>
+<p>阅读入口：<a href="./readme.md">readme.md</a> · 代码：<a href="./local_gpu.py">local_gpu.py</a> · 共用逻辑：<a href="../../scripts/local_opd.py">scripts/local_opd.py</a> · 数据：<a href="./results/09-opsd/run-20261110-150419/summary.json">summary.json</a>。</p>
+</section>
+
+<section id="questions">
+<div class="eyebrow">09 · 读完自检</div>
+<h2>你应该能回答的三个问题</h2>
+<ul class="checklist">
+  <li>OPSD 的 Teacher 为什么不需要更大的模型？</li>
+  <li>为什么 Teacher 不能重新生成一条答案？</li>
+  <li>为什么 reverse KL 下降不能直接等同于数学正确率提高？</li>
+</ul>
+</section>
+
+<footer class="meta">
+  <div>数据来源：experiments/opsd/results/09-opsd/run-20261110-150419/{summary,samples}.json(l)</div>
+  <div>页面路径：experiments/opsd/opsd-explained.html</div>
+</footer>
+<div class="pager">
+  <a href="../gspo/gspo-explained.html">← 08 GSPO</a>
+  <span>PHASE 02 · 06 / 06</span>
+  <a href="../phase-02/index.html">第二阶段入口 →</a>
+</div>
+</main>
+</div>
+<script src="../phase-02/phase-02.js"></script>
+</body>
+</html>

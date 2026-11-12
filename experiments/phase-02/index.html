@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第二阶段：六种训练信号 · agentic-rl-lab</title>
+<link rel="stylesheet" href="./phase-02.css">
+</head>
+<body>
+<div class="page">
+<aside class="rail">
+  <a class="brand" href="./index.html"><b>PHASE 02</b><span>实验记录 · 04–09</span></a>
+  <nav><ol><li><a href="#map">六页入口</a></li><li><a href="#compare">横向对照</a></li><li><a href="#howto">阅读方法</a></li><li><a href="#source">数据来源</a></li></ol></nav>
+  <div class="rail-note">这一组页面只关注实验：信号、真实样本、更新次数、结果边界。</div>
+</aside>
+<main>
+
+<header class="hero index-hero">
+  <div class="kicker">PHASE 02 · EXPERIMENT READER</div>
+  <h1>六种训练信号，六次真实 run</h1>
+  <p class="deck">第 04–09 章不再是同一套 GRPO 换参数，而是六种不同的监督来源：固定符号、外部 Teacher、分阶段 Teacher、组内 reward、序列级 ratio、同模型特权上下文。</p>
+  <div class="metrics">
+    <div class="metric"><span>覆盖章节</span><b>04–09</b><small>6 个实验</small></div>
+    <div class="metric"><span>真实 optimizer</span><b>有</b><small>每页都能回查记录</small></div>
+    <div class="metric"><span>能力结论</span><b>克制</b><small>不把 smoke 写成论文</small></div>
+    <div class="metric"><span>阅读方式</span><b>先结论</b><small>再看样本与曲线</small></div>
+    <div class="metric"><span>外部 API</span><b>0</b><small>本阶段全部本地</small></div>
+  </div>
+</header>
+<section id="map">
+  <div class="eyebrow">01 · 先选页面</div>
+  <h2>按你关心的“信号从哪来”进入</h2>
+  <div class="index-grid">
+    <a class="chapter-card" href="../pytrio-jev/pytrio-jev-explained.html"><div class="chapter-no">CH.04 · DECISION SFT</div><h3>决策不是生成</h3><p>一次 forward，五个固定选项；只监督 decision marker 前的位置。</p><div class="metric-line"><span>准确率 <b>34.4%</b></span><span>决策 <b>250</b></span></div></a>
+    <a class="chapter-card" href="../general-opd/general-opd-explained.html"><div class="chapter-no">CH.05 · GENERAL OPD</div><h3>老师沿着错误往下讲</h3><p>Student 采样，Teacher 对同一条 token 轨迹打分，reverse KL 变 advantage。</p><div class="metric-line"><span>更新 <b>15</b></span><span>KL 均值 <b>0.582</b></span></div></a>
+    <a class="chapter-card" href="../medical-opd/medical-opd-explained.html"><div class="chapter-no">CH.06 · MEDICAL OPD</div><h3>先学专科，再拉回通用</h3><p>Medical SFT → Medical OPD → Base-anchor OPD，最终评测是负结果。</p><div class="metric-line"><span>三段 <b>SAR</b></span><span>评测 <b>90 题</b></span></div></a>
+    <a class="chapter-card" href="../dapo/dapo-explained.html"><div class="chapter-no">CH.07 · DAPO</div><h3>被最后一个有效组拖住</h3><p>Dynamic Sampling 过滤退化组，27 次尝试只留下 3 次真实更新。</p><div class="metric-line"><span>有效 <b>3/27</b></span><span>跳过 <b>24</b></span></div></a>
+    <a class="chapter-card" href="../gspo/gspo-explained.html"><div class="chapter-no">CH.08 · GSPO</div><h3>一条回答，只裁一次</h3><p>token log-ratio 先平均，再 exp；整条序列共享一个 ratio 和一次裁剪。</p><div class="metric-line"><span>有效 <b>3/23</b></span><span>Clip <b>3e-4 / 4e-4</b></span></div></a>
+    <a class="chapter-card" href="../opsd/opsd-explained.html"><div class="chapter-no">CH.09 · OPSD</div><h3>给自己判卷</h3><p>同一份 base，Student 只看题，Teacher 多看参考解；逐 token reverse KL。</p><div class="metric-line"><span>更新 <b>4</b></span><span>上限 <b>256 token</b></span></div></a>
+  </div>
+</section>
+<section id="compare">
+  <div class="eyebrow">02 · 一张表对齐</div>
+  <h2>六章到底在比较什么</h2>
+  <div class="table-wrap"><table class="index-table">
+    <tr><th>章</th><th>训练信号</th><th>信号粒度</th><th>这次实验最该看什么</th><th>不能证明什么</th></tr>
+    <tr><td>04</td><td>gold 符号</td><td>字段级</td><td>marker 对齐、候选 softmax、分字段难度</td><td>生产级路由准确率</td></tr>
+    <tr><td>05</td><td>外部 Teacher logprob</td><td>token 级</td><td>同轨迹对齐、KL 波动、截断前缀</td><td>数学能力提升</td></tr>
+    <tr><td>06</td><td>专科 Teacher + base anchor</td><td>token 级</td><td>三段式流程、Teacher 切换、负结果</td><td>OPD 普遍无效或有效</td></tr>
+    <tr><td>07</td><td>组内 ±1 reward</td><td>序列级</td><td>Dynamic Sampling 的 24 次丢弃</td><td>完整 DAPO 四项消融</td></tr>
+    <tr><td>08</td><td>组内 0/1 reward</td><td>序列级 ratio</td><td>几何平均、单次裁剪、3 次更新</td><td>GSPO 优于 GRPO</td></tr>
+    <tr><td>09</td><td>同模型特权 Teacher</td><td>token 级</td><td>双 prompt、稠密反馈、4 步波动</td><td>AIME 或完整解答能力</td></tr>
+  </table></div>
+</section>
+<section id="howto">
+  <div class="eyebrow">03 · 每页怎么读</div>
+  <h2>固定四问，不跟着代码跑丢</h2>
+  <div class="grid-3">
+    <div class="card"><div class="tiny">Q1</div><h3>信号从哪来？</h3><p>标签、Teacher logprob、组内 reward，还是同一模型的特权上下文？</p></div>
+    <div class="card"><div class="tiny">Q2</div><h3>信号落在哪些 token？</h3><p>整条 completion、单个 marker，还是只训练 assistant action token？</p></div>
+    <div class="card"><div class="tiny">Q3</div><h3>哪一步真的更新了？</h3><p>看 <code>train_samples</code>、<code>effective_step</code> 或 <code>updated_trajectories</code>，不要只看 loss。</p></div>
+    <div class="card"><div class="tiny">Q4</div><h3>这次 run 不能证明什么？</h3><p>每页末尾都写边界；先承认边界，再谈收获。</p></div>
+  </div>
+</section>
+<section id="source">
+  <div class="eyebrow">04 · 数据来源</div>
+  <h2>所有数字都能回到仓库</h2>
+  <p>入口页只做导航。每章页面都链接到自己的 <code>readme.md</code>、<code>local_gpu.py</code> 和最终 run 的 <code>summary.json</code>；配置、history、samples 和评测记录都在 <code>experiments/&lt;chapter&gt;/results/</code>。</p>
+  <p><a href="./phase-02.css">phase-02.css</a> · <a href="./phase-02.js">phase-02.js</a> · <a href="../README.md">experiments/README.md</a></p>
+</section>
+
+<footer class="meta"><div>数据来源：experiments/*/results/ 与 experiment-records/state.json</div><div>页面路径：experiments/phase-02/index.html</div></footer>
+</main>
+</div>
+<script src="./phase-02.js"></script>
+</body>
+</html>
