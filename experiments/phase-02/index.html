@@ -10,23 +10,24 @@
 <div class="page">
 <aside class="rail">
   <a class="brand" href="./index.html"><b>PHASE 02</b><span>实验记录 · 04–09</span></a>
-  <nav><ol><li><a href="#map">六页入口</a></li><li><a href="#compare">横向对照</a></li><li><a href="#howto">阅读方法</a></li><li><a href="#source">数据来源</a></li></ol></nav>
-  <div class="rail-note">这一组页面只关注实验：信号、真实样本、更新次数、结果边界。</div>
+  <nav><ol><li><a href="#map">六页入口</a></li><li><a href="#primer">数学小抄</a></li><li><a href="#compare">横向对照</a></li><li><a href="#howto">阅读方法</a></li><li><a href="#source">数据来源</a></li></ol></nav>
+  <div class="rail-note">这一组页面只关注实验：先补公式，再看真实样本、更新次数和结果边界。</div>
 </aside>
 <main>
 
 <header class="hero index-hero">
   <div class="kicker">PHASE 02 · EXPERIMENT READER</div>
   <h1>六种训练信号，六次真实 run</h1>
-  <p class="deck">第 04–09 章不再是同一套 GRPO 换参数，而是六种不同的监督来源：固定符号、外部 Teacher、分阶段 Teacher、组内 reward、序列级 ratio、同模型特权上下文。</p>
+  <p class="deck">第 04–09 章不再是同一套 GRPO 换参数，而是六种不同的监督来源：固定符号、外部 Teacher、分阶段 Teacher、组内 reward、序列级 ratio、同模型特权上下文。每页都从符号和公式讲起，再用最终 run 的真实数字走完整链路。</p>
   <div class="metrics">
     <div class="metric"><span>覆盖章节</span><b>04–09</b><small>6 个实验</small></div>
     <div class="metric"><span>真实 optimizer</span><b>有</b><small>每页都能回查记录</small></div>
     <div class="metric"><span>能力结论</span><b>克制</b><small>不把 smoke 写成论文</small></div>
-    <div class="metric"><span>阅读方式</span><b>先结论</b><small>再看样本与曲线</small></div>
+    <div class="metric"><span>阅读方式</span><b>公式→链路</b><small>再看样本与曲线</small></div>
     <div class="metric"><span>外部 API</span><b>0</b><small>本阶段全部本地</small></div>
   </div>
 </header>
+<div class="primer-banner"><span><b>第一次读 RL 公式？</b> 先打开数学小抄，知道 logprob、advantage、ratio、KL 分别在看什么。</span><a href="./math-primer.html">数学小抄 · MATH PRIMER →</a></div>
 <section id="map">
   <div class="eyebrow">01 · 先选页面</div>
   <h2>按你关心的“信号从哪来”进入</h2>
@@ -37,6 +38,16 @@
     <a class="chapter-card" href="../dapo/dapo-explained.html"><div class="chapter-no">CH.07 · DAPO</div><h3>被最后一个有效组拖住</h3><p>Dynamic Sampling 过滤退化组，27 次尝试只留下 3 次真实更新。</p><div class="metric-line"><span>有效 <b>3/27</b></span><span>跳过 <b>24</b></span></div></a>
     <a class="chapter-card" href="../gspo/gspo-explained.html"><div class="chapter-no">CH.08 · GSPO</div><h3>一条回答，只裁一次</h3><p>token log-ratio 先平均，再 exp；整条序列共享一个 ratio 和一次裁剪。</p><div class="metric-line"><span>有效 <b>3/23</b></span><span>Clip <b>3e-4 / 4e-4</b></span></div></a>
     <a class="chapter-card" href="../opsd/opsd-explained.html"><div class="chapter-no">CH.09 · OPSD</div><h3>给自己判卷</h3><p>同一份 base，Student 只看题，Teacher 多看参考解；逐 token reverse KL。</p><div class="metric-line"><span>更新 <b>4</b></span><span>上限 <b>256 token</b></span></div></a>
+  </div>
+</section>
+<section id="primer">
+  <div class="eyebrow">01.5 · 数学小抄</div>
+  <h2>公式不是装饰，它们在描述数据怎么流动</h2>
+  <p>如果你对 <code>logprob</code>、<code>advantage</code>、<code>ratio</code>、<code>KL</code> 还不熟，先看 <a href="./math-primer.html">数学小抄</a>。它用一条 4-token 的玩具轨迹解释符号，再告诉你每个符号对应 04–09 的哪一个真实字段。</p>
+  <div class="grid-3">
+    <div class="card"><div class="tiny">概率</div><h3>logprob 越接近 0 越自信</h3><p>序列 logprob 是 token logprob 相加；它不是准确率。</p></div>
+    <div class="card"><div class="tiny">方向</div><h3>advantage 正增负减</h3><p>loss 前的负号只是把“提高概率”改写成“最小化损失”。</p></div>
+    <div class="card"><div class="tiny">稳定性</div><h3>ratio 先看，再 clip</h3><p>ratio 衡量新旧策略差多少；clip 防止一步更新过猛。</p></div>
   </div>
 </section>
 <section id="compare">

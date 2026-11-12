@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数学小抄：读懂第二阶段实验 · agentic-rl-lab</title>
+<link rel="stylesheet" href="./phase-02.css">
+</head>
+<body>
+<div class="page">
+<aside class="rail">
+  <a class="brand" href="./index.html"><b>PHASE 02</b><span>实验记录 · 04–09</span></a>
+  <nav><ol><li><a href="#map">先看地图</a></li><li><a href="#probability">概率与 log</a></li><li><a href="#advantage">reward 与 advantage</a></li><li><a href="#ratio">ratio 与 clip</a></li><li><a href="#kl">KL 与 OPD</a></li><li><a href="#toy">一个手算例子</a></li><li><a href="#chapters">回到六章</a></li><li><a href="#check">自检</a></li></ol></nav>
+  <div class="rail-note">这不是完整数学教材，而是一张随时可查的实验读图卡。公式先翻译成人话，再对应到 04–09 的真实数字。</div>
+</aside>
+<main>
+<header class="hero">
+  <div class="kicker">PHASE 02 · MATH PRIMER</div>
+  <h1>先别怕公式：把符号翻译成实验动作</h1>
+  <p class="deck">强化学习实验里反复出现的数学，其实只在回答四个问题：模型给这个 token 多大概率？这条回答比同组其他人好多少？新旧策略变了多少？我们该把概率往哪个方向推？</p>
+  <div class="metrics">
+    <div class="metric"><span>先修</span><b>4 个概念</b><small>概率、log、期望、KL</small></div>
+    <div class="metric"><span>训练信号</span><b>2 类</b><small>标签或 reward</small></div>
+    <div class="metric"><span>更新方向</span><b>看 advantage</b><small>正增负减</small></div>
+    <div class="metric"><span>稳定性</span><b>看 ratio</b><small>再决定是否 clip</small></div>
+    <div class="metric"><span>使用方式</span><b>遇到再查</b><small>不必一次背完</small></div>
+  </div>
+</header>
+
+<section id="map">
+  <div class="eyebrow">01 · 先看地图</div>
+  <h2>六个实验其实只在换“老师”</h2>
+  <p class="lede">04 用固定答案当老师；05 用更大的 Teacher 当老师；06 先用专科 Teacher，再用 base anchor 当老师；07/08 用同一组回答的相对 reward 当老师；09 用同一模型看到参考解后的版本当老师。</p>
+  <div class="table-wrap"><table>
+    <tr><th>章节</th><th>每个 token 的监督从哪来</th><th>你要先看哪个量</th><th>最容易被误解的点</th></tr>
+    <tr><td>04</td><td>gold 符号的 cross entropy</td><td>marker accuracy</td><td>不是 RL，也没有 reward</td></tr>
+    <tr><td>05</td><td>student 与 teacher 的 logprob 差</td><td><code>reverse_kl_mean</code></td><td>KL 大不等于模型变强</td></tr>
+    <tr><td>06</td><td>Medical Teacher + base anchor</td><td>三段 history 与最终 eval</td><td>流程跑通不等于能力提升</td></tr>
+    <tr><td>07</td><td>组内 ±1 reward 的标准化 advantage</td><td><code>effective_step</code></td><td>丢掉组仍然花采样成本</td></tr>
+    <tr><td>08</td><td>组内 0/1 reward + sequence ratio</td><td>sequence ratio 与 clip</td><td>clip 不是绝对区间 0.0003</td></tr>
+    <tr><td>09</td><td>同模型在参考解上下文下的 logprob</td><td>sampled-token KL</td><td>Teacher 不重新生成答案</td></tr>
+  </table></div>
+</section>
+
+<section id="probability">
+  <div class="eyebrow">02 · 概率与 log</div>
+  <h2>logprob 是“模型觉得这个 token 有多自然”</h2>
+  <p>模型先给每个候选 token 一个实数分数，叫 <strong>logit</strong>。softmax 把分数变成概率：</p>
+  <div class="equation"><div>p<sub>i</sub> = exp(z<sub>i</sub>) / Σ<sub>j</sub> exp(z<sub>j</sub>)</div><small>z<sub>i</sub> 是第 i 个候选的 logit；p<sub>i</sub> 是归一化后的概率，所有候选加起来等于 1。</small></div>
+  <div class="grid-3">
+    <div class="card"><div class="tiny">p = 0.9</div><h3>很可能</h3><p>log p ≈ −0.105。越接近 0，说明模型越不意外。</p></div>
+    <div class="card"><div class="tiny">p = 0.5</div><h3>一半把握</h3><p>log p ≈ −0.693。二选一时正好是均匀分布。</p></div>
+    <div class="card"><div class="tiny">p = 0.01</div><h3>很不可能</h3><p>log p ≈ −4.605。负得越多，模型越意外。</p></div>
+  </div>
+  <p>一条回答的序列 logprob 是每个 token 的 logprob 相加：</p>
+  <div class="equation"><div>log p(y | x) = Σ<sub>t=1..T</sub> log p(y<sub>t</sub> | x, y<sub>&lt;t</sub>)</div><small>T 是 completion token 数。05 章的 −73.683 就是 256 个 token logprob 的和，不是某一个 token 的概率。</small></div>
+  <div class="callout note"><b>先记住这个读法</b><p>logprob 是负数；越接近 0 越自信。比较两个模型时，看的是同一个 token、同一个上下文下谁给出的 logprob 更大，不是看谁的数字“更负得漂亮”。</p></div>
+</section>
+
+<section id="advantage">
+  <div class="eyebrow">03 · reward 与 advantage</div>
+  <h2>reward 说“好不好”，advantage 说“相对该不该加”</h2>
+  <p>GRPO/DAPO/GSPO 会为同一道题采样一组回答。reward 只告诉每条回答的绝对结果，组内比较后才变成 advantage：</p>
+  <div class="equation"><div>A<sub>i</sub> = r<sub>i</sub> − mean(r<sub>1..G</sub>)</div><small>G 是组大小。A<sub>i</sub> &gt; 0：这条比组内平均好；A<sub>i</sub> &lt; 0：比平均差；全组同分时所有人都是 0。</small></div>
+  <p>DAPO 的本地实现还会除以组内标准差，让不同题目的梯度尺度更接近：</p>
+  <div class="equation"><div>A<sub>i</sub> = (r<sub>i</sub> − mean(r)) / (std(r) + ε)</div><small>ε 是防止除以 0 的小数。std 是样本标准差，衡量组内 reward 的分散程度。</small></div>
+  <p>训练目标通常写成“最小化 loss”，所以代码里经常看到负号。直觉上：</p>
+  <div class="table-wrap"><table>
+    <tr><th>advantage</th><th>希望发生什么</th><th>loss 的写法</th></tr>
+    <tr><td>A &gt; 0</td><td>提高这条轨迹或这些 token 的概率</td><td>−A × ...，最小化它会推高概率</td></tr>
+    <tr><td>A &lt; 0</td><td>降低这条轨迹或这些 token 的概率</td><td>−A × ...，最小化它会压低概率</td></tr>
+    <tr><td>A = 0</td><td>没有相对信号，通常不更新</td><td>objective 为 0</td></tr>
+  </table></div>
+</section>
+
+<section id="ratio">
+  <div class="eyebrow">04 · ratio 与 clip</div>
+  <h2>新旧策略差多少：ratio 和 PPO 的“保守更新”</h2>
+  <p>采样时保存旧策略的 logprob，训练时重新计算当前策略的 logprob，二者相减再取指数：</p>
+  <div class="equation"><div>ρ<sub>t</sub> = exp(log π<sub>θ</sub>(y<sub>t</sub>|...) − log π<sub>old</sub>(y<sub>t</sub>|...))</div><small>ρ &gt; 1：当前策略比采样时更偏爱这个 token；ρ &lt; 1：更不喜欢。ρ = 1 表示没变。</small></div>
+  <p>PPO 的 clipped objective 是：</p>
+  <div class="equation"><div>min(ρ<sub>t</sub>A<sub>t</sub>, clip(ρ<sub>t</sub>, 1−ε<sub>low</sub>, 1+ε<sub>high</sub>)A<sub>t</sub>)</div><small>clip 把 ratio 截在区间内。min 让更新采取更保守的一侧，避免一次更新把策略推得太远。</small></div>
+  <div class="grid-2">
+    <div class="card"><div class="tiny">DAPO / PPO</div><h3>逐 token 一个 ratio</h3><p>一条 100 token 的回答有 100 个 ratio，每个 token 都可能被单独裁剪。</p></div>
+    <div class="card"><div class="tiny">GSPO</div><h3>整条回答一个 ratio</h3><p>先对 token log-ratio 求平均，再 exp；整条回答共享一个 ratio 和一次裁剪。</p></div>
+  </div>
+  <div class="callout warn"><b>GSPO 的 3e-4 / 4e-4 不是 ratio 只能在 0.0003 到 0.0004 之间</b><p>它是相对 1.0 的偏移：允许区间约为 <code>[0.9997, 1.0004]</code>。因为整条序列的几何平均 ratio 很敏感，所以边界比逐 token PPO 紧得多。</p></div>
+</section>
+
+<section id="kl">
+  <div class="eyebrow">05 · KL 与 OPD</div>
+  <h2>KL 衡量两个分布差多远，reverse KL 用 student 的样本估计</h2>
+  <p>完整分布的 KL 是：</p>
+  <div class="equation"><div>D<sub>KL</sub>(p || q) = Σ<sub>z</sub> p(z) [log p(z) − log q(z)]</div><small>p 和 q 是两个概率分布。对完整词表求和时，KL 一定非负；但它不是“正确率”。</small></div>
+  <p>OPD 不遍历整个词表，而是在 student 自己采出的 token 上估计 reverse KL：</p>
+  <div class="equation"><div>r<sub>t</sub><sup>KL</sup> = log π<sub>student</sub>(y<sub>t</sub>) − log π<sub>teacher</sub>(y<sub>t</sub>)</div><small>y<sub>t</sub> 是 student 实际写出的 token。r<sup>KL</sup> &gt; 0：student 比 teacher 更偏爱它；r<sup>KL</sup> &lt; 0：teacher 更偏爱它。</small></div>
+  <div class="equation"><div>A<sub>t</sub> = −β · r<sub>t</sub><sup>KL</sup></div><small>β 控制拉向 teacher 的力度。05/09 的本地实验 β=1，所以 advantage 就是负的 logprob 差。</small></div>
+  <p>单个 token 的 KL 估计可以为负，因为它只是从一个分布里采样得到的一个样本；对完整分布取期望后才保证非负。日志里的 <code>reverse_kl_mean</code> 是对当前 batch 的 token 样本求平均，不等于完整 KL。</p>
+  <div class="callout note"><b>OPD 的“on-policy”是什么意思</b><p>completion 必须由当前 student 采样。teacher 只在 student 已经写出的同一条 token 序列上打分，不会重新生成另一条答案。</p></div>
+</section>
+
+<section id="toy">
+  <div class="eyebrow">06 · 一个手算例子</div>
+  <h2>四个 token，看懂 advantage 的符号</h2>
+  <p>假设某个 completion 只有 4 个 token，student 和 teacher 的 logprob 如下：</p>
+  <div class="table-wrap"><table>
+    <tr><th>token</th><th class="num">student logp</th><th class="num">teacher logp</th><th class="num">student − teacher</th><th class="num">advantage = −差值</th></tr>
+    <tr><td>t1</td><td class="num">−0.2</td><td class="num">−0.5</td><td class="num">+0.3</td><td class="num">−0.3</td></tr>
+    <tr><td>t2</td><td class="num">−1.1</td><td class="num">−0.4</td><td class="num">−0.7</td><td class="num">+0.7</td></tr>
+    <tr><td>t3</td><td class="num">−0.6</td><td class="num">−0.6</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+    <tr><td>t4</td><td class="num">−0.8</td><td class="num">−1.3</td><td class="num">+0.5</td><td class="num">−0.5</td></tr>
+  </table></div>
+  <p>读法：t2 的 teacher 概率更高，所以 advantage 为正，训练会提高 t2；t1 和 t4 是 student 更偏爱、teacher 不认可，所以会被压低；t3 两边一样，不产生信号。</p>
+  <p>如果把这 4 个 token 的差值求平均：<code>(0.3 − 0.7 + 0 + 0.5) / 4 = 0.025</code>，均值接近 0，但这不代表每个 token 都没信号。OPD 的关键恰恰是逐 token 的稠密信号。</p>
+</section>
+
+<section id="chapters">
+  <div class="eyebrow">07 · 回到六章</div>
+  <h2>每章只需要抓住一个公式</h2>
+  <div class="grid-2">
+    <div class="card"><div class="tiny">04 · DECISION SFT</div><h3>CE = −log p(correct symbol)</h3><p>没有 reward、没有 ratio；只在 marker 前一个位置监督固定候选。</p></div>
+    <div class="card"><div class="tiny">05 · GENERAL OPD</div><h3>A<sub>t</sub> = −(log p<sub>S</sub> − log p<sub>T</sub>)</h3><p>student 采样，teacher 沿同一条轨迹打分，token 级更新。</p></div>
+    <div class="card"><div class="tiny">06 · MEDICAL OPD</div><h3>同一个 A<sub>t</sub>，换两次 teacher</h3><p>先 Medical Teacher，再 base anchor；最终看独立评测，不只看 KL。</p></div>
+    <div class="card"><div class="tiny">07 · DAPO</div><h3>A<sub>i</sub> = (r<sub>i</sub>−mean)/std</h3><p>组内相对 reward；Dynamic Sampling 丢掉全对/全错组。</p></div>
+    <div class="card"><div class="tiny">08 · GSPO</div><h3>s<sub>i</sub> = exp(mean log ratio)</h3><p>整条回答一个 ratio、一次裁剪；reward 仍然是组内相对量。</p></div>
+    <div class="card"><div class="tiny">09 · OPSD</div><h3>同一个模型，不同上下文</h3><p>teacher 多看参考解，student 只看题；仍然是 sampled-token KL。</p></div>
+  </div>
+</section>
+
+<section id="check">
+  <div class="eyebrow">08 · 自检</div>
+  <h2>能回答这五个问题，就够读第二阶段了</h2>
+  <ul class="checklist">
+    <li>为什么 logprob 越接近 0，模型越自信？</li>
+    <li>为什么 advantage 为正时要提高概率，但 loss 里还要加负号？</li>
+    <li>为什么 ratio 需要 clip，而 reward 本身不需要 clip？</li>
+    <li>为什么 token 级 KL 均值可能为负，完整分布的 KL 却不会？</li>
+    <li>为什么“训练 loss 下降”不能直接推出“测试准确率提高”？</li>
+  </ul>
+  <p><a href="./index.html">← 返回第二阶段入口</a> · <a href="../README.md">experiments/README.md</a></p>
+</section>
+
+<footer class="meta"><div>这是一张实验读图卡，不是完整 RL 教材；所有实验数字都来自 04–09 的最终 run。</div><div>页面路径：experiments/phase-02/math-primer.html</div></footer>
+</main>
+</div>
+<script src="./phase-02.js"></script>
+</body>
+</html>

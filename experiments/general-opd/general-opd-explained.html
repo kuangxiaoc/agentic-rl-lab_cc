@@ -10,7 +10,7 @@
 <div class="page">
 <aside class="rail">
   <a class="brand" href="../phase-02/index.html"><b>PHASE 02</b><span>实验记录 · 04–09</span></a>
-  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#flow">数据流</a></li><li><a href="#sample">一条真实轨迹</a></li><li><a href="#curve">15 步曲线</a></li><li><a href="#signal">训练信号</a></li><li><a href="#limits">结果边界</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
+  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#math">符号与公式</a></li><li><a href="#flow">数据流</a></li><li><a href="#pipeline">完整训练链路</a></li><li><a href="#sample">一条真实轨迹</a></li><li><a href="#worked">真实数据手算</a></li><li><a href="#curve">15 步曲线</a></li><li><a href="#signal">训练信号</a></li><li><a href="#limits">结果边界</a></li><li><a href="#faq">常见疑问</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
   <div class="rail-note">这一页只讲实验本身：输入、信号、真实 run、结果边界。代码路径留在页尾，方便回查。</div>
 </aside>
 <main>
@@ -20,6 +20,7 @@
   <p class="deck">Student 先写出自己真实的轨迹，Teacher 不重新作答，只对同一条 token 序列逐个位置打分。实验要验证的是这条信号链，而不是一次短训练能带来多少分数。</p>
   <div class="metrics"><div class="metric"><span>Student</span><b>Qwen3-1.7B</b><small>fresh QLoRA</small></div><div class="metric"><span>Teacher</span><b>Qwen3-4B</b><small>4-bit 冻结</small></div><div class="metric"><span>训练</span><b>15 steps</b><small>30 条 completion</small></div><div class="metric"><span>KL 均值</span><b>0.582</b><small>范围 0.23–0.91</small></div><div class="metric"><span>外部 API</span><b>0</b><small>本地 forward</small></div></div>
 </header>
+<div class="primer-banner"><span><b>数学先修</b> 先分清 logprob、reverse KL 与 advantage；本页会把一条 256-token 轨迹逐项拆开。</span><a href="../phase-02/math-primer.html">数学小抄 · MATH PRIMER →</a></div>
 
 <section id="verdict">
 <div class="eyebrow">01 · 先看结论</div>
@@ -43,8 +44,26 @@
 <p>Student 和 Teacher 必须共享兼容 tokenizer。OPD 比较的是同一个 token id 在两个模型下的 logprob；词表不一致，差值就没有意义。</p>
 </section>
 
+<section id="math">
+<div class="eyebrow">03 · 符号与公式</div>
+<h2>OPD 比较的是“同一串 token，两个模型各觉得多自然”</h2>
+<p>这里的 <code>logprob</code> 不是一个百分数，而是模型给某个 token 的对数概率。它通常是负数，越接近 0 越自信。OPD 不比较最终答案，也不让 Teacher 重新生成；它沿着 Student 已经写出的轨迹，逐个 token 比较两个模型的偏好。</p>
+<ul class="symbol-list">
+  <li><code>x</code><span>题目 prompt，Student 和 Teacher 使用同一份输入。</span></li>
+  <li><code>y<sub>1..T</sub></code><span>Student 自回归采样出的完整 token 序列，T=256。</span></li>
+  <li><code>π<sub>S</sub>(y<sub>t</sub>)</code><span>Student 在看到 <code>x,y&lt;t</code> 后给当前 token 的概率。</span></li>
+  <li><code>π<sub>T</sub>(y<sub>t</sub>)</code><span>Teacher 在完全相同的 token 前缀下给当前 token 的概率。</span></li>
+  <li><code>r<sub>t</sub><sup>KL</sup></code><span>token 级 reverse KL 估计：<code>log π<sub>S</sub> − log π<sub>T</sub></code>。</span></li>
+  <li><code>β</code><span>蒸馏强度。本 run 的 <code>kl_penalty_coef=1</code>。</span></li>
+</ul>
+<div class="equation"><div>r<sub>t</sub><sup>KL</sup> = log π<sub>S</sub>(y<sub>t</sub> | x, y<sub>&lt;t</sub>) − log π<sub>T</sub>(y<sub>t</sub> | x, y<sub>&lt;t</sub>)</div><small>同一个 token、同一个上下文，只比较两个模型的 log 概率。</small></div>
+<div class="equation"><div>A<sub>t</sub> = −β · r<sub>t</sub><sup>KL</sup></div><small>Student 更偏爱时 <code>r<sup>KL</sup>&gt;0</code>，advantage 为负，训练压低这个 token；Teacher 更偏爱时相反。</small></div>
+<div class="equation"><div>ρ<sub>t</sub> = exp(log π<sub>θ</sub>(y<sub>t</sub>) − log π<sub>old</sub>(y<sub>t</sub>)), &nbsp; L<sub>IS</sub> = −mean<sub>t</sub>(ρ<sub>t</sub>A<sub>t</sub>)</div><small>本 run 使用 importance_sampling，没有 clip。ρ 衡量训练时策略相对采样策略的变化；它和 OPD 的 KL 差不是同一个量。</small></div>
+<div class="callout note"><b>这里的 reverse KL 是采样估计</b><p>完整 reverse KL 要在 Student 的整个词表分布上求期望；本地实现只在 Student 实际采出的 256 个 token 上求平均。单 token 的样本差值可以为负，日志里的 batch 均值也不保证非负；本 run 恰好全为正。</p></div>
+</section>
+
 <section id="flow">
-<div class="eyebrow">03 · 数据流</div>
+<div class="eyebrow">04 · 数据流</div>
 <h2>先采样，再让 Teacher 沿原轨迹打分</h2>
 <div class="flow five">
   <div class="node"><b>DeepMath 题目</b><span>prompt only</span></div><div class="arrow">→</div>
@@ -60,8 +79,33 @@ Student 更偏爱 → KL 为正 → advantage 为负 → 压低该 token
 Teacher 更偏爱 → KL 为负 → advantage 为正 → 提高该 token</code></pre>
 </section>
 
+<section id="pipeline">
+<div class="eyebrow">05 · 完整训练链路</div>
+<h2>一次 step 里，谁生成、谁打分、谁更新</h2>
+<div class="flow five">
+  <div class="node"><b>题目</b><span>DeepMath prompt</span></div><div class="arrow">→</div>
+  <div class="node"><b>Student rollout</b><span>2 × 256 token</span></div><div class="arrow">→</div>
+  <div class="node"><b>保存 old logprob</b><span>采样时的策略</span></div><div class="arrow">→</div>
+  <div class="node"><b>Teacher forward</b><span>同一轨迹逐 token</span></div><div class="arrow">→</div>
+  <div class="node"><b>IS update</b><span>只更新 Student LoRA</span></div>
+</div>
+<pre><code>for step in range(15):
+    completions, old_logprobs = student.generate(prompt, n=2, max_new_tokens=256)
+    teacher_logprobs = teacher.score(prompt + completion)
+
+    reverse_kl = student_logprob - teacher_logprob
+    advantage = -1.0 * reverse_kl
+    ratio = exp(current_logprob - old_logprob)
+    loss = -(ratio * advantage).mean()    # importance_sampling
+
+    loss.backward()
+    optimizer.step()       # 只更新 Student 的 QLoRA 参数
+    save history + samples</code></pre>
+<p>Teacher 的参数始终冻结，也不会因为这次训练获得新知识。这里所谓“老师”是一个固定的概率分布；训练做的是让 Student 在这条 Student 自己走出的轨迹上，逐渐改变对各个 token 的偏好。</p>
+</section>
+
 <section id="sample">
-<div class="eyebrow">04 · 一条真实轨迹</div>
+<div class="eyebrow">06 · 一条真实轨迹</div>
 <h2>Teacher 对 Student 的写法明显更“不自信”</h2>
 <p>第 0 步的题目关于条件收敛级数。两条 completion 都被截在 256 token。这里看的是 token logprob 总和，不是最终答案对错。</p>
 <div class="table-wrap"><table>
@@ -73,8 +117,35 @@ Teacher 更偏爱 → KL 为负 → advantage 为正 → 提高该 token</code><
 <div class="callout warn"><b>全部 completion 都是 256 token</b><p>15 个 step 的 <code>completion_tokens_mean</code> 都等于 256，正好撞上上限。这次实验看到的是“推理前缀的蒸馏”，不是完整解答的蒸馏。</p></div>
 </section>
 
+<section id="worked">
+<div class="eyebrow">07 · 真实数据手算</div>
+<h2>把一条 256-token 轨迹拆成一个标量</h2>
+<div class="worked">
+<h3>step 0 · answer 0</h3>
+<ol>
+  <li>Student 的序列 logprob 总和是 <code>−73.6834</code>；Teacher 是 <code>−248.4076</code>。</li>
+  <li>两者相减：<code>−73.6834 − (−248.4076) = +174.7241</code>，正好是日志的 <code>reverse_kl_sum</code>。</li>
+  <li>除以 256 个 token：<code>174.7241 / 256 ≈ 0.6825</code>，正好是日志的每 token KL 均值。</li>
+  <li>β=1 时，这 256 个 token 的 advantage 总和是 <code>−174.7241</code>；平均每个 token 的 advantage 约为 <code>−0.6825</code>。</li>
+</ol>
+<p>正号说明 Student 比 Teacher 更偏爱这条轨迹。因为训练目标是最小化 loss，负 advantage 会降低这些 token 的概率；但“降低”不是把整条回答删掉，而是逐 token 调整。</p>
+</div>
+<div class="worked">
+<h3>为什么整条序列的 KL 很大，但每 token 只是 0.68？</h3>
+<p>256 个 token 的差值会累加，序列总和自然放大；每 token 的均值才是更容易跨长度比较的尺度。不能拿 <code>174.7</code> 直接和别的 128-token 样本比较，也不能把 0.68 解释成“68% 的错误率”。</p>
+</div>
+<div class="table-wrap"><table class="tiny-table">
+<tr><th>量</th><th class="num">step 0 answer 0</th><th>来源</th></tr>
+<tr><td>completion tokens</td><td class="num">256</td><td>撞到上限</td></tr>
+<tr><td>student Σ logp</td><td class="num">−73.6834</td><td>采样策略的 token logprob 求和</td></tr>
+<tr><td>teacher Σ logp</td><td class="num">−248.4076</td><td>冻结 Teacher 对同轨迹打分</td></tr>
+<tr><td>reverse KL Σ</td><td class="num">+174.7241</td><td>student − teacher</td></tr>
+<tr><td>每 token KL</td><td class="num">+0.6825</td><td>174.7241 / 256</td></tr>
+</table></div>
+</section>
+
 <section id="curve">
-<div class="eyebrow">05 · 15 步曲线</div>
+<div class="eyebrow">08 · 15 步曲线</div>
 <h2>KL 有波动，不能只看最后一步</h2>
 <div class="bars">
   <div class="bar-row"><span class="bar-label">step 0</span><div class="bar-track"><div class="bar-fill" style="width:71%"></div></div><span class="bar-value">0.647</span></div>
@@ -88,7 +159,7 @@ Teacher 更偏爱 → KL 为负 → advantage 为正 → 提高该 token</code><
 </section>
 
 <section id="signal">
-<div class="eyebrow">06 · 训练信号</div>
+<div class="eyebrow">09 · 训练信号</div>
 <h2>OPD 的 advantage 是 token 级、稠密的</h2>
 <div class="grid-3">
   <div class="card"><div class="tiny">GRPO</div><h3>整条回答一个 reward</h3><p>答对/答错只在序列级别出现，组内全对或全错就没有信号。</p></div>
@@ -98,7 +169,7 @@ Teacher 更偏爱 → KL 为负 → advantage 为正 → 提高该 token</code><
 </section>
 
 <section id="limits">
-<div class="eyebrow">07 · 结果边界</div>
+<div class="eyebrow">10 · 结果边界</div>
 <h2>这次 run 能说明什么</h2>
 <div class="grid-2">
   <div class="card"><div class="tiny">可以说明</div><h3>链路是真实的</h3><p>Student 采样、旧 logprob、Teacher 同轨迹 forward、token 对齐、advantage 和 backward 都发生了。</p></div>
@@ -107,13 +178,28 @@ Teacher 更偏爱 → KL 为负 → advantage 为正 → 提高该 token</code><
 <p>阅读入口：<a href="./readme.md">readme.md</a> · 代码：<a href="./local_gpu.py">local_gpu.py</a> · 共用逻辑：<a href="../../scripts/local_opd.py">scripts/local_opd.py</a> · 数据：<a href="./results/05-general-opd/run-20261110-141035/summary.json">summary.json</a>。</p>
 </section>
 
+<section id="faq">
+<div class="eyebrow">11 · 常见疑问</div>
+<h2>读 OPD 时最容易混的几个问题</h2>
+<div class="faq">
+<details><summary>Teacher 为什么不能自己重新生成一条答案？</summary><p>因为 OPD 比较的是同一条 token 轨迹上的分布差。如果 Teacher 自己生成，token 序列就变了，<code>log p<sub>S</sub>(y<sub>t</sub>)</code> 和 <code>log p<sub>T</sub>(y<sub>t</sub>)</code> 不再对应同一个 <code>y<sub>t</sub></code>，KL 差也无法逐位置对齐。</p></details>
+<details><summary>Student 和 Teacher 的词表为什么必须兼容？</summary><p>KL 是按 token id 和上下文算的；同一个 token 在两个 tokenizer 下可能被切成不同片段，logprob 就不可比。这个实现还会主动做 tokenizer 兼容性探针，失败就拒绝运行。</p></details>
+<details><summary>KL 上升是不是训练失败了？</summary><p>不一定。KL 只衡量两个策略差异；它可能因为题目变难、Student 探索到 Teacher 不喜欢的轨迹而上升。要判断训练效果，需要独立评测、长度分布和多种子，而不是要求 15 步 KL 单调下降。</p></details>
+<details><summary>为什么全部 completion 都是 256 token？</summary><p>因为生成长度上限就是 256，模型没有提前生成 EOS。日志里的均值恰好等于上限，意味着这次比较只覆盖推理前缀，很多回答还没有写完最终结论。</p></details>
+<details><summary>这里的 loss 和 reverse KL 为什么几乎相等？</summary><p>在 β=1、采样策略与当前策略足够接近时，importance ratio 接近 1，loss 近似为负 advantage 的均值，也就是 reverse KL 均值。两者接近是配置和数值上的结果，不是通用等式。</p></details>
+<details><summary>它和普通知识蒸馏有什么区别？</summary><p>普通蒸馏通常在固定数据集上匹配 Teacher 的完整分布；OPD 先让 Student 自己采样，再只对 Student 实际访问到的 token 打分，因此训练数据随 Student 当前策略变化，属于 on-policy distillation。</p></details>
+</div>
+</section>
+
 <section id="questions">
-<div class="eyebrow">08 · 读完自检</div>
-<h2>你应该能回答的三个问题</h2>
+<div class="eyebrow">12 · 读完自检</div>
+<h2>你应该能回答的五个问题</h2>
 <ul class="checklist">
   <li>Teacher 为什么不能自己重新生成一条答案再和 Student 比较？</li>
   <li>为什么 <code>reverse_kl_sum</code> 很大，但每 token 的 KL 可能只是一个普通数值？</li>
+  <li>为什么 token 级 KL 估计可以为负，而完整分布的 KL 不会？</li>
   <li>为什么 loss 下降只能说明“更接近 Teacher”，不能说明“更会做题”？</li>
+  <li>为什么全部 completion 撞到 256 token 会改变这次实验的结论范围？</li>
 </ul>
 </section>
 

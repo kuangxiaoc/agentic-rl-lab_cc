@@ -10,7 +10,7 @@
 <div class="page">
 <aside class="rail">
   <a class="brand" href="../phase-02/index.html"><b>PHASE 02</b><span>实验记录 · 04–09</span></a>
-  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#curve">真实训练记录</a></li><li><a href="#sample">一个真实样本</a></li><li><a href="#fields">分字段结果</a></li><li><a href="#mechanism">机制</a></li><li><a href="#limits">结果边界</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
+  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#math">符号与公式</a></li><li><a href="#pipeline">完整训练链路</a></li><li><a href="#curve">真实训练记录</a></li><li><a href="#sample">一个真实样本</a></li><li><a href="#fields">分字段结果</a></li><li><a href="#mechanism">机制</a></li><li><a href="#worked">真实数据手算</a></li><li><a href="#limits">结果边界</a></li><li><a href="#faq">常见疑问</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
   <div class="rail-note">这一页只讲实验本身：输入、信号、真实 run、结果边界。代码路径留在页尾，方便回查。</div>
 </aside>
 <main>
@@ -20,6 +20,7 @@
   <p class="deck">这一章的实验对象不是一条回答，而是一条记录里的多个固定选项。模型只在 decision marker 前一个位置被监督，推理时只读候选符号的概率。</p>
   <div class="metrics"><div class="metric"><span>模型</span><b>Qwen3-4B</b><small>4-bit QLoRA</small></div><div class="metric"><span>训练</span><b>40 steps</b><small>1 条/step</small></div><div class="metric"><span>评测</span><b>250 决策</b><small>50 条记录</small></div><div class="metric"><span>准确率</span><b>34.4%</b><small>86 / 250</small></div><div class="metric"><span>外部 API</span><b>0</b><small>纯本地</small></div></div>
 </header>
+<div class="primer-banner"><span><b>数学先修</b> 这一章只需要理解 logit、softmax 和 cross entropy；没有 reward、advantage 或 ratio。</span><a href="../phase-02/math-primer.html">数学小抄 · MATH PRIMER →</a></div>
 
 <section id="verdict">
 <div class="eyebrow">01 · 先看结论</div>
@@ -50,8 +51,52 @@
 </table></div>
 </section>
 
+<section id="math">
+<div class="eyebrow">03 · 符号与公式</div>
+<h2>模型不是“说出答案”，而是给候选 token 打分</h2>
+<p>一条训练记录会先被渲染成 chat 文本。assistant 侧不是完整答案，而是类似 <code>{"action":"decision","risk":"decision"}</code> 的 JSON 骨架；每个 <code>decision</code> 是单独一个 token。训练时把目标符号 token 的 id 填在 marker 的前一个位置，让模型在那个位置预测它。原始 PyTRIO 代码在 Datum 中明确使用同一坐标；本地训练也按这个坐标构造 labels。</p>
+<ul class="symbol-list">
+  <li><code>x</code><span>整段输入，包括 state、问题说明、固定选项和 JSON 骨架。</span></li>
+  <li><code>m</code><span>某个字段的 decision marker 在 token 序列中的位置。</span></li>
+  <li><code>a<sub>m</sub></code><span>该字段正确答案对应的符号 token，例如 <code>A</code>、<code>yes</code> 或 <code>1</code>。</span></li>
+  <li><code>z<sub>v</sub></code><span>模型在位置 <code>m−1</code> 给词表第 <code>v</code> 个 token 的原始分数，也就是 logit。</span></li>
+  <li><code>p(a<sub>m</sub> | x)</code><span>softmax 后，模型给正确符号的概率。</span></li>
+  <li><code>−100</code><span>PyTorch cross entropy 的忽略标记；这些位置不参与 loss，也不产生梯度。</span></li>
+</ul>
+<div class="equation"><div>p(a<sub>m</sub> | x) = exp(z<sub>a<sub>m</sub></sub>) / Σ<sub>v</sub> exp(z<sub>v</sub>)</div><small>训练时在完整词表上做 softmax。答案 token 的概率越高，cross entropy 越小。</small></div>
+<div class="equation"><div>L<sub>CE</sub> = −(1 / M) Σ<sub>m=1..M</sub> log p(a<sub>m</sub> | x)</div><small>M 是一条记录里真正被监督的字段数。40 steps 的 batch size 都是 1，所以每步只来自一条记录。</small></div>
+<p>代码把 <code>labels</code> 全部初始化成 <code>−100</code>，只在每个 marker 前一个位置填入答案 token id，然后调用标准的 <code>cross_entropy(..., ignore_index=-100)</code>。因此一条很长的记录也只会在几个位置产生 loss。</p>
+<div class="callout note"><b>为什么是 marker 前一个位置</b><p>自回归模型在位置 <code>t</code> 的 logits 预测位置 <code>t+1</code> 的 token。代码要让位置 <code>marker−1</code> 的预测目标是答案符号，所以把 label 填在那里；推理时也从同一个位置读取 logits。marker 本身只负责定位字段，答案符号并不出现在输入中。</p></div>
+</section>
+
+<section id="pipeline">
+<div class="eyebrow">04 · 完整训练链路</div>
+<h2>从 parquet 到一次 LoRA 更新，中间发生了什么</h2>
+<div class="flow five">
+  <div class="node"><b>typed-decisions</b><span>state + questions + gold</span></div><div class="arrow">→</div>
+  <div class="node"><b>compile</b><span>固定选项与符号</span></div><div class="arrow">→</div>
+  <div class="node"><b>chat + skeleton</b><span>写入 decision marker</span></div><div class="arrow">→</div>
+  <div class="node"><b>one forward</b><span>所有字段共享上下文</span></div><div class="arrow">→</div>
+  <div class="node"><b>masked CE</b><span>backward + optimizer.step</span></div>
+</div>
+<pre><code>for one record:
+  ids, markers = tokenize(state, schema, skeleton)
+  labels[:] = -100
+  for field, gold_symbol in targets:
+      labels[markers[field] - 1] = symbol_id(gold_symbol)
+
+  logits = model(ids).logits
+  loss = cross_entropy(logits, labels, ignore_index=-100)
+  loss.backward()
+  clip_grad_norm_(trainable_lora_parameters, 1.0)
+  optimizer.step()
+
+  save metrics: loss, marker_accuracy</code></pre>
+<p><code>marker_accuracy</code> 只检查被监督位置上的 argmax 是否等于 gold token。它是训练 batch 内的对齐指标，不是 250 个测试决策的准确率。40 steps 结束后，才把 adapter 挂到 base 上，对 50 条 test 记录逐个字段评测。</p>
+</section>
+
 <section id="curve">
-<div class="eyebrow">03 · 真实训练记录</div>
+<div class="eyebrow">05 · 真实训练记录</div>
 <h2>loss 从 18.04 降下来，但不是平滑下降</h2>
 <p>每步只有一条记录，所以曲线会被单条样本的字段数量、长度和难度强烈影响。下面挑了几个代表性 step，不把噪声当趋势。</p>
 <div class="table-wrap"><table>
@@ -66,7 +111,7 @@
 </section>
 
 <section id="sample">
-<div class="eyebrow">04 · 一个真实样本</div>
+<div class="eyebrow">06 · 一个真实样本</div>
 <h2><code>agent_trace_observability_000000</code></h2>
 <p>这是评测集第一条记录。五个字段在同一次 forward 中得到结果，但答错和答对混在一起。</p>
 <div class="table-wrap"><table>
@@ -81,7 +126,7 @@
 </section>
 
 <section id="fields">
-<div class="eyebrow">05 · 分字段结果</div>
+<div class="eyebrow">07 · 分字段结果</div>
 <h2>五个字段的难度并不一样</h2>
 <div class="bars">
   <div class="bar-row"><span class="bar-label">action</span><div class="bar-track"><div class="bar-fill" style="width:26%"></div></div><span class="bar-value">26%</span></div>
@@ -94,7 +139,7 @@
 </section>
 
 <section id="mechanism">
-<div class="eyebrow">06 · 机制</div>
+<div class="eyebrow">08 · 机制</div>
 <h2>标签只落在 marker 前一个位置</h2>
 <pre><code>input:  ... "action": "decision" ...
 labels: ...          ↑ 只在这里填答案 token
@@ -108,8 +153,39 @@ eval:
 <p>这就是“决策模型”和普通 SFT 的差别。普通 SFT 要模型写完整答案；这里只要求它在固定位置从有限候选里选一个。所有字段共享 state，但答案不出现在输入中，因此字段之间不会看到彼此的标签。</p>
 </section>
 
+<section id="worked">
+<div class="eyebrow">09 · 真实数据手算</div>
+<h2>置信度 0.532 时，正确答案的 CE 是多少？</h2>
+<div class="worked">
+<h3>先算一个“答对”的字段</h3>
+<ol>
+  <li>第一条记录的 <code>outcome</code> 答对了，评测置信度是 <code>0.5318</code>。</li>
+  <li>如果把这个候选 softmax 概率近似当作正确符号概率：<code>−ln(0.5318) ≈ 0.631</code>。</li>
+  <li>这表示模型并非“非常确定”；即使 argmax 正确，概率也只比一半多一点。</li>
+</ol>
+<p>但训练 loss 用的是完整词表上的 cross entropy，不是评测时只在候选符号上重算的概率。因此 0.631 只能帮助理解 CE 的量级，不能和 history 里的 batch loss 逐项对齐。</p>
+</div>
+<div class="worked">
+<h3>再看一个“答错但很自信”的字段</h3>
+<ol>
+  <li><code>urgency</code> 的预测置信度是 <code>0.7723</code>，但 gold 是另一个符号。</li>
+  <li>日志只记录“预测符号的概率”，没有记录“错误 gold 符号的概率”，所以不能直接算出这个字段的真实 CE。</li>
+  <li>已知的是：模型把 77.23% 的候选概率给了错误答案，说明错误不是低置信度抖动。</li>
+</ol>
+<p>50 条记录上，答对字段的平均置信度约 <code>0.7755</code>，答错字段约 <code>0.7397</code>。两者很接近，说明这些分数没有被温度校准，不能直接把 0.8 当作“八成正确率”。</p>
+</div>
+<div class="table-wrap"><table class="tiny-table">
+<tr><th>量</th><th class="num">数值</th><th>正确读法</th></tr>
+<tr><td>测试决策</td><td class="num">250</td><td>50 条记录 × 5 个字段</td></tr>
+<tr><td>答对</td><td class="num">86</td><td>逐字段 argmax 与 gold 相同</td></tr>
+<tr><td>总体准确率</td><td class="num">34.4%</td><td>86 / 250</td></tr>
+<tr><td>答对平均置信度</td><td class="num">0.7755</td><td>候选 softmax 的预测概率均值</td></tr>
+<tr><td>答错平均置信度</td><td class="num">0.7397</td><td>与答对组只差约 0.036</td></tr>
+</table></div>
+</section>
+
 <section id="limits">
-<div class="eyebrow">07 · 结果边界</div>
+<div class="eyebrow">10 · 结果边界</div>
 <h2>这张图能说明什么，不能说明什么</h2>
 <div class="grid-2">
   <div class="card"><div class="tiny">可以说明</div><h3>机制跑通</h3><p>marker 对齐、masked cross entropy、候选 softmax、LoRA 保存和评测回读都产生了可复核记录。</p></div>
@@ -118,12 +194,27 @@ eval:
 <div class="callout warn"><b>不要把 34.4% 和原版五项 Jevbench 平均分混在一起</b><p>这次本地 run 只使用 typed-decisions 的 train/test，没有 ToolACE 和 Jevbench 全套评测，也没有温度校准。它是一个机制实验，不是论文表格的等价复现。</p></div>
 </section>
 
+<section id="faq">
+<div class="eyebrow">11 · 常见疑问</div>
+<h2>几个最容易卡住的点</h2>
+<div class="faq">
+<details><summary>为什么说它不是 RL？</summary><p>因为没有 rollout、reward、advantage 或 policy ratio。它是有监督学习：每个字段都有固定 gold 符号，直接最小化正确符号的 cross entropy。模型参数更新了，不等于任务自动变成强化学习。</p></details>
+<details><summary>五个字段为什么能在一次 forward 里完成？</summary><p>整段 state、问题说明和 JSON 骨架一起进入模型；每个字段的 decision marker 都在这条序列中，只是 label 落在不同位置。一次前向就得到所有位置的 logits，不需要为每个字段各跑一次模型。</p></details>
+<details><summary>训练时和推理时都在候选符号上 softmax 吗？</summary><p>不是。训练直接对完整词表计算 cross entropy，答案是某个符号 token；推理为了只比较合法选项，才从完整 logits 中取出候选符号，再在候选集合上重新 softmax。</p></details>
+<details><summary>为什么 loss 从 18 降到 1 左右，测试准确率仍只有 34.4%？</summary><p>训练每步只有一条记录，模型可以快速适配当前样本的格式和局部模式；测试集换记录后还要泛化到新的 state。训练 loss、训练 marker accuracy 和 held-out 决策准确率回答的是三个不同问题。</p></details>
+<details><summary>置信度能直接用于业务阈值吗？</summary><p>不能直接使用。答对和答错的平均置信度太接近，说明概率没有校准；要用于放行或人工复核，需要在独立校准集上拟合温度或别的校准方法，并报告 ECE、覆盖率与错误率。</p></details>
+<details><summary>34.4% 能代表原版 Jev 的效果吗？</summary><p>不能。这里是 40-step smoke、单条 batch、typed-decisions 的 50 条 test 记录，也没有 ToolACE、Jevbench 全套评测和温度校准。它验证的是机制与产物链，不是论文表格的等价复现。</p></details>
+</div>
+</section>
+
 <section id="questions">
-<div class="eyebrow">08 · 读完自检</div>
-<h2>你应该能回答的三个问题</h2>
+<div class="eyebrow">12 · 读完自检</div>
+<h2>你应该能回答的五个问题</h2>
 <ul class="checklist">
   <li>为什么一条记录只产生几个非零 label，而不是整段 JSON 都参与 loss？</li>
+  <li>为什么答案 label 要放在 decision marker 的前一个位置？</li>
   <li>为什么推理时要在候选符号上做 softmax，而不是让模型自由生成？</li>
+  <li>为什么训练时的 cross entropy 与评测置信度不是同一个数？</li>
   <li>为什么训练 loss 下降、marker accuracy 到 1.0，仍然不能推断测试集准确率会高？</li>
 </ul>
 <p>阅读入口：<a href="./readme.md">readme.md</a> · 代码：<a href="./local_gpu.py">local_gpu.py</a> · 数据：<a href="./results/04-pytrio-jev/run-20261110-140852/summary.json">summary.json</a>。</p>

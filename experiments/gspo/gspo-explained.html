@@ -10,7 +10,7 @@
 <div class="page">
 <aside class="rail">
   <a class="brand" href="../phase-02/index.html"><b>PHASE 02</b><span>实验记录 · 04–09</span></a>
-  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#change">唯一改动</a></li><li><a href="#sample">一个混合组</a></li><li><a href="#effective">三次更新</a></li><li><a href="#scale">长度尺度</a></li><li><a href="#limits">结果边界</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
+  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#math">符号与公式</a></li><li><a href="#change">唯一改动</a></li><li><a href="#pipeline">完整训练链路</a></li><li><a href="#sample">一个混合组</a></li><li><a href="#worked">真实数据手算</a></li><li><a href="#effective">三次更新</a></li><li><a href="#scale">长度尺度</a></li><li><a href="#limits">结果边界</a></li><li><a href="#faq">常见疑问</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
   <div class="rail-note">这一页只讲实验本身：输入、信号、真实 run、结果边界。代码路径留在页尾，方便回查。</div>
 </aside>
 <main>
@@ -20,6 +20,7 @@
   <p class="deck">GSPO 不改 reward，也不改 group advantage。它只把重要性比率和裁剪从每个 token 提升到整条回答，让长度不同的轨迹共享一个尺度。</p>
   <div class="metrics"><div class="metric"><span>有效更新</span><b>3</b><small>target steps</small></div><div class="metric"><span>总尝试</span><b>23</b><small>group rollouts</small></div><div class="metric"><span>跳过</span><b>20</b><small>退化组</small></div><div class="metric"><span>Clip</span><b>3e-4 / 4e-4</b><small>相对 1.0</small></div><div class="metric"><span>评测</span><b>无</b><small>仅机制 run</small></div></div>
 </header>
+<div class="primer-banner"><span><b>数学先修</b> 重点不是 reward，而是如何把很多 token log-ratio 合成一条序列 ratio。</span><a href="../phase-02/math-primer.html">数学小抄 · MATH PRIMER →</a></div>
 
 <section id="verdict">
 <div class="eyebrow">01 · 先看结论</div>
@@ -43,8 +44,25 @@
 <p><code>effective_only=true</code> 表示退化组仍然写入 history 和 samples，但不计入有效更新。因此 3 steps 是 3 次真实 optimizer step，不是 3 次采样。</p>
 </section>
 
+<section id="math">
+<div class="eyebrow">03 · 符号与公式</div>
+<h2>GSPO 只把“逐 token 的 ratio”改成“整条序列的 ratio”</h2>
+<p>reward、group size 和 advantage 都与第 07 章同源。真正的改动发生在把 logprob 差变成 policy objective 的位置：GSPO 先对一条回答内所有 token 的 log-ratio 求平均，再取指数。</p>
+<ul class="symbol-list">
+  <li><code>i</code><span>组内第 i 条回答，本 run 有 4 条。</span></li>
+  <li><code>y<sub>i,t</sub></code><span>第 i 条回答的第 t 个 completion token。</span></li>
+  <li><code>Δ<sub>i,t</sub></code><span><code>log π<sub>current</sub> − log π<sub>old</sub></code>，当前策略相对采样策略的 log-ratio。</span></li>
+  <li><code>s<sub>i</sub></code><span>整条回答唯一的 sequence ratio，也叫几何平均 ratio。</span></li>
+  <li><code>A<sub>i</sub></code><span>组内 reward 去均值后的 sequence advantage，一条回答共享一个值。</span></li>
+  <li><code>δ<sub>low</sub>, δ<sub>high</sub></code><span>相对 1.0 的裁剪偏移，本 run 是 0.0003 和 0.0004。</span></li>
+</ul>
+<div class="equation"><div>s<sub>i</sub> = exp( (1 / T<sub>i</sub>) Σ<sub>t=1..T<sub>i</sub></sub> Δ<sub>i,t</sub> )</div><small>先在 log 空间平均，再 exp。T<sub>i</sub> 是这条回答的 completion token 数。</small></div>
+<div class="equation"><div>L<sub>GSPO,i</sub> = −min(s<sub>i</sub>A<sub>i</sub>, clip(s<sub>i</sub>, 1−δ<sub>low</sub>, 1+δ<sub>high</sub>) A<sub>i</sub>)</div><small>每条回答只有一个 ratio、一次 clip、一个标量 objective。</small></div>
+<div class="callout warn"><b>裁剪区间是 [0.9997, 1.0004]</b><p>3e−4 / 4e−4 是相对 1.0 的偏移，不是 ratio 本身的 0.0003–0.0004。把它们当成绝对区间会把整个公式读反。</p></div>
+</section>
+
 <section id="change">
-<div class="eyebrow">03 · 唯一改动</div>
+<div class="eyebrow">04 · 唯一改动</div>
 <h2>从逐 token 裁剪，变成整条回答裁剪</h2>
 <pre><code>token-level (02/07):
   ratio_t = exp(current_t - old_t)
@@ -57,8 +75,35 @@ sequence-level (08):
 <p>在 log 空间先平均，可以避免概率连乘溢出，也让 20 token 和 200 token 的回答落在相近的 ratio 尺度上。裁剪边界 <code>3e-4 / 4e-4</code> 是相对 1.0 的偏移，不是 0.0003 的绝对 ratio。</p>
 </section>
 
+<section id="pipeline">
+<div class="eyebrow">05 · 完整训练链路</div>
+<h2>从 4 条回答到 1 个 sequence objective</h2>
+<div class="flow five">
+  <div class="node"><b>GSM8K</b><span>同一道题</span></div><div class="arrow">→</div>
+  <div class="node"><b>4 条 rollout</b><span>0/1 reward</span></div><div class="arrow">→</div>
+  <div class="node"><b>组内 advantage</b><span>r − mean</span></div><div class="arrow">→</div>
+  <div class="node"><b>sequence ratio</b><span>mean log-ratio → exp</span></div><div class="arrow">→</div>
+  <div class="node"><b>clip once</b><span>backward + step</span></div>
+</div>
+<pre><code>for each non-degenerate group:
+    rewards = [0, 1, 0, 1]
+    advantages = [r - mean(rewards) for r in rewards]  # [-.5,+.5,-.5,+.5]
+
+    for completion, advantage in zip(group, advantages):
+        log_ratio_t = current_logprob[t] - old_logprob[t]   # one per token
+        log_ratio_i = mean(log_ratio_t)                      # one per answer
+        ratio_i = exp(log_ratio_i)
+        clipped_i = clamp(ratio_i, 0.9997, 1.0004)
+        objective_i = min(ratio_i * advantage, clipped_i * advantage)
+        loss_i = -objective_i
+        loss_i.backward()
+
+    optimizer.step()</code></pre>
+<p>注意 advantage 仍是一条回答一个标量，GSPO 改的是 importance ratio 的聚合粒度。每个 token 的当前 logprob 和 old logprob 仍要逐位置算出，否则无法得到序列平均。</p>
+</section>
+
 <section id="sample">
-<div class="eyebrow">04 · 一个混合组</div>
+<div class="eyebrow">06 · 一个混合组</div>
 <h2>同一道 James 题，四条回答长度不同</h2>
 <p>第 4 个原始 step 第一次产生有效组。两条答对、两条答错，reward 为 <code>[0,1,0,1]</code>，组内均值 0.5，所以 advantage 是 <code>[−0.5,+0.5,−0.5,+0.5]</code>。</p>
 <div class="table-wrap"><table>
@@ -71,8 +116,37 @@ sequence-level (08):
 <p>GSPO 不会为每个 token 单独决定是否裁剪，而是把这 69/108/76/110 个位置的 log-ratio 平均成一个数。长度不同的回答因此仍然可以放在同一尺度上比较。</p>
 </section>
 
+<section id="worked">
+<div class="eyebrow">07 · 真实数据手算</div>
+<h2>四条长度不同的回答，各自只得到一个 ratio</h2>
+<div class="worked">
+<h3>step 4 的 advantage 先手算</h3>
+<ol>
+  <li>rewards 为 <code>[0,1,0,1]</code>，均值是 <code>0.5</code>。</li>
+  <li>用组内去均值（本 run 的 GSPO 路径）：<code>0−0.5=−0.5</code>，<code>1−0.5=+0.5</code>。</li>
+  <li>因此 advantage 为 <code>[−0.5,+0.5,−0.5,+0.5]</code>；GSPO 不再除以标准差。</li>
+</ol>
+</div>
+<div class="worked">
+<h3>假设四条回答的平均 log-ratio 都是 0.0002</h3>
+<ol>
+  <li><code>s<sub>i</sub>=exp(0.0002)≈1.00020002</code>，落在 <code>[0.9997,1.0004]</code> 内。</li>
+  <li>错误回答的 objective：<code>1.0002×(−0.5)≈−0.5001</code>；正确回答约 <code>+0.5001</code>。</li>
+  <li>取负号后，错误回答的 loss 约 <code>+0.5001</code>，正确回答约 <code>−0.5001</code>。这是公式层面的示意，真实 loss 还取决于每条回答各自的 ratio。</li>
+</ol>
+<p>这里不是要你把 0.0002 当成日志值，而是看清：长度 69、108、76、110 都不会改变 ratio 的数量级，因为它们各自先做了 token 平均。</p>
+</div>
+<div class="table-wrap"><table class="tiny-table">
+<tr><th>answer</th><th class="num">tokens</th><th class="num">reward</th><th class="num">advantage</th><th>ratio 个数</th></tr>
+<tr><td>0</td><td class="num">69</td><td class="num">0</td><td class="num">−0.5</td><td>1</td></tr>
+<tr><td>1</td><td class="num">108</td><td class="num">1</td><td class="num">+0.5</td><td>1</td></tr>
+<tr><td>2</td><td class="num">76</td><td class="num">0</td><td class="num">−0.5</td><td>1</td></tr>
+<tr><td>3</td><td class="num">110</td><td class="num">1</td><td class="num">+0.5</td><td>1</td></tr>
+</table></div>
+</section>
+
 <section id="effective">
-<div class="eyebrow">05 · 三次真实更新</div>
+<div class="eyebrow">08 · 三次真实更新</div>
 <h2>effective step 与原始采样 step 不是一回事</h2>
 <div class="table-wrap"><table>
 <tr><th>effective</th><th>原始 step</th><th class="num">correct rate</th><th class="num">mean reward</th><th class="num">train samples</th><th class="num">loss</th></tr>
@@ -84,7 +158,7 @@ sequence-level (08):
 </section>
 
 <section id="scale">
-<div class="eyebrow">06 · 为什么区间这么小</div>
+<div class="eyebrow">09 · 为什么区间这么小</div>
 <h2>序列 ratio 的变化会被整条回答累积</h2>
 <div class="grid-2">
   <div class="card"><div class="tiny">token ratio</div><h3>每个位置独立</h3><p>一个 token 的 ratio 从 1.0 变到 1.5，影响的是那个位置。</p></div>
@@ -98,7 +172,7 @@ sequence-level (08):
 </section>
 
 <section id="limits">
-<div class="eyebrow">07 · 结果边界</div>
+<div class="eyebrow">10 · 结果边界</div>
 <h2>这次 run 证明了什么</h2>
 <div class="grid-2">
   <div class="card"><div class="tiny">可以说明</div><h3>loss 路径是真实的</h3><p>序列 ratio、单次裁剪、4 条样本的 backward 和 3 次 optimizer step 都有记录。</p></div>
@@ -107,13 +181,28 @@ sequence-level (08):
 <p>阅读入口：<a href="./readme.md">readme.md</a> · 代码：<a href="./local_gpu.py">local_gpu.py</a> · loss：<a href="../../scripts/local_gpu_trainer.py">scripts/local_gpu_trainer.py</a> · 数据：<a href="./results/08-gspo/run-20261111-214640/summary.json">summary.json</a>。</p>
 </section>
 
+<section id="faq">
+<div class="eyebrow">11 · 常见疑问</div>
+<h2>GSPO 最容易被问到的六件事</h2>
+<div class="faq">
+<details><summary>为什么要在 log 空间求平均，而不是把 token 概率直接相乘？</summary><p>概率相乘等于 logprob 相加，长回答会得到极端小或极端大的数，容易下溢或溢出。先对 log-ratio 求平均再 exp，数值稳定，而且不同长度落在同一尺度。</p></details>
+<details><summary>sequence ratio 是普通算术平均 ratio 吗？</summary><p>不是。它是 token ratio 的几何平均：<code>exp(mean(log ratio))</code>。如果所有 token ratio 相同，几何平均就等于它；否则它更关注 log 空间的平均变化。</p></details>
+<details><summary>为什么 clip 边界这么小？</summary><p>整条序列共享一个 ratio，少量 token 的偏移会累积成全局变化；为了保守更新，论文把相对 1.0 的允许偏移设得很小。边界不是 ratio 的绝对值区间。</p></details>
+<details><summary>为什么 loss 4.16e−05 还能算一次更新？</summary><p>loss 接近 0 只说明这个 batch 上新旧策略很接近、objective 很小；只要 backward 和 optimizer.step 执行了，参数就可能变化。是否“有效”要看是否有真实更新，不只看 loss 大小。</p></details>
+<details><summary>这个 run 能证明 GSPO 比 GRPO 好吗？</summary><p>不能。没有同预算 GRPO 对照、没有能力评测、只有 3 次有效更新和一个随机种子；它验证的是 sequence-level loss 和工程路径。</p></details>
+<details><summary>为什么 skipped group 还会写进 samples？</summary><p>为了保留完整实验证据：即使没有 backward，也能回查模型生成了什么、reward 为什么全对或全错。这样 23 次 attempt 和 3 次 effective update 才能对得上。</p></details>
+</div>
+</section>
+
 <section id="questions">
-<div class="eyebrow">08 · 读完自检</div>
-<h2>你应该能回答的三个问题</h2>
+<div class="eyebrow">12 · 读完自检</div>
+<h2>你应该能回答的五个问题</h2>
 <ul class="checklist">
   <li>为什么 GSPO 要在 log 空间求平均，而不是把 token 概率直接连乘？</li>
   <li>为什么 <code>3e-4 / 4e-4</code> 不是“ratio 只能在 0.0003 到 0.0004 之间”？</li>
+  <li>为什么一条 110-token 的回答和一个 69-token 的回答都只产生一个 ratio？</li>
   <li>为什么 loss 很小仍可能发生了有效的 optimizer step？</li>
+  <li>为什么这次 run 不能证明 GSPO 优于 GRPO？</li>
 </ul>
 </section>
 

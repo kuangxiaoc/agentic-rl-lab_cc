@@ -10,7 +10,7 @@
 <div class="page">
 <aside class="rail">
   <a class="brand" href="../phase-02/index.html"><b>PHASE 02</b><span>实验记录 · 04–09</span></a>
-  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#sft">SFT</a></li><li><a href="#medical">Medical OPD</a></li><li><a href="#anchor">Base-anchor</a></li><li><a href="#eval">本地评测</a></li><li><a href="#limits">结果边界</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
+  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#math">符号与公式</a></li><li><a href="#pipeline">完整训练链路</a></li><li><a href="#sft">SFT</a></li><li><a href="#medical">Medical OPD</a></li><li><a href="#anchor">Base-anchor</a></li><li><a href="#worked">真实数据手算</a></li><li><a href="#eval">本地评测</a></li><li><a href="#limits">结果边界</a></li><li><a href="#faq">常见疑问</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
   <div class="rail-note">这一页只讲实验本身：输入、信号、真实 run、结果边界。代码路径留在页尾，方便回查。</div>
 </aside>
 <main>
@@ -20,6 +20,7 @@
   <p class="deck">这不是单一算法页，而是一条三段式训练链：Medical SFT 产出老师，Medical OPD 教学生，Base-anchor OPD 再把通用分布拉回来。最终评测是一次诚实的负结果。</p>
   <div class="metrics"><div class="metric"><span>流程</span><b>SAR</b><small>三段式</small></div><div class="metric"><span>SFT</span><b>30 steps</b><small>loss 16.88→0.25</small></div><div class="metric"><span>Medical OPD</span><b>8 steps</b><small>KL ≈ 12.34</small></div><div class="metric"><span>Anchor OPD</span><b>8 steps</b><small>KL 近 0 起步</small></div><div class="metric"><span>评测</span><b>90 题</b><small>50 + 40</small></div></div>
 </header>
+<div class="primer-banner"><span><b>数学先修</b> 这一页把 masked SFT 的 CE、Medical OPD 的 reverse KL、anchor OPD 的分布回拉连成一条链。</span><a href="../phase-02/math-primer.html">数学小抄 · MATH PRIMER →</a></div>
 
 <section id="verdict">
 <div class="eyebrow">01 · 先看结论</div>
@@ -45,8 +46,57 @@
 </table></div>
 </section>
 
+<section id="math">
+<div class="eyebrow">03 · 符号与公式</div>
+<h2>同一章里其实有两个完全不同的 loss</h2>
+<p>Medical SFT 是有监督学习：题目和标准医学回答都已知，只在 completion token 上计算 cross entropy。Medical OPD 与 Base-anchor OPD 则是蒸馏：Student 先采样，Teacher 对同一条轨迹逐 token 打分。</p>
+<ul class="symbol-list">
+  <li><code>p<sub>θ</sub>(w<sub>t</sub>)</code><span>Student 对标准 completion 第 t 个 token 的概率。</span></li>
+  <li><code>L<sub>SFT</sub></code><span>只对 completion 位置求平均的 cross entropy；prompt token 被 <code>−100</code> 屏蔽。</span></li>
+  <li><code>π<sub>S</sub>, π<sub>M</sub></code><span>Student 与 Medical Teacher 的 token 分布。</span></li>
+  <li><code>π<sub>A</sub></code><span>Anchor Teacher：原始 Qwen3-1.7B base 的分布，冻结且不挂 adapter。</span></li>
+  <li><code>r<sub>t</sub><sup>KL</sup></code><span>Student 与当前 Teacher 在同一 token 上的 logprob 差。</span></li>
+  <li><code>A<sub>t</sub></code><span>由负 KL 差形成的 token advantage；Medical 和 Anchor 两段方向相同，但目标分布不同。</span></li>
+</ul>
+<div class="equation"><div>L<sub>SFT</sub> = −(1 / |C|) Σ<sub>t∈C</sub> log p<sub>θ</sub>(w<sub>t</sub> | x, w<sub>&lt;t</sub>)</div><small>C 是标准医学 completion 的 token 位置集合，x 是医疗问题 prompt。prompt 不参与 loss，避免模型只学会复述题目。</small></div>
+<div class="equation"><div>r<sub>t</sub><sup>KL</sup> = log π<sub>S</sub>(y<sub>t</sub>) − log π<sub>teacher</sub>(y<sub>t</sub>), &nbsp; A<sub>t</sub> = −β · r<sub>t</sub><sup>KL</sup></div><small>Medical Teacher 想把 Student 拉向医学回答；Anchor Teacher 想把 Student 拉回原始通用分布。两次都用同一个 KL advantage 形式。</small></div>
+<div class="equation"><div>L<sub>PPO</sub> = −mean<sub>t</sub>[ min(ρ<sub>t</sub>A<sub>t</sub>, clip(ρ<sub>t</sub>, 0.8, 1.2) A<sub>t</sub>) ]</div><small>本页的 Medical OPD 与 Anchor OPD 都显式传入 <code>loss_fn="ppo"</code>；ρ 是当前策略相对采样策略的 ratio。</small></div>
+<div class="callout warn"><b>SFT loss 下降不等于医疗准确率上升</b><p>SFT 的 token accuracy 是“在见过的训练 completion 上，argmax 猜中下一个 token 的比例”。它衡量拟合，不衡量在 MedQA / C-Eval 上的选择题推理。</p></div>
+</section>
+
+<section id="pipeline">
+<div class="eyebrow">04 · 完整训练链路</div>
+<h2>三段 SAR 到底各自保存了什么</h2>
+<div class="flow five">
+  <div class="node"><b>4B base</b><span>Medical SFT</span></div><div class="arrow">→</div>
+  <div class="node"><b>Medical Teacher</b><span>4B + 冻结 adapter</span></div><div class="arrow">→</div>
+  <div class="node"><b>1.7B Student</b><span>Medical OPD</span></div><div class="arrow">→</div>
+  <div class="node"><b>Anchor OPD</b><span>原始 1.7B 当老师</span></div><div class="arrow">→</div>
+  <div class="node"><b>最终 adapter</b><span>90 题本地评测</span></div>
+</div>
+<pre><code># Stage 1: 训练医学老师
+medical_teacher = Qwen3-4B + LoRA
+train only on completion tokens with cross entropy
+
+# Stage 2: 医学蒸馏
+student = fresh Qwen3-1.7B + LoRA
+for each medical prompt:
+    y ~ student
+    teacher_logp = medical_teacher.score(prompt + y)
+    update student with -reverse_kl advantage + PPO clip
+
+# Stage 3: 分布回拉
+for each C-Eval prompt:
+    y ~ student
+    anchor_logp = frozen Qwen3-1.7B.score(prompt + y)
+    update the same student adapter again
+
+save student_anchor_adapter; evaluate base vs final</code></pre>
+<p>三段都真实执行并保存了 adapter。这里的“SAR”不是三个模型同时在线，而是顺序训练：Medical Teacher 只服务第二段，第三段换回原始 Student base 做 anchor。</p>
+</section>
+
 <section id="sft">
-<div class="eyebrow">03 · 第一段</div>
+<div class="eyebrow">05 · 第一段</div>
 <h2>SFT 的 loss 确实降得很明显</h2>
 <p>30 个 SFT step，每步 1 条样本。训练批上的 token accuracy 从接近 0 上升到 93.1%，loss 从 16.88 降到 0.247。</p>
 <div class="bars">
@@ -59,7 +109,7 @@
 </section>
 
 <section id="medical">
-<div class="eyebrow">04 · 第二段</div>
+<div class="eyebrow">06 · 第二段</div>
 <h2>Medical OPD 的 KL 非常大</h2>
 <p>8 个 step 的 reverse KL 均值在 10.16–13.52 之间，均值 12.34，远高于第 05 章的 0.58。一个真实样本可以直接看到原因。</p>
 <div class="sample"><div class="sample-head"><span>medical_opd · step 0 · 肾结石题</span><span>128 token</span></div><div class="sample-body">
@@ -73,7 +123,7 @@
 </section>
 
 <section id="anchor">
-<div class="eyebrow">05 · 第三段</div>
+<div class="eyebrow">07 · 第三段</div>
 <h2>Base-anchor 的 KL 一开始几乎为 0</h2>
 <p>第三阶段使用 C-Eval 非医疗题，Teacher 是原始 1.7B base。前几个 step 的 KL 很小，说明 Student 与 anchor 在这些短回答上的分布接近；随后才开始拉开。</p>
 <div class="table-wrap"><table>
@@ -86,8 +136,37 @@
 <p>token 级 reverse KL 的单个样本可以为负；只有对完整分布取期望，KL 才保证非负。这里的重点是观察流程，不是把负值当成公式失效。</p>
 </section>
 
+<section id="worked">
+<div class="eyebrow">08 · 真实数据手算</div>
+<h2>同一套 KL 公式，为什么 Medical 比 General 大二十倍？</h2>
+<div class="worked">
+<h3>Medical OPD · step 0</h3>
+<ol>
+  <li>Student 的序列 logprob 总和是 <code>−25.7448</code>，Teacher 是 <code>−1450.9871</code>。</li>
+  <li>差值：<code>−25.7448 − (−1450.9871) = +1425.2424</code>。</li>
+  <li>这个样本有 128 个 completion token，所以每 token 均值是 <code>1425.2424 / 128 ≈ 11.135</code>。</li>
+  <li>Medical OPD 8 步的均值范围是 <code>10.1631–13.5202</code>，均值 <code>12.3392</code>，与这个样本同量级。</li>
+</ol>
+<p>对比第 05 章同一条轨迹的每 token KL 约 0.68，这里大了十几到二十倍。原因不是公式变了，而是 4B + Medical SFT Teacher 对 1.7B Student 写出的前缀给出了极低概率。</p>
+</div>
+<div class="worked">
+<h3>Anchor OPD · step 0 为什么接近 0？</h3>
+<ol>
+  <li>Student 刚结束 Medical OPD，但只在 2-token completion 上被 anchor 评分。</li>
+  <li>Anchor Teacher 是 Student 的原始 1.7B base，两者在这个极短样本上的分布几乎相同。</li>
+  <li>日志 KL 均值是 <code>0.00000828</code>，对应非常小的策略差；随后第 6 步出现 1.613，说明短样本也会被内容强烈影响。</li>
+</ol>
+<p>不能把“接近 0”理解成 anchor 永远有效，也不能把某个 step 的负 KL 当成分布距离为负。这里记录的是采样估计，不是完整词表 KL。</p>
+</div>
+<div class="table-wrap"><table class="tiny-table">
+<tr><th>阶段</th><th class="num">最小 KL</th><th class="num">最大 KL</th><th class="num">均值</th><th>解释</th></tr>
+<tr><td>Medical OPD</td><td class="num">10.1631</td><td class="num">13.5202</td><td class="num">12.3392</td><td>Teacher 与 Student 差异很大</td></tr>
+<tr><td>Anchor OPD</td><td class="num">−0.0065</td><td class="num">1.6130</td><td class="num">—</td><td>短回答与 base 接近，个别样本波动</td></tr>
+</table></div>
+</section>
+
 <section id="eval">
-<div class="eyebrow">06 · 本地评测</div>
+<div class="eyebrow">09 · 本地评测</div>
 <h2>Base 与最终 adapter 的对比</h2>
 <div class="table-wrap"><table>
 <tr><th>评测</th><th class="num">base</th><th class="num">final</th><th class="num">差值</th><th>样本</th></tr>
@@ -101,20 +180,35 @@
 </section>
 
 <section id="limits">
-<div class="eyebrow">07 · 结果边界</div>
+<div class="eyebrow">10 · 结果边界</div>
 <h2>不要从这次 run 推出“OPD 无效”</h2>
 <p>这次实验能确认的是：三段式训练链、两个 Teacher 的切换、adapter 保存和本地选择题评测都真实发生。不能确认的是：Medical OPD 在论文规模下是否有效、SAR 是否普遍优于其他调度、1.7B/4B 的配置能否代表原版。</p>
 <div class="callout"><b>最值得复读的地方</b><p>SFT 训练指标很好，最终评测却没变好。这说明“训练目标在优化”与“目标任务在改善”之间还有一段距离，正是后续实验设计要回答的问题。</p></div>
 <p>阅读入口：<a href="./readme.md">readme.md</a> · 代码：<a href="./local_gpu.py">local_gpu.py</a> · 指标：<a href="./results/06-medical-opd/run-20261110-141706/eval/metrics.json">eval/metrics.json</a>。</p>
 </section>
 
+<section id="faq">
+<div class="eyebrow">11 · 常见疑问</div>
+<h2>这一章最容易误读的地方</h2>
+<div class="faq">
+<details><summary>为什么 Medical SFT 的 token accuracy 最后是 93.1%，评测却没有提升？</summary><p>因为 SFT accuracy 是在当前训练 completion 上预测下一个 token 的命中率，模型可能已经很好地拟合这些文本；MedQA/C-Eval 是换题、换选项后的选择题，需要迁移和推理，目标不同。</p></details>
+<details><summary>为什么 Medical Teacher 是 4B，而 Student 是 1.7B？</summary><p>这是刻意做跨模型蒸馏：Teacher 容量更大，还经过医学 SFT；Student 更小，目标是学习 Teacher 在医学轨迹上的偏好。两者 tokenizer 必须兼容，否则 token 级 KL 没有意义。</p></details>
+<details><summary>为什么 Medical OPD 的 KL 比第 05 章大一个数量级？</summary><p>Teacher 从通用 4B 变成了医学 SFT 后的 4B，Student 也从 1.7B 通用模型开始；分布差、回答风格和题目领域都更大，KL 自然会更大。它仍然不是“KL 越大越好”。</p></details>
+<details><summary>Base-anchor OPD 是不是在让模型遗忘医学？</summary><p>它的目标是把 Student 拉回原始通用分布，缓解 Medical OPD 造成的偏移；但 anchor 的权重、步数和数据选择都会影响结果。这次只跑了 8 步，不能把它当成完整的灾难性遗忘解决方案。</p></details>
+<details><summary>为什么 token 级 KL 均值会出现负数？</summary><p>日志是在 Student 采样的 token 上估计 KL：<code>log p<sub>S</sub>−log p<sub>T</sub></code>。单个样本当然可能为负；完整分布上的期望 KL 才保证非负。负值不是计算错误，但也不能单独证明方向正确。</p></details>
+<details><summary>MedQA 9/50→8/50 能说明模型退化了吗？</summary><p>不能稳定地说明。只差一道题，样本只有 50 条；没有置信区间、重复种子或更大评测集。更准确的说法是：这次 smoke 没有观察到提升，并留下了负向信号。</p></details>
+</div>
+</section>
+
 <section id="questions">
-<div class="eyebrow">08 · 读完自检</div>
-<h2>你应该能回答的三个问题</h2>
+<div class="eyebrow">12 · 读完自检</div>
+<h2>你应该能回答的五个问题</h2>
 <ul class="checklist">
   <li>为什么 Medical SFT 的 token accuracy 很高，却不能直接当作医疗能力？</li>
   <li>为什么 Medical OPD 的 KL 比 General OPD 大一个数量级？</li>
+  <li>为什么 Base-anchor 的第一步 KL 接近 0，却不能说明它永远有效？</li>
   <li>为什么 50 题和 40 题上的 1 题差异，不能写成稳定的能力下降？</li>
+  <li>为什么完整分布的 KL 非负，而日志里的 token 级 KL 均值可以为负？</li>
 </ul>
 </section>
 

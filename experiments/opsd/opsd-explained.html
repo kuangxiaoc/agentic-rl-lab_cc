@@ -10,7 +10,7 @@
 <div class="page">
 <aside class="rail">
   <a class="brand" href="../phase-02/index.html"><b>PHASE 02</b><span>实验记录 · 04–09</span></a>
-  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#prompts">两个 prompt</a></li><li><a href="#flow">数据流</a></li><li><a href="#sample">一条真实轨迹</a></li><li><a href="#curve">四步曲线</a></li><li><a href="#dense">信号形态</a></li><li><a href="#limits">结果边界</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
+  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#math">符号与公式</a></li><li><a href="#prompts">两个 prompt</a></li><li><a href="#flow">数据流</a></li><li><a href="#pipeline">完整训练链路</a></li><li><a href="#sample">一条真实轨迹</a></li><li><a href="#worked">真实数据手算</a></li><li><a href="#curve">四步曲线</a></li><li><a href="#dense">信号形态</a></li><li><a href="#limits">结果边界</a></li><li><a href="#faq">常见疑问</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
   <div class="rail-note">这一页只讲实验本身：输入、信号、真实 run、结果边界。代码路径留在页尾，方便回查。</div>
 </aside>
 <main>
@@ -20,6 +20,7 @@
   <p class="deck">Student 闭卷写，Teacher 开卷看同一条轨迹。两者是同一份 base，只差一个参考解上下文；每个 completion token 都得到一条稠密但并非绝对正确的监督。</p>
   <div class="metrics"><div class="metric"><span>Student</span><b>Qwen3-4B</b><small>QLoRA</small></div><div class="metric"><span>Teacher</span><b>同一 base</b><small>冻结 + 参考解</small></div><div class="metric"><span>训练</span><b>4 steps</b><small>4 条 completion</small></div><div class="metric"><span>KL</span><b>0.152→0.235</b><small>中间峰值 0.504</small></div><div class="metric"><span>外部 API</span><b>0</b><small>纯本地</small></div></div>
 </header>
+<div class="primer-banner"><span><b>数学先修</b> OPSD 仍是 sampled-token reverse KL；新点只在 Teacher 的特权上下文。</span><a href="../phase-02/math-primer.html">数学小抄 · MATH PRIMER →</a></div>
 
 <section id="verdict">
 <div class="eyebrow">01 · 先看结论</div>
@@ -42,8 +43,26 @@
 </table></div>
 </section>
 
+<section id="math">
+<div class="eyebrow">03 · 符号与公式</div>
+<h2>同一份参数，两个条件分布</h2>
+<p>OPSD 的关键不是“两个模型”，而是“同一个模型看到两份不同上下文”。Student 只看到 problem；Teacher 看到 problem 和 reference solution。Student 采样一条 completion 后，两个条件分布都对这条完全相同的 token 序列打分。</p>
+<ul class="symbol-list">
+  <li><code>x</code><span>problem，Student 可见的题目。</span></li>
+  <li><code>c</code><span>reference solution，Teacher 的 privileged context。</span></li>
+  <li><code>y<sub>1..T</sub></code><span>Student 从 <code>p(·|x)</code> 采样出的 completion。</span></li>
+  <li><code>p<sub>S</sub></code><span><code>p(y<sub>t</sub> | x, y&lt;t)</code>，Student 的条件分布。</span></li>
+  <li><code>p<sub>T</sub></code><span><code>p(y<sub>t</sub> | x, c, y&lt;t)</code>，Teacher 的条件分布。</span></li>
+  <li><code>β</code><span>把 reverse KL 差变成 advantage 的系数，本 run 为 1。</span></li>
+</ul>
+<div class="equation"><div>r<sub>t</sub><sup>KL</sup> = log p<sub>S</sub>(y<sub>t</sub> | x, y<sub>&lt;t</sub>) − log p<sub>T</sub>(y<sub>t</sub> | x, c, y<sub>&lt;t</sub>)</div><small>两个模型参数相同，但条件上下文不同；这是 OPSD 和普通 OPD 的核心区别。</small></div>
+<div class="equation"><div>A<sub>t</sub> = −β · r<sub>t</sub><sup>KL</sup></div><small>Student 比 Teacher 更偏爱当前 token 时，advantage 为负，训练压低它；反之提高。</small></div>
+<div class="equation"><div>ρ<sub>t</sub> = exp(log π<sub>θ</sub>(y<sub>t</sub>) − log π<sub>old</sub>(y<sub>t</sub>)), &nbsp; L<sub>IS</sub> = −mean<sub>t</sub>(ρ<sub>t</sub>A<sub>t</sub>)</div><small>本 run 也使用 importance_sampling；KL 差提供 advantage，ratio 只校正采样策略与当前策略的变化。</small></div>
+<div class="callout note"><b>为什么 Teacher 不重新生成</b><p>如果 Teacher 另采一条 <code>y'</code>，就不存在同一个 <code>y<sub>t</sub></code> 上的两个 logprob，无法逐 token 对齐。OPSD 的“判卷”是给 Student 的原卷打分，不是让 Teacher 重写答案。</p></div>
+</section>
+
 <section id="prompts">
-<div class="eyebrow">03 · 两个 prompt</div>
+<div class="eyebrow">04 · 两个 prompt</div>
 <h2>差别只在参考解，不在模型参数</h2>
 <div class="grid-2">
   <div class="card"><div class="tiny">Student prompt</div><h3>只有题目</h3><p>Problem: …<br>Please reason step by step …</p></div>
@@ -53,7 +72,7 @@
 </section>
 
 <section id="flow">
-<div class="eyebrow">04 · 数据流</div>
+<div class="eyebrow">05 · 数据流</div>
 <h2>一次采样，两次打分</h2>
 <div class="flow five">
   <div class="node"><b>Problem</b><span>Student 只看题</span></div><div class="arrow">→</div>
@@ -68,8 +87,33 @@
 advantage_t  = -beta * reverse_kl_t</code></pre>
 </section>
 
+<section id="pipeline">
+<div class="eyebrow">06 · 完整训练链路</div>
+<h2>四次 step，每次都从采样到更新完整走一遍</h2>
+<div class="flow five">
+  <div class="node"><b>problem</b><span>Student prompt</span></div><div class="arrow">→</div>
+  <div class="node"><b>sample</b><span>1 × 256 token</span></div><div class="arrow">→</div>
+  <div class="node"><b>two scores</b><span>Student / Teacher</span></div><div class="arrow">→</div>
+  <div class="node"><b>token KL</b><span>advantage = −KL</span></div><div class="arrow">→</div>
+  <div class="node"><b>update</b><span>Student QLoRA</span></div>
+</div>
+<pre><code>for step in range(4):
+    y = student.generate(problem, n=1, max_new_tokens=256)
+    old_logp = student.logprob(problem + y)          # Student prompt
+    teacher_logp = teacher.logprob(problem + solution + y)
+
+    kl_t = old_logp - teacher_logp
+    advantage_t = -1.0 * kl_t
+    loss = -(exp(current_logp - old_logp) * advantage_t).mean()
+    loss.backward()
+    optimizer.step()                                  # only Student adapter
+
+    save history + sample</code></pre>
+<p>Teacher 是冻结的 base 副本；Student 是带 QLoRA 的同一份 base。Teacher 的 prompt 多了参考解，但 completion 仍是 Student 已经写出的同一串 token。</p>
+</section>
+
 <section id="sample">
-<div class="eyebrow">05 · 一条真实轨迹</div>
+<div class="eyebrow">07 · 一条真实轨迹</div>
 <h2>二次方程题：Teacher 对这条前缀更不自信</h2>
 <p>第 0 步的题目是 <code>x² − mx + 24</code> 的整数根问题。Student 写了 256 token，Teacher 在同一串 token 上给出更低的总概率。</p>
 <div class="table-wrap"><table>
@@ -80,8 +124,39 @@ advantage_t  = -beta * reverse_kl_t</code></pre>
 <div class="sample"><div class="sample-head"><span>step 0 · completion 开头</span><span>256 token 截断</span></div><div class="sample-body"><p class="quote">“We are given a quadratic expression: x² − mx + 24 … We are to find how many different values of m are possible.”</p><p>Student 还在列因式对，Teacher 已经带着参考解在看同一段前缀。KL 为正，表示 Student 比 Teacher 更偏爱这些 token，因此 advantage 为负，训练会压低它们。</p></div></div>
 </section>
 
+<section id="worked">
+<div class="eyebrow">08 · 真实数据手算</div>
+<h2>38.958 的序列 KL，怎么变成每 token 0.152？</h2>
+<div class="worked">
+<h3>step 0 的二次方程题</h3>
+<ol>
+  <li>Student 的序列 logprob 是 <code>−44.1254</code>，Teacher 是 <code>−83.0837</code>。</li>
+  <li>差值：<code>−44.1254 − (−83.0837) = +38.9583</code>。</li>
+  <li>completion 长度是 256，所以每 token 均值：<code>38.9583 / 256 ≈ 0.15218</code>。</li>
+  <li>β=1，逐 token advantage 总和为 <code>−38.9583</code>；训练会整体压低这些 Student 更偏爱的前缀。</li>
+</ol>
+<p>这不是“Teacher 知道正确答案，所以每个 token 都对”。Teacher 只提供相对偏好；它可能因为参考解而改变对某些推理步骤的信心，也可能对 Student 的写法不认同。</p>
+</div>
+<div class="worked">
+<h3>为什么四步 KL 会上下跳？</h3>
+<ol>
+  <li>step 0 到 step 3 的均值分别是 <code>0.1522, 0.3620, 0.5043, 0.2348</code>。</li>
+  <li>每个 step 只有一道题、一条 completion，题目和采样前缀都变了。</li>
+  <li>因此这组曲线主要反映样本差异，不足以估计策略是否收敛。</li>
+</ol>
+</div>
+<div class="table-wrap"><table class="tiny-table">
+<tr><th>量</th><th class="num">step 0</th><th>计算</th></tr>
+<tr><td>tokens</td><td class="num">256</td><td>撞到上限</td></tr>
+<tr><td>student Σ logp</td><td class="num">−44.1254</td><td>Student prompt 下的总和</td></tr>
+<tr><td>teacher Σ logp</td><td class="num">−83.0837</td><td>problem + solution 下同轨迹</td></tr>
+<tr><td>KL Σ</td><td class="num">+38.9583</td><td>student − teacher</td></tr>
+<tr><td>KL / token</td><td class="num">+0.1522</td><td>38.9583 / 256</td></tr>
+</table></div>
+</section>
+
 <section id="curve">
-<div class="eyebrow">06 · 四步曲线</div>
+<div class="eyebrow">09 · 四步曲线</div>
 <h2>KL 不是单调下降</h2>
 <div class="bars">
   <div class="bar-row"><span class="bar-label">step 0</span><div class="bar-track"><div class="bar-fill" style="width:30%"></div></div><span class="bar-value">0.152</span></div>
@@ -93,7 +168,7 @@ advantage_t  = -beta * reverse_kl_t</code></pre>
 </section>
 
 <section id="dense">
-<div class="eyebrow">07 · 信号形态</div>
+<div class="eyebrow">10 · 信号形态</div>
 <h2>稠密反馈，但不是无限可靠的老师</h2>
 <div class="grid-3">
   <div class="card"><div class="tiny">优点</div><h3>每个 token 都有梯度</h3><p>不用等整条回答结束，也不用组内出现对错混合。</p></div>
@@ -103,20 +178,35 @@ advantage_t  = -beta * reverse_kl_t</code></pre>
 </section>
 
 <section id="limits">
-<div class="eyebrow">08 · 结果边界</div>
+<div class="eyebrow">11 · 结果边界</div>
 <h2>这次 run 没有证明数学能力提高</h2>
 <p>可以确认：同一 base 的双 prompt、Student 采样、Teacher 同轨迹打分、reverse KL advantage、4 次 optimizer step 都真实发生。不能确认：AIME 或任何独立数学 benchmark 提升，也不能确认 full-vocabulary JSD 的效果。</p>
 <div class="callout warn"><b>全部 completion 都是 256 token</b><p>4 个 step 的平均 completion 长度都是 256，正好撞上上限。这次比较的是推理前缀上的 token 偏好，不是完整解答。</p></div>
 <p>阅读入口：<a href="./readme.md">readme.md</a> · 代码：<a href="./local_gpu.py">local_gpu.py</a> · 共用逻辑：<a href="../../scripts/local_opd.py">scripts/local_opd.py</a> · 数据：<a href="./results/09-opsd/run-20261110-150419/summary.json">summary.json</a>。</p>
 </section>
 
+<section id="faq">
+<div class="eyebrow">12 · 常见疑问</div>
+<h2>OPSD 的六个常见误解</h2>
+<div class="faq">
+<details><summary>OPSD 的 Teacher 为什么不需要更大的模型？</summary><p>Teacher 的优势来自额外的参考解上下文，而不是参数规模。同一份 4B base 在“题目 + 参考解”条件下，能给出和“只看题目”不同的 token 分布；这个差异就是训练信号。</p></details>
+<details><summary>为什么 Teacher 不能重新生成一条答案？</summary><p>因为 KL 要逐 token 对齐。Teacher 必须对 Student 已经写出的同一个 <code>y<sub>t</sub></code> 打分；重新生成会换掉轨迹，无法把两个分布的差值落到同一位置。</p></details>
+<details><summary>这是 full-vocabulary JSD 吗？</summary><p>不是。本地实现只在 Student 实际采样的 token 上计算 logprob 差，是 sampled-token reverse KL 估计；没有遍历完整词表，也没有 JSD 的对称项。</p></details>
+<details><summary>为什么参考解不是“正确答案”，也能当老师？</summary><p>因为 OPSD 学的是条件分布变化，不是把参考解当唯一标签。Teacher 看到 solution 后可能更偏向某些推理路径；它仍然是概率模型，不是硬编码的判卷器。</p></details>
+<details><summary>为什么 KL 下降不能直接等同于数学能力提高？</summary><p>KL 只衡量 Student 与 Teacher 的分布差。Student 可以变得更像 Teacher，但如果 Teacher 本身有偏差，或者训练只覆盖 256-token 前缀，独立数学正确率不一定提高。</p></details>
+<details><summary>四步实验能得出什么结论？</summary><p>只能确认双 prompt、同轨迹打分、KL advantage、QLoRA backward 和产物保存都真实发生。不能确认数学 benchmark 提升，也不能证明 OPSD 优于其他蒸馏方法。</p></details>
+</div>
+</section>
+
 <section id="questions">
-<div class="eyebrow">09 · 读完自检</div>
-<h2>你应该能回答的三个问题</h2>
+<div class="eyebrow">13 · 读完自检</div>
+<h2>你应该能回答的五个问题</h2>
 <ul class="checklist">
   <li>OPSD 的 Teacher 为什么不需要更大的模型？</li>
   <li>为什么 Teacher 不能重新生成一条答案？</li>
+  <li>为什么 OPSD 的信号是 sampled-token KL，而不是完整词表 JSD？</li>
   <li>为什么 reverse KL 下降不能直接等同于数学正确率提高？</li>
+  <li>为什么全部 completion 撞到 256 token 会限制结论？</li>
 </ul>
 </section>
 

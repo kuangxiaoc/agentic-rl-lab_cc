@@ -10,7 +10,7 @@
 <div class="page">
 <aside class="rail">
   <a class="brand" href="../phase-02/index.html"><b>PHASE 02</b><span>实验记录 · 04–09</span></a>
-  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#flow">数据流</a></li><li><a href="#sample">理想混合组</a></li><li><a href="#funnel">采样漏斗</a></li><li><a href="#clip">Clip-Higher</a></li><li><a href="#cost">工程读法</a></li><li><a href="#limits">结果边界</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
+  <nav><ol><li><a href="#verdict">先看结论</a></li><li><a href="#design">实验设计</a></li><li><a href="#math">符号与公式</a></li><li><a href="#flow">数据流</a></li><li><a href="#pipeline">完整训练链路</a></li><li><a href="#sample">理想混合组</a></li><li><a href="#worked">真实数据手算</a></li><li><a href="#funnel">采样漏斗</a></li><li><a href="#clip">Clip-Higher</a></li><li><a href="#cost">工程读法</a></li><li><a href="#limits">结果边界</a></li><li><a href="#faq">常见疑问</a></li><li><a href="#questions">读完自检</a></li></ol></nav>
   <div class="rail-note">这一页只讲实验本身：输入、信号、真实 run、结果边界。代码路径留在页尾，方便回查。</div>
 </aside>
 <main>
@@ -20,6 +20,7 @@
   <p class="deck">这一章最值得看的不是训练曲线，而是采样漏斗：27 次尝试只留下 3 个混合组。Dynamic Sampling 筛掉了无信号样本，也把等待成本暴露出来。</p>
   <div class="metrics"><div class="metric"><span>有效更新</span><b>3</b><small>目标 steps</small></div><div class="metric"><span>总尝试</span><b>27</b><small>group rollouts</small></div><div class="metric"><span>跳过</span><b>24</b><small>88.9%</small></div><div class="metric"><span>Clip</span><b>0.8 / 1.28</b><small>Clip-Higher</small></div><div class="metric"><span>Token loss</span><b>off</b><small>sample mean</small></div></div>
 </header>
+<div class="primer-banner"><span><b>数学先修</b> 先看组内 reward 如何变成 advantage，再看 ratio 和不对称 clip。</span><a href="../phase-02/math-primer.html">数学小抄 · MATH PRIMER →</a></div>
 
 <section id="verdict">
 <div class="eyebrow">01 · 先看结论</div>
@@ -42,8 +43,26 @@
 <p>因此这一页分析的是“Dynamic Sampling + Clip-Higher 的真实代价”，不是四项改动的全量消融。模型是 Qwen3-4B QLoRA，数据是 GSM8K，group size 4，上限 512 token。</p>
 </section>
 
+<section id="math">
+<div class="eyebrow">03 · 符号与公式</div>
+<h2>DAPO 没有 value model，它用同组答案互相比较</h2>
+<p>GRPO 类方法对每道题采样一组回答，用组内 reward 的均值和标准差构造 advantage。DAPO 保留这条主链，并改变采样过滤与 clip 边界。先把符号翻译成动作：</p>
+<ul class="symbol-list">
+  <li><code>G</code><span>group size。本 run 每道题采 4 条回答。</span></li>
+  <li><code>r<sub>i</sub></code><span>第 i 条回答的 reward。本 run 是 <code>±1</code> 的正确性奖励。</span></li>
+  <li><code>μ, σ</code><span>这 4 条回答 reward 的均值和样本标准差。</span></li>
+  <li><code>A<sub>i</sub></code><span>组内标准化 advantage；整条回答共享同一个值。</span></li>
+  <li><code>ρ<sub>t</sub></code><span>训练时当前策略与采样时旧策略在第 t 个 token 上的概率比。</span></li>
+  <li><code>ε<sub>low</sub>, ε<sub>high</sub></code><span>ratio 的下界和上界；本 run 为 0.8 和 1.28。</span></li>
+</ul>
+<div class="equation"><div>A<sub>i</sub> = (r<sub>i</sub> − μ) / (σ + ε<sub>std</sub>)</div><small>本 run 的代码使用样本标准差（分母 n−1），ε<sub>std</sub>=1e−4。全组同分时 advantage 为 0。</small></div>
+<div class="equation"><div>ρ<sub>t</sub> = exp(log π<sub>θ</sub>(y<sub>t</sub>) − log π<sub>old</sub>(y<sub>t</sub>))</div><small>ρ=1 表示该 token 的概率没变；大于 1 表示当前策略更偏爱它。</small></div>
+<div class="equation"><div>L<sub>PPO</sub> = −mean<sub>t</sub>[ min(ρ<sub>t</sub>A<sub>t</sub>, clip(ρ<sub>t</sub>, 0.8, 1.28) A<sub>t</sub>) ]</div><small>本 run 关闭 token-level loss，所以仍按每条回答内部 token 的 mean 计算，再对样本平均。</small></div>
+<div class="callout note"><b>为什么全对/全错组没有信号</b><p>如果四条 reward 都是 1 或都是 −1，μ 与每条 r<sub>i</sub> 相同，分子为 0，所有 advantage 都为 0。即使生成了四条回答，梯度也没有“谁更好”的信息。</p></div>
+</section>
+
 <section id="flow">
-<div class="eyebrow">03 · 数据流</div>
+<div class="eyebrow">04 · 数据流</div>
 <h2>先采一组，再判断这组有没有学习信号</h2>
 <div class="flow five">
   <div class="node"><b>一道 GSM8K</b><span>prompt</span></div><div class="arrow">→</div>
@@ -55,8 +74,38 @@
 <p>如果四条全对或全错，组内 reward 没有差异，advantage 全为 0。Dynamic Sampling 直接跳过这一步，换下一题继续采。</p>
 </section>
 
+<section id="pipeline">
+<div class="eyebrow">05 · 完整训练链路</div>
+<h2>一次尝试可能以 skip 结束，也可能进入 backward</h2>
+<div class="flow five">
+  <div class="node"><b>GSM8K</b><span>question + gold</span></div><div class="arrow">→</div>
+  <div class="node"><b>采 4 条</b><span>student rollout</span></div><div class="arrow">→</div>
+  <div class="node"><b>reward</b><span>boxed answer → ±1</span></div><div class="arrow">→</div>
+  <div class="node"><b>mixed?</b><span>0 &lt; correct &lt; 4</span></div><div class="arrow">→</div>
+  <div class="node"><b>update / skip</b><span>advantage + PPO</span></div>
+</div>
+<pre><code>attempts = 0
+effective = 0
+while effective < 3 and attempts < 32:
+    completions = student.generate(question, n=4)
+    rewards = [score(text, gold) for text in completions]
+
+    if all_correct(rewards) or all_wrong(rewards):
+        save skipped sample
+        continue                    # Dynamic Sampling
+
+    advantages = (rewards - mean) / (std + 1e-4)
+    for completion, advantage in zip(completions, advantages):
+        loss = ppo_loss(current_logprobs, old_logprobs, advantage,
+                        clip_low=.8, clip_high=1.28)
+        loss.backward()
+    optimizer.step()
+    effective += 1</code></pre>
+<p>skip 的组也会写进 <code>samples.jsonl</code> 和 history，所以 27 个 attempt 都能回查。它们没有进入 optimizer，但采样、解码、答案抽取和 reward 计算已经花掉了。</p>
+</section>
+
 <section id="sample">
-<div class="eyebrow">04 · 一个理想混合组</div>
+<div class="eyebrow">06 · 一个理想混合组</div>
 <h2>James 写信题：2 条错，2 条对</h2>
 <p>题目问 James 一年写多少页。模型给出了两种答案：312 和 624。四条 completion 的 reward 是 <code>[−1, +1, −1, +1]</code>，这正好是 Dynamic Sampling 想保留的组。</p>
 <div class="table-wrap"><table>
@@ -69,8 +118,36 @@
 <p>这就是组内相对信号：不需要一个独立 value model，正确轨迹的 advantage 为正，错误轨迹为负。长度惩罚在这个样本里全是 0，因为 <code>overlong_cache=0</code>。</p>
 </section>
 
+<section id="worked">
+<div class="eyebrow">07 · 真实数据手算</div>
+<h2>2 对 2 错，为什么 advantage 是 ±0.866 而不是 ±1？</h2>
+<div class="worked">
+<h3>step 4 的四条 reward</h3>
+<ol>
+  <li>reward 为 <code>[−1, +1, −1, +1]</code>，均值 <code>μ=0</code>。</li>
+  <li>样本方差：<code>((−1)<sup>2</sup>+1<sup>2</sup>+(−1)<sup>2</sup>+1<sup>2</sup>) / (4−1) = 4/3</code>。</li>
+  <li>样本标准差：<code>σ=√(4/3)≈1.1547</code>。</li>
+  <li>错误回答：<code>(−1−0)/(1.1547+0.0001)≈−0.86595</code>；正确回答为 <code>+0.86595</code>。</li>
+</ol>
+<p>如果只看 reward，正负号已经足够；除以标准差后，不同题目即使 reward 幅度不同，也会被拉到相近的梯度尺度。ε 很小，这里几乎不影响结果。</p>
+</div>
+<div class="worked">
+<h3>3 对 1 错时，advantage 又变了吗？</h3>
+<ol>
+  <li>reward 为 <code>[+1,−1,+1,+1]</code>，均值是 <code>0.5</code>。</li>
+  <li>样本标准差约 <code>1.0</code>，错误回答 advantage 约 <code>−1.4999</code>，正确回答约 <code>+0.49995</code>。</li>
+  <li>这说明“少数派”会被推得比多数派更远；组内比例改变，单个样本的梯度权重也改变。</li>
+</ol>
+</div>
+<div class="table-wrap"><table class="tiny-table">
+<tr><th>原始 step</th><th>rewards</th><th class="num">mean</th><th class="num">std</th><th class="num">advantage</th></tr>
+<tr><td>4</td><td><code>[-1,1,-1,1]</code></td><td class="num">0</td><td class="num">1.1547</td><td class="num">±0.86595</td></tr>
+<tr><td>26</td><td><code>[1,-1,1,1]</code></td><td class="num">0.5</td><td class="num">1.0000</td><td class="num">+0.49995 / −1.49985</td></tr>
+</table></div>
+</section>
+
 <section id="funnel">
-<div class="eyebrow">05 · 采样漏斗</div>
+<div class="eyebrow">08 · 采样漏斗</div>
 <h2>27 次尝试，只有 3 次真正更新</h2>
 <div class="bars">
   <div class="bar-row"><span class="bar-label">attempts</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><span class="bar-value">27</span></div>
@@ -87,7 +164,7 @@
 </section>
 
 <section id="clip">
-<div class="eyebrow">06 · Clip-Higher</div>
+<div class="eyebrow">09 · Clip-Higher</div>
 <h2>上界从 1.2 放宽到 1.28</h2>
 <pre><code>PPO  : clamp(ratio, 0.8, 1.2)
 DAPO : clamp(ratio, 0.8, 1.28)
@@ -97,7 +174,7 @@ ratio = exp(current_logprob - old_logprob)</code></pre>
 </section>
 
 <section id="cost">
-<div class="eyebrow">07 · 工程读法</div>
+<div class="eyebrow">10 · 工程读法</div>
 <h2>“丢掉无效组”不是免费的</h2>
 <p>被丢掉的 24 个组已经完成了 prefill、autoregressive generation、答案抽取和 reward 判定。它们只是没有进入 backward，不代表没有消耗生成时间。</p>
 <div class="grid-3">
@@ -108,20 +185,35 @@ ratio = exp(current_logprob - old_logprob)</code></pre>
 </section>
 
 <section id="limits">
-<div class="eyebrow">08 · 结果边界</div>
+<div class="eyebrow">11 · 结果边界</div>
 <h2>这张页面的结论只针对这次配置</h2>
 <p>这次 run 可以说明：Dynamic Sampling 在 GSM8K + Qwen3-4B 上会大量丢弃退化组，3 次有效更新是真实的 optimizer step。不能说明：完整 DAPO 的四项改动都有效，或者 DAPO 一定优于 GRPO。</p>
 <p>阅读入口：<a href="./readme.md">readme.md</a> · 代码：<a href="./local_gpu.py">local_gpu.py</a> · 数据：<a href="./results/07-dapo/run-20261110-233703/summary.json">summary.json</a>。</p>
 </section>
 
+<section id="faq">
+<div class="eyebrow">12 · 常见疑问</div>
+<h2>DAPO 页面的六个常见问题</h2>
+<div class="faq">
+<details><summary>为什么 <code>correct_rate=0.5</code> 时 mean reward 是 0，而不是 0.5？</summary><p>因为 reward 是 <code>±1</code>，不是 0/1。两条 +1、两条 −1 相加为 0，均值就是 0。<code>correct_rate</code> 是正确条数比例，和 reward 的数值尺度不是同一个量。</p></details>
+<details><summary>Dynamic Sampling 丢掉全对组，为什么还叫“采样”？</summary><p>因为模型已经实际生成了那 4 条回答；Dynamic Sampling 只是在计算 advantage 前做过滤，不进入 backward。它节省的是优化器计算，不是生成成本。</p></details>
+<details><summary>Clip-Higher 为什么只放宽上界？</summary><p>DAPO 想让正 advantage 的 token 有更大上升空间，避免过早被 1.2 截住；下界仍保留 0.8 抑制过度下降。这个 run 只记录配置，没有保存 ratio 分布，所以不能推断实际有多少 token 触及 1.28。</p></details>
+<details><summary>为什么这次不叫完整 DAPO 复现？</summary><p>因为 <code>token_level_loss=false</code> 且 <code>overlong_cache=0</code>。Token Mean 和 Soft Overlong Punishment 都没有真正参与，只验证了 Dynamic Sampling + Clip-Higher 的组合。</p></details>
+<details><summary>effective step 和原始 step 为什么不同？</summary><p>原始 step 是第几次 attempt，包括被跳过的组；effective step 是真正执行 optimizer.step 的次数。本 run 的 3 次更新发生在原始 step 4、22、26。</p></details>
+<details><summary>为什么 3 次有效更新不能说明 DAPO 有效？</summary><p>没有同预算 GRPO 对照、没有能力评测、没有多种子；而且 3 次更新太少。它证明的是过滤和更新路径真实发生，不是算法优劣。</p></details>
+</div>
+</section>
+
 <section id="questions">
-<div class="eyebrow">09 · 读完自检</div>
-<h2>你应该能回答的四个问题</h2>
+<div class="eyebrow">13 · 读完自检</div>
+<h2>你应该能回答的六个问题</h2>
 <ul class="checklist">
   <li>为什么全对或全错的组没有训练信号？</li>
   <li>为什么 <code>correct_rate=0.5</code> 时 mean reward 是 0，而不是 0.5？</li>
+  <li>为什么 advantage 要除以组内标准差？</li>
   <li>为什么 3 次有效更新不能代表只采样了 3 道题？</li>
   <li>这次 run 为什么不能叫“完整 DAPO 复现”？</li>
+  <li>为什么“跳过”没有省掉生成成本？</li>
 </ul>
 </section>
 
