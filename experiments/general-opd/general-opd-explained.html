@@ -42,6 +42,7 @@
 <tr><td>训练</td><td>15 steps，batch size 1</td><td>每步 2 条 completion</td></tr>
 </table></div>
 <p>Student 和 Teacher 必须共享兼容 tokenizer。OPD 比较的是同一个 token id 在两个模型下的 logprob；词表不一致，差值就没有意义。</p>
+<div class="callout note"><b>“只训练 adapter”到底是什么意思</b><p>这里训练的是 Student 的 LoRA adapter，不是另外训练一个完整模型。Qwen3-1.7B 的原始权重被冻结，只在它的线性层旁边挂上一组很小的可训练矩阵；这些矩阵合起来就是 adapter，由它们学习如何修正 Student 的输出。训练结束后保存的也是这个小 adapter，之后把它重新挂到同一个 base 模型上即可使用。</p><p><code>fresh QLoRA</code> 里的 “fresh” 表示这是一个新初始化、没有继承旧任务训练的 adapter；“QLoRA” 表示 base 模型以 4-bit 量化加载，只训练 LoRA 参数。Teacher 没有 adapter，也不会被更新，它只负责给 Student 写出的同一条轨迹打分。</p></div>
 </section>
 
 <section id="math">
